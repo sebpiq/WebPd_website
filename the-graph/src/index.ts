@@ -14,6 +14,7 @@ import * as webpd from './webpd'
 import { DEFAULT_REGISTRY } from '@webpd/dsp-graph'
 import { pEvent } from 'p-event'
 import { jsonToUi } from './graph-conversion'
+import App from './App'
 
 const createWebPdEngine = async () => {
     await webpd.init()
@@ -117,7 +118,7 @@ function editorPanChanged(x: number, y: number, scale: number) {
     renderNav()
 }
 
-function renderApp() {
+function renderEditor() {
     const editor = document.getElementById('editor')
     editor.className = `the-graph-${appState.theme}`
 
@@ -139,17 +140,27 @@ function renderApp() {
     renderNav()
 }
 
-renderApp() // initial
+renderEditor() // initial
+
+function renderApp() {
+    const editor = document.getElementById('root')
+    const element = React.createElement(App, {})
+    ReactDOM.render(element, editor)
+}
+
+renderApp()
+
+
 
 // Follow changes in window size
-window.addEventListener('resize', renderApp)
+window.addEventListener('resize', renderEditor)
 
 // Toggle theme
 let theme = 'dark'
 document.getElementById('theme').addEventListener('click', () => {
     theme = theme === 'dark' ? 'light' : 'dark'
     appState.theme = theme
-    renderApp()
+    renderEditor()
 })
 
 // Autolayout button
@@ -203,13 +214,13 @@ const loadGraph = async (json: GraphJson) => {
     }
     // Set loaded graph
     appState.graph = graph
-    appState.graph.on('endTransaction', renderApp) // graph changed
+    appState.graph.on('endTransaction', renderEditor) // graph changed
     appState.graph.on('endTransaction', () => {
         webpd.setGraph(appState.graph).then(() => {
             console.log('updated engine')
         })
     }) // graph changed
-    renderApp()
+    renderEditor()
 
     console.log('loaded')
 }
@@ -226,7 +237,7 @@ loadGraph(DEFAULT_GRAPH)
 //     const randomNodeId = nodes[Math.floor(Math.random() * nodes.length)].id;
 //     const randomIcon = iconKeys[Math.floor(Math.random() * iconKeys.length)];
 //     appState.iconOverrides[randomNodeId] = randomIcon;
-//     renderApp();
+//     renderEditor();
 //   }
 // }, 1000);
 

@@ -1,5 +1,8 @@
 {
     "extends": "./node_modules/@webpd/shared/tsconfig.json",
+    "compilerOptions": {
+        "jsx": "react"
+    },
     "include": [
         "src",
         "@types/**/*.d.ts",

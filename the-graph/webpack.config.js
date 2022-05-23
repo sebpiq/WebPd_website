@@ -14,10 +14,15 @@ module.exports = {
   devtool: 'source-map',
   module: {
     rules: [
+      // {
+      //   test: /\.ts$/,
+      //   use: 'ts-loader',
+      //   exclude: /node_modules/,
+      // },
       {
-        test: /\.ts$/,
-        use: 'ts-loader',
-        exclude: /node_modules/,
+        test: /\.(js|jsx|ts|tsx)$/,               // USE THE babel-loader FOR THESE FILE EXTENSIONS
+        include: path.resolve(__dirname, "src"),
+        use: ['babel-loader']
       },
       {
         test: /\.css$/i,
@@ -49,7 +54,7 @@ module.exports = {
     }),
   ],
   resolve: {
-    extensions: ['.ts', '.js'],
+    extensions: ['.ts', '.tsx', '.js', '.json'],
     fallback: {
       events: require.resolve('events/'),
       fs: false,
