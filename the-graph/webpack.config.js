@@ -3,7 +3,7 @@ const HtmlWebpackPlugin = require('html-webpack-plugin');
 
 module.exports = {
   entry: {
-    'index': './src/index.js',
+    'index': './src/index.ts',
   },
   output: {
     path: path.resolve(__dirname, './www/'),
@@ -14,6 +14,11 @@ module.exports = {
   devtool: 'source-map',
   module: {
     rules: [
+      {
+        test: /\.ts$/,
+        use: 'ts-loader',
+        exclude: /node_modules/,
+      },
       {
         test: /\.css$/i,
         use: ['style-loader', 'css-loader'],
@@ -44,6 +49,7 @@ module.exports = {
     }),
   ],
   resolve: {
+    extensions: ['.ts', '.js'],
     fallback: {
       events: require.resolve('events/'),
       fs: false,
