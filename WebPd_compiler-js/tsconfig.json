@@ -1,0 +1,21 @@
+{
+    "compilerOptions": {
+        "module": "ESNext",
+        "target": "es2017",
+        "esModuleInterop": true,
+        "outDir": "./dist",
+        "removeComments": true,
+        "noImplicitAny": true,
+        "preserveConstEnums": true,
+        "sourceMap": true,
+        "declaration": true,
+        "declarationDir": "types",
+        "moduleResolution": "node"
+    },
+    "typeRoots": ["./node_modules/@types"],
+    "include": [
+        "./sine/mains.ts",
+        "@types/**/*.d.ts",
+        "node_modules/@webpd/shared/types/*.ts",
+    ]
+}

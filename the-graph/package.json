@@ -1,0 +1,31 @@
+{
+  "name": "webpd-examples-the-graph",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "css-loader": "^5.2.7",
+    "file-loader": "^6.2.0",
+    "html-webpack-plugin": "^5.5.0",
+    "style-loader": "^2.0.0",
+    "stylus-loader": "^5.0.0",
+    "webpack": "^5.72.1",
+    "webpack-cli": "^4.9.2"
+  },
+  "dependencies": {
+    "@webpd/compiler-js": "file:../../WebPd_compiler-js",
+    "@webpd/dsp-graph": "file:../../WebPd_dsp-graph",
+    "@webpd/engine-live-eval": "file:../../WebPd_engine-live-eval",
+    "fbp-graph": "^0.7.0",
+    "font-awesome": "^4.7.0",
+    "p-event": "^5.0.1",
+    "react": "^15.7.0",
+    "react-dom": "^15.7.0",
+    "the-graph": "^0.13.1"
+  }
+}

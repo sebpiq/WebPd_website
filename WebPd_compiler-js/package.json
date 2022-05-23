@@ -1,0 +1,40 @@
+{
+  "name": "@webpd/compiler-js",
+  "version": "0.1.0",
+  "description": "TODO",
+  "scripts": {
+    "test-bail": "npm explore @webpd/shared -- npm run test-bail $(pwd)",
+    "test-watch": "npm explore @webpd/shared -- npm run test-watch $(pwd)",
+    "test-debug": "npm explore @webpd/shared -- npm run test-debug $(pwd)",
+    "prettier": "npm explore @webpd/shared -- npm run prettier $(pwd)/src",
+    "eslint": "npm explore @webpd/shared -- npm run eslint $(pwd)/src",
+    "all": "npm run test-bail && npm run prettier && npm run eslint"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/sebpiq/WebPd_dsp-graph.git"
+  },
+  "author": "Sébastien Piquemal",
+  "license": "BSD-2-Clause",
+  "bugs": {
+    "url": "https://github.com/sebpiq/WebPd_dsp-graph/issues"
+  },
+  "homepage": "https://github.com/sebpiq/WebPd_dsp-graph#readme",
+  "devDependencies": {
+    "@types/mocha": "^7.0.2",
+    "@types/node": "^14.14.7",
+    "@types/p-event": "^3.0.0",
+    "@webpd/compiler-js": "file:../../WebPd_compiler-js",
+    "@webpd/engine-live-eval": "file:../../WebPd_engine-live-eval",
+    "@webpd/shared": "file:../../WebPd_shared",
+    "p-event": "^4.2.0",
+    "raw-loader": "^4.0.2",
+    "ts-loader": "^9.3.0",
+    "typescript": "^4.0.5",
+    "webpack": "^5.72.1",
+    "webpack-cli": "^4.9.2"
+  },
+  "dependencies": {
+    "@webpd/dsp-graph": "file:../../WebPd_dsp-graph"
+  }
+}
