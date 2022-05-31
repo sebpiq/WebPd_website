@@ -30,6 +30,7 @@
     "@webpd/compiler-js": "file:../../WebPd_compiler-js",
     "@webpd/dsp-graph": "file:../../WebPd_dsp-graph",
     "@webpd/engine-live-eval": "file:../../WebPd_engine-live-eval",
+    "@webpd/pd-parser": "file:../../WebPd_pd-parser",
     "fbp-graph": "^0.7.0",
     "font-awesome": "^4.7.0",
     "p-event": "^5.0.1",

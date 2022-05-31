@@ -2,7 +2,7 @@ import * as evalEngine from '@webpd/engine-live-eval/src'
 import { createButton } from '@webpd/shared/src/example-helpers'
 import compile from '../../src/compile'
 import pEvent from 'p-event'
-import DEFAULT_REGISTRY from '@webpd/dsp-graph/src/default-registry'
+import NODE_BUILDERS from '@webpd/dsp-graph'
 import NODE_IMPLEMENTATIONS from '../../src/nodes'
 import { Engine } from '@webpd/engine-live-eval/src/types'
 import { setInlet } from '../../src/api'
@@ -32,8 +32,7 @@ const graph: PdDspGraph.Graph = {
             ],
         },
         sources: {},
-        inlets: DEFAULT_REGISTRY['metro'].buildInlets(metroArgs),
-        outlets: DEFAULT_REGISTRY['metro'].buildOutlets(metroArgs),
+        ...NODE_BUILDERS['metro'].build(metroArgs),
     },
     [TABPLAY_LEFT_ID]: {
         id: TABPLAY_LEFT_ID,
@@ -45,8 +44,7 @@ const graph: PdDspGraph.Graph = {
         sinks: {
             '0': [{ nodeId: 'dac', portletId: '0' }],
         },
-        inlets: DEFAULT_REGISTRY['tabplay~'].buildInlets(tabplayLeftArgs),
-        outlets: DEFAULT_REGISTRY['tabplay~'].buildOutlets(tabplayLeftArgs),
+        ...NODE_BUILDERS['tabplay~'].build(tabplayLeftArgs),
     },
     [TABPLAY_RIGHT_ID]: {
         id: TABPLAY_RIGHT_ID,
@@ -58,8 +56,7 @@ const graph: PdDspGraph.Graph = {
         sinks: {
             '0': [{ nodeId: 'dac', portletId: '1' }],
         },
-        inlets: DEFAULT_REGISTRY['tabplay~'].buildInlets(tabplayRightArgs),
-        outlets: DEFAULT_REGISTRY['tabplay~'].buildOutlets(tabplayRightArgs),
+        ...NODE_BUILDERS['tabplay~'].build(tabplayRightArgs),
     },
     dac: {
         id: 'dac',
@@ -71,8 +68,7 @@ const graph: PdDspGraph.Graph = {
             '1': [{ nodeId: TABPLAY_RIGHT_ID, portletId: '0' }],
         },
         isEndSink: true,
-        inlets: DEFAULT_REGISTRY['dac~'].buildInlets({}),
-        outlets: DEFAULT_REGISTRY['dac~'].buildOutlets({}),
+        ...NODE_BUILDERS['dac~'].build({}),
     },
 }
 

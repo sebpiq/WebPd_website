@@ -5,6 +5,8 @@ export const WEBPD_CREATE = 'WEBPD_CREATE'
 export const WEBPD_CREATED = 'WEBPD_CREATED'
 export const WEBPD_INITIALIZED = 'WEBPD_INITIALIZED'
 export const WEBPD_DSP_TOGGLE = 'WEBPD_DSP_TOGGLE'
+export const WEBPD_REQUEST_LOAD_JSON = 'WEBPD_REQUEST_LOAD_JSON'
+export const WEBPD_SET_JSON = 'WEBPD_SET_JSON'
 
 export interface WebPdCreate {
     type: typeof WEBPD_CREATE
@@ -33,7 +35,21 @@ export interface WebPdDspToggled {
     }
 }
 
-type WebPdTypes = WebPdDspToggled | WebPdInitialized | WebPdCreate | WebPdCreated
+export interface WebPdRequestLoadJson {
+    type: typeof WEBPD_REQUEST_LOAD_JSON
+    payload: {
+        pd: PdJson.Pd,
+    }
+}
+
+export interface WebPdSetJson {
+    type: typeof WEBPD_SET_JSON
+    payload: {
+        pd: PdJson.Pd,
+    }
+}
+
+type WebPdTypes = WebPdDspToggled | WebPdInitialized | WebPdCreate | WebPdCreated | WebPdSetJson | WebPdRequestLoadJson
 
 
 // ------------ Action Creators ---------- //
@@ -61,6 +77,13 @@ export const setInitialized = (context: AudioContext, engine: Engine): WebPdType
     return {
         type: WEBPD_INITIALIZED,
         payload: {context, engine}
+    }
+}
+
+export const requestLoadWebPdJson = (pd: PdJson.Pd): WebPdTypes => {
+    return {
+        type: WEBPD_REQUEST_LOAD_JSON,
+        payload: {pd}
     }
 }
 

@@ -1,46 +1,58 @@
 import React from 'react'
 import GraphCanvas from './GraphCanvas'
-import { Provider } from 'react-redux'
-import { graphChanged } from './store/ui'
-import DEFAULT_GRAPH from './core/default-graph'
-import {GraphJson} from 'fbp-graph/src/Types'
-import { jsonToUi } from './core/graph-conversion'
-import { store } from './store'
-import { create } from './store/webpd'
+import { connect, Provider } from 'react-redux'
+import DEFAULT_PATCH from './core/default-patch.pd'
+import { pdFileToPd } from './core/graph-conversion'
+import { AppState, store } from './store'
+import { create as createWebpd, requestLoadWebPdJson } from './store/webpd'
 import MiniMap from './MiniMap'
 import Menu from './menu/Menu'
+import Popup from './Popup'
+import { getWebpdIsCreated } from './store/selectors'
 
-export interface Props {
-    className?: string
+export interface InnerAppProps {
+    webpdIsCreated : boolean
 }
 
-const loadGraph = async (json: GraphJson) => {
-    const graph = await jsonToUi(json)
-    graph.on('endTransaction', () => {
-        store.dispatch(graphChanged(graph))
-    })
-    store.dispatch(graphChanged(graph))
+const loadPatch = async (pdFile: string) => {
+    const pdJson = await pdFileToPd(pdFile)
+    store.dispatch(requestLoadWebPdJson(pdJson))
 }
 
 const createWebPdEngine = async () => {
-    store.dispatch(create())
+    store.dispatch(createWebpd())
 }
 
-const App = ({}) => {
-    loadGraph(DEFAULT_GRAPH).then(() => {
-        console.log('graph loaded')
-    })
-    createWebPdEngine().then(() => {
-        console.log('sound started')
-    })
+const _InnerApp = ({ webpdIsCreated }: InnerAppProps) => {
+    if (webpdIsCreated) {
+        loadPatch(DEFAULT_PATCH)
+            .then(() => {
+                console.log('patch loaded')
+            })
+    } else {
+        createWebPdEngine()
+            .then(() => {
+                console.log('sound started')
+            })
+    }
+    return (
+        <div>
+            <Menu />
+            <GraphCanvas />
+            <MiniMap />
+            <Popup />
+        </div>
+    )
+}
 
+const InnerApp = connect(
+    (state: AppState) => ({ webpdIsCreated: getWebpdIsCreated(state) })
+)(_InnerApp)
+
+const App = ({}) => {
     return (
         <Provider store={store}>
-            <div>
-                <Menu />
-                <GraphCanvas />
-                <MiniMap />
-            </div>
+            <InnerApp />
         </Provider>
     )
 }

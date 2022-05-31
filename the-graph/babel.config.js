@@ -15,15 +15,9 @@ module.exports = function (api) {
       "@babel/preset-typescript"
     ];
   
-    // plugins = [
-    //   "react-hot-loader/babel",
-    //   "babel-plugin-styled-components"
-    // ];
-  
     return ({
       presets,
       plugins,
-      // overrides
     });
   };
   

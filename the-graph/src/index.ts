@@ -5,7 +5,7 @@ import 'font-awesome/css/font-awesome.css'
 import 'the-graph/themes/the-graph-dark.styl'
 import 'the-graph/themes/the-graph-light.styl'
 
-import { DEFAULT_REGISTRY } from '@webpd/dsp-graph'
+import { NODE_BUILDERS } from '@webpd/dsp-graph'
 import App from './App'
 import { injectGlobal } from 'styled-components'
 import { initialState } from './store/ui'

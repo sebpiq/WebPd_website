@@ -44,6 +44,10 @@ module.exports = {
           },
         ],
       },
+      {
+        test: /\.pd$/,
+        type: 'asset/source'
+      }
     ],
   },
   plugins: [

@@ -2,7 +2,7 @@ import evalEngine, { ENGINE_ARRAYS_VARIABLE_NAME } from '@webpd/engine-live-eval
 import { createButton } from '@webpd/shared/src/example-helpers'
 import compile, { NODE_IMPLEMENTATIONS } from '@webpd/compiler-js'
 import pEvent from 'p-event'
-import {DEFAULT_REGISTRY} from '@webpd/dsp-graph'
+import {NODE_BUILDERS} from '@webpd/dsp-graph'
 
 const context = new AudioContext()
 
@@ -22,8 +22,7 @@ const graph: PdDspGraph.Graph = {
             '0': [{ nodeId: 'dac', portletId: '0' }],
         },
         sources: {},
-        inlets: DEFAULT_REGISTRY['osc~'].buildInlets(oscLeftArgs),
-        outlets: DEFAULT_REGISTRY['osc~'].buildOutlets(oscLeftArgs),
+        ...NODE_BUILDERS['osc~'].build(oscLeftArgs),
     },
     oscRight: {
         id: 'oscRight',
@@ -33,8 +32,7 @@ const graph: PdDspGraph.Graph = {
             '0': [{ nodeId: 'dac', portletId: '1' }],
         },
         sources: {},
-        inlets: DEFAULT_REGISTRY['osc~'].buildInlets(oscRightArgs),
-        outlets: DEFAULT_REGISTRY['osc~'].buildOutlets(oscRightArgs),
+        ...NODE_BUILDERS['osc~'].build(oscRightArgs),
     },
     dac: {
         id: 'dac',
@@ -45,9 +43,7 @@ const graph: PdDspGraph.Graph = {
             '0': [{ nodeId: 'oscLeft', portletId: '0' }],
             '1': [{ nodeId: 'oscRight', portletId: '1' }],
         },
-        isEndSink: true,
-        inlets: DEFAULT_REGISTRY['dac~'].buildInlets({}),
-        outlets: DEFAULT_REGISTRY['dac~'].buildOutlets({}),
+        ...NODE_BUILDERS['dac~'].build({}),
     },
 }
 
