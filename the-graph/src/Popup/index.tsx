@@ -1,57 +1,69 @@
 import React from 'react'
 import { connect } from 'react-redux'
 import styled from 'styled-components'
-import { NodeLibraryPopUp } from './NodeLibraryPopUp'
+import NodeLibraryPopUp from './NodeLibraryPopUp'
 import { AppState } from '../store'
-import { getUiPopup, getUiTheme } from '../store/selectors'
-import { setPopup, UiPopup, UiTheme } from '../store/ui'
-import themeConfig from '../theme-config'
+import { getUiPopup } from '../store/selectors'
+import { POPUP_NODE_LIBRARY, setPopup, Popup, UiTheme, POPUP_NODE_CREATE } from '../store/ui'
+import themeConfig, { Colors } from '../theme-config'
+import NodeCreatePopUp from './NodeCreatePopUp'
+import ThemedButton from '../styled-components/ThemedButton'
+import themed from '../styled-components/themed'
 
-const Container = styled.div<{theme: UiTheme}>`
+const Container = themed(styled.div<{ theme: UiTheme, colors: Colors }>`
     position: fixed;
     top: 0;
     left: 0;
     width: 100%;
     height: 100%;
-    ${({ theme }) => {
-        const colors = theme === 'dark' ? themeConfig.colors.dark : themeConfig.colors.light
-        return `
-            background: ${colors.bgPopup};
-            color: ${colors.text};
-        `
-    }}
+    ${({ colors }) => `
+        background: ${colors.bgPopup};
+        color: ${colors.text};
+    `}
     z-index: ${themeConfig.zIndex.Popup};
+`)
+
+const InnerContainer = styled.div`
+    margin: 0 auto;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
 `
 
-const InnerContainer = styled.div``
-
-const CloseButton = styled.button`
-    cursor: pointer;
+const CloseButton = styled(ThemedButton)`
+    position: absolute;
+    top: 0;
+    right: 0;
 `
 
 interface Props {
-    popup: UiPopup
-    theme: UiTheme
+    popup: Popup
     setPopup: typeof setPopup
 }
 
-const Popup = ({ popup, theme, setPopup }: Props) => {
+const PopupComponent = ({ popup, setPopup }: Props) => {
+    if (!popup) {
+        return null
+    }
+
     const onCloseClick = () => {
         setPopup(null)
     }
 
     let popupElem: JSX.Element = null
-    if (popup === 'addnode') {
+    if (popup.type === POPUP_NODE_LIBRARY) {
         popupElem = <NodeLibraryPopUp />
-    }
-
-    if (!popupElem) {
-        return null
+    } else if (popup.type === POPUP_NODE_CREATE) {
+        popupElem = <NodeCreatePopUp />
     }
 
     return (
-        <Container theme={theme}>
-            <CloseButton onClick={onCloseClick}>X</CloseButton>
+        <Container>
+            <CloseButton onClick={onCloseClick}>
+                ×
+            </CloseButton>
             <InnerContainer>
                 {popupElem}
             </InnerContainer>
@@ -62,7 +74,6 @@ const Popup = ({ popup, theme, setPopup }: Props) => {
 export default connect(
     (state: AppState) => ({
         popup: getUiPopup(state),
-        theme: getUiTheme(state)
     }), 
     { setPopup }
-)(Popup)
+)(PopupComponent)

@@ -2,16 +2,19 @@ import { createStore, combineReducers, applyMiddleware, compose } from 'redux'
 import createSagaMiddleware from 'redux-saga'
 import { uiReducer } from './ui'
 import { webPdReducer } from './webpd'
+import { modelReducer } from './model'
 import rootSaga from './sagas'
 
 export type AppState = {
     webpd: ReturnType<typeof webPdReducer>,
     ui: ReturnType<typeof uiReducer>,
+    model: ReturnType<typeof modelReducer>,
 }
 
 const rootReducer = combineReducers<AppState>({
     webpd: webPdReducer,
     ui: uiReducer,
+    model: modelReducer
 })
 
 const sagaMiddleware = createSagaMiddleware()

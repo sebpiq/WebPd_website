@@ -1,86 +1,10 @@
 import { NODE_BUILDERS } from '@webpd/dsp-graph'
 import TheGraph from 'the-graph'
-import parsePd from '@webpd/pd-parser'
 import * as fbpGraph from 'fbp-graph'
-import { GraphNode } from 'fbp-graph/src/Types'
-import {GraphJson} from 'fbp-graph/src/Types'
 import NODE_VIEW_BUILDERS from './node-view-builders'
 import { Library, PortletView, UiEdgeMetadata, UiNodeMetadata } from './types'
 
-// export const uiToPd = (uiGraph: fbpGraph.Graph, engineSettings: PdEngine.Settings): PdJson.Pd => {
-//     const patch: PdJson.Patch = {
-//         id: '0',
-//         args: [],
-//         inlets: [],
-//         outlets: [],
-//         nodes: {},
-//         connections: []
-//     }
-//     const pd: PdJson.Pd = { 
-//         patches: {
-//             '0': patch
-//         }, 
-//         arrays: {} 
-//     }
-
-//     uiGraph.nodes.forEach(node => {
-//         if (!node.metadata || !node.metadata.pdNode) {
-//             console.log('NO NODE META', node)
-//             // uiGraph.addNode(pdNode.id, uiComponentName(pdNode, engineSettings), uiNodeMetadata)
-//             const uiNodeMetadata: UiNodeMetadata = {
-//                 pdNode: {
-//                     id: node.id,
-//                     type: pdComponentName(node),
-//                     args: 
-//                 }
-//             }
-//         }
-//         const pdNode: PdJson.Node = node.metadata.pdNode
-//         patch.nodes[pdNode.id] = pdNode
-//     })
-
-//     uiGraph.edges.forEach((edge) => {
-//         // If edge metadata doesn't exist, we crate it first
-//         if (!edge.metadata || !edge.metadata.pdConnection) {
-//             const sourceNode = (uiGraph.getNode(edge.from.node).metadata as UiNodeMetadata).pdNode
-//             const sinkNode = (uiGraph.getNode(edge.to.node).metadata as UiNodeMetadata).pdNode
-//             const sourceNodeViewBuilder = NODE_VIEW_BUILDERS[sourceNode.type]
-//             const sinkNodeViewBuilder = NODE_VIEW_BUILDERS[sinkNode.type]
-//             const { outlets: outletViews } = sourceNodeViewBuilder.build(sourceNode.args, engineSettings)
-//             const { inlets: inletViews } = sinkNodeViewBuilder.build(sinkNode.args, engineSettings)
-//             const uiEdgeMetadata: UiEdgeMetadata = {
-//                 pdConnection: {
-//                     source: {nodeId: sourceNode.id, portletId: pdPortletId(edge.from.port, outletViews) },
-//                     sink: {nodeId: sinkNode.id, portletId: pdPortletId(edge.to.port, inletViews) },
-//                 }
-//             }
-//             edge.metadata = uiEdgeMetadata
-//         }
-//         patch.connections.push(edge.metadata.pdConnection)
-//     })
-
-//     // uiGraph.nodes.forEach((theGraphNode) => {
-//     //     const nodeId = theGraphNode.id
-//     //     const type = theGraphNode.component
-//     //     const args = nodesArgs[nodeId] || {}
-//     //     const sources = nodesSources[nodeId] || {}
-//     //     const sinks = nodesSinks[nodeId] || {}
-//     //     let extraArgs: Partial<PdDspGraph.Node> = {}
-//     //     dspGraph[nodeId] = {
-//     //         ...extraArgs,
-//     //         id: nodeId,
-//     //         type,
-//     //         args,
-//     //         sources,
-//     //         sinks,
-//     //         ...NODE_BUILDERS[type].build(args),
-//     //     }
-//     // })
-
-//     return pd
-// }
-
-export const uiToPd = (uiGraph: fbpGraph.Graph, engineSettings: PdEngine.Settings): PdJson.Pd => {
+export const getPdJson = (uiGraph: fbpGraph.Graph): PdJson.Pd => {
     const patch: PdJson.Patch = {
         id: '0',
         args: [],
@@ -114,7 +38,7 @@ export const uiToPd = (uiGraph: fbpGraph.Graph, engineSettings: PdEngine.Setting
     return pd
 }
 
-export const attachEdgeMetadata = (uiGraph: fbpGraph.Graph, engineSettings: PdEngine.Settings) => {
+export const updateEdgeMetadata = (uiGraph: fbpGraph.Graph, engineSettings: PdEngine.Settings) => {
     uiGraph.edges.forEach((edge) => {
         // If edge metadata doesn't exist, we crate it first
         if (!edge.metadata || !edge.metadata.pdConnection) {
@@ -135,22 +59,19 @@ export const attachEdgeMetadata = (uiGraph: fbpGraph.Graph, engineSettings: PdEn
     })
 }
 
-// export const jsonToUi = async (graphData: GraphJson): Promise<fbpGraph.Graph> => {
-//     // fbpGraph.graph.loadJSON(JSON.stringify(graphData), (err, graph) => {
-//     const loadPromise = new Promise<fbpGraph.Graph>((resolve, reject) => {
-//         fbpGraph.graph.loadJSON(graphData, (err, graph) => {
-//             if (err) {
-//                 reject(err)
-//             } else {
-//                 resolve(graph)
-//             }
-//         })
-//     })
-//     const graph = await loadPromise
-//     return graph
-// }
+export const addNode = (uiGraph: fbpGraph.Graph, pdNode: PdJson.Node, engineSettings: PdEngine.Settings) => {
+    const uiNodeMetadata: UiNodeMetadata = {
+        // TODO : layout manage better
+        x: (pdNode.layout.y - 25) * 10,
+        y: (pdNode.layout.x - 100) * 10,
+        label: pdNode.type,
+        icon: 'chevron-right',
+        pdNode
+    }
+    uiGraph.addNode(pdNode.id, uiComponentName(pdNode, engineSettings), uiNodeMetadata)
+}
 
-export const pdToUi = async (pd: PdJson.Pd, engineSettings: PdEngine.Settings) => {
+export const loadPdJson = (pd: PdJson.Pd, engineSettings: PdEngine.Settings): fbpGraph.Graph => {
     const uiGraph = new fbpGraph.Graph('patch')
     const patches = Object.values(pd.patches)
     if (patches.length > 1) {
@@ -159,14 +80,7 @@ export const pdToUi = async (pd: PdJson.Pd, engineSettings: PdEngine.Settings) =
     const patch = patches[0]
 
     Object.values(patch.nodes).forEach(pdNode => {
-        const uiNodeMetadata: UiNodeMetadata = {
-            x: pdNode.layout.y,
-            y: pdNode.layout.x,
-            label: pdNode.type,
-            icon: 'chevron-right',
-            pdNode
-        }
-        uiGraph.addNode(pdNode.id, uiComponentName(pdNode, engineSettings), uiNodeMetadata)
+        addNode(uiGraph, pdNode, engineSettings)
     })
 
     Object.values(patch.connections).forEach(pdConnection => {
@@ -190,13 +104,8 @@ export const pdToUi = async (pd: PdJson.Pd, engineSettings: PdEngine.Settings) =
     return uiGraph
 }
 
-export const pdFileToPd = async (pdFile: string) => 
-    parsePd(pdFile)
-
-export const pdToLibrary = (pd: PdJson.Pd, engineSettings: PdEngine.Settings): Library => {
+export const generateLibrary = (pd: PdJson.Pd, engineSettings: PdEngine.Settings): Library => {
     const library: Library = {} 
-    // TheGraph.library.libraryFromGraph(uiGraph)
-
     Object.values(pd.patches).forEach((patch) => {
         Object.values(patch.nodes).forEach(node => {
             const nodeViewBuilder = NODE_VIEW_BUILDERS[node.type]
@@ -224,11 +133,6 @@ const uiComponentName = (node: PdJson.Node, engineSettings: PdEngine.Settings) =
     return `${node.type}:${inlets.length}:${outlets.length}`
 }
 
-const pdComponentName = (uiNode: GraphNode) => {
-    const parts = uiNode.component.split(':')
-    return parts.slice(0, -2).join(':')
-}
-
 const uiPortletId = (portletView: PortletView) => 
     portletView.name
 
@@ -245,6 +149,15 @@ const pdPortletId = (uiPortletId: string, portletViews: Array<PortletView>): PdJ
         throw new Error(`unknown portlet "${uiPortletId}"`)
     }
     return found
+}
+
+export const generateId = (patch: PdJson.Patch): PdJson.ObjectLocalId => {
+    const ids = Object.keys(patch.nodes)
+    let newId = (+new Date()).toString()
+    while (ids.includes(newId)) {
+        newId = (+new Date()).toString()
+    }
+    return newId
 }
 
 // const library = {

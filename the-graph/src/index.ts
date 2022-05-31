@@ -5,7 +5,6 @@ import 'font-awesome/css/font-awesome.css'
 import 'the-graph/themes/the-graph-dark.styl'
 import 'the-graph/themes/the-graph-light.styl'
 
-import { NODE_BUILDERS } from '@webpd/dsp-graph'
 import App from './App'
 import { injectGlobal } from 'styled-components'
 import { initialState } from './store/ui'
@@ -31,6 +30,12 @@ injectGlobal`
         background-color: hsl(189, 47%, 6%);
         font-family: ${themeConfig.fontFamilies.default};
         overflow: hidden;
+    }
+    input, button {
+        font-size: 100%;
+    }
+    * {
+        box-sizing: border-box;
     }
 `
 

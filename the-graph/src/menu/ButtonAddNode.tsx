@@ -1,18 +1,18 @@
 import React from 'react'
 import { connect } from 'react-redux'
-import { setPopup } from '../store/ui'
-import MenuButton from '../styled-components/MenuButton'
+import { setPopup, POPUP_NODE_LIBRARY } from '../store/ui'
+import ThemedButton from '../styled-components/ThemedButton'
 
 interface Props {
     setPopup: typeof setPopup
 }
 
 const ButtonAddNode = ({ setPopup }: Props) => {
-    const onClick = () => { setPopup('addnode') }
+    const onClick = () => { setPopup({type: POPUP_NODE_LIBRARY}) }
     return (
-        <MenuButton onClick={onClick}>
+        <ThemedButton onClick={onClick}>
             Add object
-        </MenuButton>
+        </ThemedButton>
     )
 }
 

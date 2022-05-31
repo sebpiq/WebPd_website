@@ -5,7 +5,7 @@ import TheGraph from 'the-graph'
 import { connect } from 'react-redux'
 import { AppState } from './store'
 import { panScaleChanged } from './store/ui'
-import { getUiGraph, getUiLibrary, getUiTheme } from './store/selectors'
+import { getModelGraph, getModelLibrary, getUiTheme } from './store/selectors'
 import { UiLibrary, UiTheme } from './store/ui'
 import styled from 'styled-components'
 
@@ -91,8 +91,8 @@ const GraphCanvas = ({
 export default connect(
     (state: AppState) => ({
         theme: getUiTheme(state),
-        graph: getUiGraph(state),
-        library: getUiLibrary(state),
+        graph: getModelGraph(state),
+        library: getModelLibrary(state),
     }),
     {panChanged: panScaleChanged}
 )(GraphCanvas)
