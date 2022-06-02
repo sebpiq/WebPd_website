@@ -1,7 +1,5 @@
-import { NODE_BUILDERS } from '@webpd/dsp-graph'
-import TheGraph from 'the-graph'
 import * as fbpGraph from 'fbp-graph'
-import NODE_VIEW_BUILDERS from './node-view-builders'
+import NODE_VIEW_BUILDERS, { DEFAULT_ICON } from './node-view-builders'
 import { Library, PortletView, UiEdgeMetadata, UiNodeMetadata } from './types'
 import { Point } from '../store/ui'
 
@@ -83,8 +81,8 @@ export const loadPdJson = (pd: PdJson.Pd, engineSettings: PdEngine.Settings): fb
 
     Object.values(patch.nodes).forEach(pdNode => {
         // TODO : layout manage better
-        const x = pdNode.layout.y * 10
-        const y = pdNode.layout.x * 10
+        const x = pdNode.layout.y * 5
+        const y = pdNode.layout.x * 5
         addNode(uiGraph, pdNode, {x, y}, engineSettings)
     })
 
@@ -120,7 +118,7 @@ export const generateLibrary = (pd: PdJson.Pd, engineSettings: PdEngine.Settings
             library[componentName] = {
                 name: node.type,
                 description: 'missing description :\'(',
-                icon: 'chevron-right',
+                iconsvg: nodeViewBuilder.icon ? nodeViewBuilder.icon : DEFAULT_ICON,
                 inports: inlets.map(inlet => ({ name: inlet.name, type: inlet.type })),
                 outports: outlets.map(outlet => ({ name: outlet.name, type: outlet.type })),
             }

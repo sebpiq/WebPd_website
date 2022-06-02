@@ -24,6 +24,7 @@ interface NodeView {
 
 interface NodeViewBuilder {
     build: (args: PdJson.ObjectArgs, engineSettings: PdEngine.Settings) => NodeView
+    icon?: string
 }
 
 export type NodeViewBuilders = {[nodeType: string]: NodeViewBuilder}
@@ -36,7 +37,7 @@ export interface LibraryPortDefinition {
 export interface LibraryNodeDefinition {
     name: PdSharedTypes.NodeType
     description: string
-    icon: string
+    iconsvg: string
     inports: Array<LibraryPortDefinition>
     outports: Array<LibraryPortDefinition>
 }

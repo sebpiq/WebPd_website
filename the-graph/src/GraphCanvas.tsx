@@ -14,6 +14,12 @@ const Container = styled.div`
     position: absolute;
     top: 0;
     left: 0;
+
+    svg {
+        .icon image {
+            pointer-events: none;
+        }
+    }
 `
 
 export interface Props {

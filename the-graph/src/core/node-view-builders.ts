@@ -1,5 +1,7 @@
 import { NodeViewBuilders, PortletView } from "./types";
 
+export const DEFAULT_ICON = 'icons/blank.svg'
+
 const NODE_VIEW_BUILDERS: NodeViewBuilders = {
     '*~': {
         build: () => {
@@ -12,7 +14,8 @@ const NODE_VIEW_BUILDERS: NodeViewBuilders = {
                     {type: 'signal', name: 'multiplication'},
                 ]
             }
-        }
+        },
+        icon: 'icons/multiply.svg'
     },
     '+~': {
         build: () => {
@@ -25,7 +28,8 @@ const NODE_VIEW_BUILDERS: NodeViewBuilders = {
                     {type: 'signal', name: 'sum'},
                 ]
             }
-        }
+        },
+        icon: 'icons/plus.svg'
     },
     'osc~': {
         build: () => {
@@ -38,7 +42,8 @@ const NODE_VIEW_BUILDERS: NodeViewBuilders = {
                     {type: 'signal', name: 'output'},
                 ]
             }
-        }
+        },
+        icon: 'icons/sine.svg'
     },
     'dac~': {
         build: (_, engineSettings) => {
@@ -50,7 +55,8 @@ const NODE_VIEW_BUILDERS: NodeViewBuilders = {
                 inlets,
                 outlets: []
             }
-        }
+        },
+        icon: 'icons/speaker.svg'
     }
 }
 
