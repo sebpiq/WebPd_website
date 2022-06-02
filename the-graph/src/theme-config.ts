@@ -6,6 +6,9 @@ const CONFIG = {
     fontFamilies: {
         default: "'Source Code Pro', Helvetica, Arial, sans-serif"
     },
+    spacing: {
+        default: "1rem",
+    },
     colors: {
         dark: {
             bg: "#444",

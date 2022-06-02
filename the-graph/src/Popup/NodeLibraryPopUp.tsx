@@ -4,18 +4,34 @@ import styled from "styled-components"
 import NODE_VIEW_BUILDERS from "../core/node-view-builders"
 import { POPUP_NODE_CREATE, setPopup } from '../store/ui'
 import ThemedButton from '../styled-components/ThemedButton'
+import ThemedInput from '../styled-components/ThemedInput'
+import themeConfig from '../theme-config'
 
 interface Props {
     setPopup: typeof setPopup
 }
 
+interface State {
+    searchFilter: string | null
+}
+
 const Container = styled.div`
-    display: grid;
-    grid-template-columns: 1fr 1fr 1fr 1fr 1fr 1fr 1fr 1fr;
-    grid-gap: 0.5em;
     height: 100%;
     width: 100%;
-    padding: 0.5em;
+`
+
+const SearchInputContainer = styled.div`
+    padding-top: ${themeConfig.spacing.default};
+    padding-left: ${themeConfig.spacing.default};
+`
+
+const NodeTileContainer = styled.div`
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr 1fr 1fr 1fr 1fr 1fr;
+    grid-gap: ${themeConfig.spacing.default};
+    height: 100%;
+    width: 100%;
+    padding: ${themeConfig.spacing.default};
 `
 
 const NodeTile = styled(ThemedButton)`
@@ -23,18 +39,60 @@ const NodeTile = styled(ThemedButton)`
     font-size: 150%;
 `
 
-const NodeLibraryPopUp = ({ setPopup }: Props) => {
-    const nodeTiles = Object.entries(NODE_VIEW_BUILDERS).map(([nodeType]) => {
-        const onTileClick = () => setPopup({ type: POPUP_NODE_CREATE, data: { nodeType } })
+class NodeLibraryPopUp extends React.Component<Props, State> {
+
+    constructor(props: Props) {
+        super(props)
+        this.state = {
+            searchFilter: null
+        }
+    }
+
+    componentDidMount() {
+        const input = (this.refs.searchForm as HTMLFormElement).querySelector('input')
+        input.focus()
+    }
+
+    render () {
+        const { setPopup } = this.props
+        const { searchFilter } = this.state
+        const filteredNodes = Object.keys(NODE_VIEW_BUILDERS)
+            .filter(nodeType => !searchFilter || nodeType.includes(searchFilter))
+        
+        const nodeTiles = filteredNodes.map(nodeType => {
+                const onTileClick = () => setPopup({ type: POPUP_NODE_CREATE, data: { nodeType } })
+                return (
+                    <NodeTile onClick={onTileClick}>{nodeType}</NodeTile>
+                )
+            })
+
+        const onSearchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+            const searchFilter = event.currentTarget.value
+            this.setState({ searchFilter: searchFilter.length ? searchFilter : null })
+        }
+
+        const onSearchSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+            event.preventDefault()
+            if (filteredNodes.length === 1) {
+                const nodeType = filteredNodes[0]
+                setPopup({ type: POPUP_NODE_CREATE, data: { nodeType } })
+            }
+        }
+
         return (
-            <NodeTile onClick={onTileClick}>{nodeType}</NodeTile>
+            <Container>
+                <SearchInputContainer>
+                    <form ref="searchForm" onSubmit={onSearchSubmit}>
+                        <ThemedInput onChange={onSearchChange} type="text" placeholder="Search object" />
+                    </form>
+                </SearchInputContainer>
+                <NodeTileContainer>
+                    {nodeTiles}
+                </NodeTileContainer>
+            </Container>
         )
-    })
-    return (
-        <Container>
-            {nodeTiles}
-        </Container>
-    )
+    }
+
 }
 
 export default connect(null, { setPopup })(NodeLibraryPopUp)

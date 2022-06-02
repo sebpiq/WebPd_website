@@ -5,11 +5,12 @@ import { AppState } from './store'
 import { getModelGraph, getModelGraphVersion, getUiPanScale } from './store/selectors'
 import { connect } from 'react-redux'
 import styled from 'styled-components'
+import themeConfig from './theme-config'
 
 const Container = styled.div`
     position: absolute;
-    right: 0px;
-    bottom: 0px;
+    right: ${themeConfig.spacing.default};
+    bottom: ${themeConfig.spacing.default};
 `
 
 export interface Props {

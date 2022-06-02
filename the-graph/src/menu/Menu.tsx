@@ -11,10 +11,10 @@ const Container = styled.div`
     left: 0;
     z-index: ${themeConfig.zIndex.Menu}
     button {
-        margin: 1em 0em;
-        margin-left: 1em;
+        margin: ${themeConfig.spacing.default} 0em;
+        margin-left: ${themeConfig.spacing.default};
         &:last-child {
-            margin-right: 1em;
+            margin-right: ${themeConfig.spacing.default};
         }
     }
 `

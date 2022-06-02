@@ -8,7 +8,7 @@ import { getCurrentPdPatch, getUiPopup } from '../store/selectors'
 import { POPUP_NODE_CREATE, setPopup, UiTheme } from '../store/ui'
 import ThemedInput from '../styled-components/ThemedInput'
 import { NODE_BUILDERS } from '@webpd/dsp-graph'
-import { Colors } from '../theme-config'
+import themeConfig, { Colors } from '../theme-config'
 import themed from '../styled-components/themed'
 
 interface NodeArgsViewerProps {
@@ -21,14 +21,14 @@ const NodeArgsViewerContainer = themed(styled.div<{ theme: UiTheme, colors: Colo
     ul {
         list-style: none;
         padding: 0;
-        margin: 1em 0;
+        margin: ${themeConfig.spacing.default} 0;
 
         li {
             ${({ colors }) => `
                 color: ${colors.text2};
                 background: ${colors.bg};
             `}
-            padding: 1em;
+            padding: ${themeConfig.spacing.default};
         }
     }
 `)
