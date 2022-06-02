@@ -2,6 +2,7 @@ export interface UiNodeMetadata {
     x: number
     y: number
     label: string
+    sublabel: string
     icon: string
     pdNode: PdJson.Node
 }

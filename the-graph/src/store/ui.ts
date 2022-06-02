@@ -107,7 +107,7 @@ export interface UiState {
 
 export const initialState: UiState = {
     popup: null,
-    theme: 'dark',
+    theme: 'light',
     panScale: {
         x: 0, 
         y: 0, 

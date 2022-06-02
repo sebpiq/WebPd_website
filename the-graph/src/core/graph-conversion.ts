@@ -66,7 +66,9 @@ export const addNode = (uiGraph: fbpGraph.Graph, pdNode: PdJson.Node, position: 
         y: position.y,
         label: pdNode.type,
         icon: 'chevron-right',
-        pdNode
+        // We put at least a space otherwise ThGraph will put a default sublabel
+        sublabel: pdNode.args.map(v => v.toString()).join(' ') || ' ',
+        pdNode,
     }
     uiGraph.addNode(pdNode.id, uiComponentName(pdNode, engineSettings), uiNodeMetadata)
 }
@@ -81,8 +83,8 @@ export const loadPdJson = (pd: PdJson.Pd, engineSettings: PdEngine.Settings): fb
 
     Object.values(patch.nodes).forEach(pdNode => {
         // TODO : layout manage better
-        const x = pdNode.layout.y * 10//(pdNode.layout.y - 25) * 10
-        const y = pdNode.layout.x * 10//(pdNode.layout.x - 100) * 10
+        const x = pdNode.layout.y * 10
+        const y = pdNode.layout.x * 10
         addNode(uiGraph, pdNode, {x, y}, engineSettings)
     })
 

@@ -75,6 +75,19 @@ class GraphCanvas extends React.Component<Props> {
             },
         }
     
+        if (this.refs.theGraphContainer) {
+            // TODO : really ugly and causes bugs (grid is fxcked when size changed and we're panning)
+            const theGraphElem = (this.refs.theGraphContainer as HTMLDivElement).children.item(0) as HTMLElement
+            theGraphElem.style.width = `${width}px`
+            theGraphElem.style.height = `${height}px`
+            const canvas = theGraphElem.querySelector('canvas')
+            const svg = theGraphElem.querySelector('svg')
+            canvas.width = width
+            canvas.height = height
+            svg.setAttribute('width', `${width}px`)
+            svg.setAttribute('height', `${height}px`)
+        }
+
         const props = {
             width,
             height,
@@ -87,7 +100,9 @@ class GraphCanvas extends React.Component<Props> {
     
         return (
             <Container className={themeClassName}>
-                <TheGraph.App {...props} />
+                <div ref="theGraphContainer">
+                    <TheGraph.App {...props} />
+                </div>
             </Container>
         )
     }
