@@ -3,6 +3,7 @@ import TheGraph from 'the-graph'
 import * as fbpGraph from 'fbp-graph'
 import NODE_VIEW_BUILDERS from './node-view-builders'
 import { Library, PortletView, UiEdgeMetadata, UiNodeMetadata } from './types'
+import { Point } from '../store/ui'
 
 export const getPdJson = (uiGraph: fbpGraph.Graph): PdJson.Pd => {
     const patch: PdJson.Patch = {
@@ -59,11 +60,10 @@ export const updateEdgeMetadata = (uiGraph: fbpGraph.Graph, engineSettings: PdEn
     })
 }
 
-export const addNode = (uiGraph: fbpGraph.Graph, pdNode: PdJson.Node, engineSettings: PdEngine.Settings) => {
+export const addNode = (uiGraph: fbpGraph.Graph, pdNode: PdJson.Node, position: Point, engineSettings: PdEngine.Settings) => {
     const uiNodeMetadata: UiNodeMetadata = {
-        // TODO : layout manage better
-        x: (pdNode.layout.y - 25) * 10,
-        y: (pdNode.layout.x - 100) * 10,
+        x: position.x,
+        y: position.y,
         label: pdNode.type,
         icon: 'chevron-right',
         pdNode
@@ -80,7 +80,10 @@ export const loadPdJson = (pd: PdJson.Pd, engineSettings: PdEngine.Settings): fb
     const patch = patches[0]
 
     Object.values(patch.nodes).forEach(pdNode => {
-        addNode(uiGraph, pdNode, engineSettings)
+        // TODO : layout manage better
+        const x = pdNode.layout.y * 10//(pdNode.layout.y - 25) * 10
+        const y = pdNode.layout.x * 10//(pdNode.layout.x - 100) * 10
+        addNode(uiGraph, pdNode, {x, y}, engineSettings)
     })
 
     Object.values(patch.connections).forEach(pdConnection => {

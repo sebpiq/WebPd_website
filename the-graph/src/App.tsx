@@ -10,9 +10,11 @@ import Menu from './menu/Menu'
 import Popup from './Popup'
 import { getWebpdIsCreated } from './store/selectors'
 import { requestLoadPd } from './store/model'
+import { setAppDimensions } from './store/ui'
 
 export interface InnerAppProps {
     webpdIsCreated : boolean
+    setAppDimensions: typeof setAppDimensions
 }
 
 const loadPatch = async (pdFile: string) => {
@@ -24,30 +26,47 @@ const createWebPdEngine = async () => {
     store.dispatch(createWebpd())
 }
 
-const _InnerApp = ({ webpdIsCreated }: InnerAppProps) => {
-    if (webpdIsCreated) {
-        loadPatch(DEFAULT_PATCH)
-            .then(() => {
-                console.log('patch loaded')
-            })
-    } else {
-        createWebPdEngine()
-            .then(() => {
-                console.log('sound started')
-            })
+class _InnerApp extends React.Component<InnerAppProps> {
+
+    constructor(props: InnerAppProps) {
+        super(props)
+        this.windowResized = this.windowResized.bind(this)
     }
-    return (
-        <div>
-            <Menu />
-            <GraphCanvas />
-            <MiniMap />
-            <Popup />
-        </div>
-    )
+
+    componentDidMount() {
+        window.addEventListener('resize', this.windowResized)
+        createWebPdEngine()
+    }
+
+    componentWillReceiveProps(nextProps: InnerAppProps) {
+        if (this.props.webpdIsCreated !== nextProps.webpdIsCreated) {
+            loadPatch(DEFAULT_PATCH)
+        }
+    }
+
+    componentWillUnmount() {
+        window.removeEventListener('resize', this.windowResized)
+    }
+
+    windowResized() {
+        this.props.setAppDimensions(window.innerWidth, window.innerHeight)
+    }
+
+    render() {
+        return (
+            <div>
+                <Menu />
+                <GraphCanvas />
+                <MiniMap />
+                <Popup />
+            </div>
+        )
+    }
 }
 
 const InnerApp = connect(
-    (state: AppState) => ({ webpdIsCreated: getWebpdIsCreated(state) })
+    (state: AppState) => ({ webpdIsCreated: getWebpdIsCreated(state) }),
+    { setAppDimensions }
 )(_InnerApp)
 
 const App = ({}) => {

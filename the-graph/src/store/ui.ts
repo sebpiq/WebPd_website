@@ -1,3 +1,19 @@
+export interface AppDimensions {
+    width: number, 
+    height: number,
+}
+
+export interface PanScale {
+    x: number
+    y: number
+    scale: number
+}
+
+export interface Point {
+    x: number
+    y: number
+}
+
 export const POPUP_NODE_LIBRARY = 'POPUP_NODE_LIBRARY'
 export const POPUP_NODE_CREATE = 'POPUP_NODE_CREATE'
 
@@ -23,14 +39,11 @@ export type UiLibrary = any
 export const UI_SET_THEME = 'UI_SET_THEME'
 export const UI_SET_PAN_SCALE = 'UI_SET_PAN_SCALE'
 export const UI_SET_POPUP = 'UI_SET_POPUP'
+export const UI_SET_APP_DIMENSIONS = 'UI_SETAPP_DIMENSIONS'
 
 interface UiSetPanScale {
     type: typeof UI_SET_PAN_SCALE
-    payload: {
-        panX: number, 
-        panY: number, 
-        scale: number
-    }
+    payload: PanScale
 }
 
 interface UiSetTheme {
@@ -47,7 +60,12 @@ interface UiSetPopup {
     }
 }
 
-type UiTypes = UiSetTheme | UiSetPanScale | UiSetPopup
+interface UiSetAppDimensions {
+    type: typeof UI_SET_APP_DIMENSIONS
+    payload: AppDimensions
+}
+
+type UiTypes = UiSetTheme | UiSetPanScale | UiSetPopup | UiSetAppDimensions
 
 
 // ------------ Action Creators ---------- //
@@ -58,10 +76,10 @@ export const setTheme = (theme: UiTheme): UiTypes => {
     }
 }
 
-export const panScaleChanged = (panX: number, panY: number, scale: number): UiTypes => {
+export const panScaleChanged = (x: number, y: number, scale: number): UiTypes => {
     return {
         type: UI_SET_PAN_SCALE,
-        payload: {panX, panY, scale},
+        payload: {x, y, scale},
     }
 }
 
@@ -72,21 +90,33 @@ export const setPopup = (popup: Popup) => {
     }
 }
 
+export const setAppDimensions = (width: number, height: number) => {
+    return {
+        type: UI_SET_APP_DIMENSIONS,
+        payload: {width, height},
+    }
+}
+
 // ----------------- State --------------- //
 export interface UiState {
     popup: Popup | null
     theme: UiTheme
-    panX: number
-    panY: number
-    scale: number
+    panScale: PanScale
+    appDimensions: AppDimensions
 }
 
 export const initialState: UiState = {
     popup: null,
     theme: 'dark',
-    panX: 0,
-    panY: 0,
-    scale: 1,
+    panScale: {
+        x: 0, 
+        y: 0, 
+        scale: 1
+    },
+    appDimensions: {
+        width: window.innerWidth,
+        height: window.innerHeight,
+    }
 }
 
 // ---------------- Reducer -------------- //
@@ -103,14 +133,17 @@ export const uiReducer = (
         case UI_SET_PAN_SCALE:
             return {
                 ...state,
-                panX: -action.payload.panX,
-                panY: -action.payload.panY,
-                scale: action.payload.scale,
+                panScale: action.payload,
             }
         case UI_SET_POPUP:
             return {
                 ...state,
                 popup: action.payload.popup
+            }
+        case UI_SET_APP_DIMENSIONS:
+            return {
+                ...state,
+                appDimensions: action.payload,
             }
         default:
             return state

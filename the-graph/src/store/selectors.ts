@@ -1,6 +1,6 @@
 import { AppState } from "."
 import { getPdJson } from "../core/graph-conversion"
-import { Popup } from "./ui"
+import { Point, Popup } from "./ui"
 
 export const getUiTheme = (state: AppState) => state.ui.theme
 
@@ -18,11 +18,20 @@ export const getCurrentPdPatch = (state: AppState) => {
 
 export const getUiPopup = (state: AppState): Popup => state.ui.popup
 
-export const getUiPanX = (state: AppState) => state.ui.panX
+export const getUiPanScale = (state: AppState) => state.ui.panScale
 
-export const getUiPanY = (state: AppState) => state.ui.panY
+export const getUiAppDimensions = (state: AppState) => state.ui.appDimensions
 
-export const getUiScale = (state: AppState) => state.ui.scale
+export const getUiCanvasCenterPoint = (state: AppState): Point => {
+    const {width: appWidth, height: appHeight} = getUiAppDimensions(state)
+    const {x: panX, y: panY, scale} = getUiPanScale(state)
+    const center = {
+        x: (panX + appWidth / 2) / scale,
+        y: (panY + appHeight / 2) / scale,
+    }
+    console.log(center)
+    return center
+}
 
 export const getWebpdIsCreated = (state: AppState) => state.webpd.isCreated
 

@@ -2,7 +2,7 @@ import React from 'react'
 import * as fbpGraph from 'fbp-graph'
 import TheGraph from 'the-graph'
 import { AppState } from './store'
-import { getModelGraph, getModelGraphVersion, getUiPanX, getUiPanY, getUiScale } from './store/selectors'
+import { getModelGraph, getModelGraphVersion, getUiPanScale } from './store/selectors'
 import { connect } from 'react-redux'
 import styled from 'styled-components'
 
@@ -56,12 +56,15 @@ const MiniMap = ({
 }
 
 export default connect(
-    (state: AppState) => ({
-        panX: getUiPanX(state),
-        panY: getUiPanY(state),
-        scale: getUiScale(state),
-        graph: getModelGraph(state),
-        // Force re-rendering of mini-map everytime the graph is modified
-        graphVersion: getModelGraphVersion(state)
-    })
+    (state: AppState) => {
+        const panScale = getUiPanScale(state)
+        return {
+            panX: panScale.x,
+            panY: panScale.y,
+            scale: panScale.scale,
+            graph: getModelGraph(state),
+            // Force re-rendering of mini-map everytime the graph is modified
+            graphVersion: getModelGraphVersion(state)
+        }
+    }
 )(MiniMap)

@@ -10,9 +10,6 @@ import { injectGlobal } from 'styled-components'
 import { initialState } from './store/ui'
 import themeConfig from './theme-config'
 
-function renderEditor() {
-}
-
 function renderApp() {
     const root = document.getElementById('root')
     const element = React.createElement(App, {})
@@ -39,9 +36,6 @@ injectGlobal`
     }
 `
 
-// Follow changes in window size
-window.addEventListener('resize', renderEditor)
-
 
 const appState = initialState
 
@@ -64,20 +58,6 @@ document.getElementById('focus').addEventListener('click', () => {
     console.log('EDITOR FOCUSNODE')
     ;(editor as any).focusNode(randomNode)
 })
-
-// Add node button
-const addnode = function () {
-    const id = Math.round(Math.random() * 100000).toString(36)
-    const component = Math.random() > 0.5 ? 'basic' : 'tall'
-    const metadata = {
-        label: component,
-        x: Math.round(Math.random() * 800),
-        y: Math.round(Math.random() * 600),
-    }
-    const newNode = appState.graph.addNode(id, component, metadata)
-    return newNode
-}
-document.getElementById('addnode').addEventListener('click', addnode)
 
 // Load initial graph
 const loadingMessage = document.getElementById('loading-message')

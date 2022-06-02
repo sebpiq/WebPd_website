@@ -5,7 +5,7 @@ import TheGraph from 'the-graph'
 import { connect } from 'react-redux'
 import { AppState } from './store'
 import { panScaleChanged } from './store/ui'
-import { getModelGraph, getModelLibrary, getUiTheme } from './store/selectors'
+import { getModelGraph, getModelLibrary, getUiAppDimensions, getUiTheme } from './store/selectors'
 import { UiLibrary, UiTheme } from './store/ui'
 import styled from 'styled-components'
 
@@ -20,79 +20,89 @@ export interface Props {
     theme: UiTheme
     graph: fbpGraph.Graph
     library: UiLibrary,
+    width: number
+    height: number
     panChanged: typeof panScaleChanged
 }
 
-const GraphCanvas = ({ 
-    theme,
-    panChanged,
-    library, 
-    graph
-}: Props) => {
-    const themeClassName = `the-graph-${theme}`
+class GraphCanvas extends React.Component<Props> {
 
-    // Context menu specification
-    function deleteNode(graph: fbpGraph.Graph, itemKey: string, item: GraphEdge) {
-        graph.removeNode(itemKey)
-    }
-    function deleteEdge(graph: fbpGraph.Graph, itemKey: string, item: GraphEdge) {
-        graph.removeEdge(item.from.node, item.from.port, item.to.node, item.to.port)
-    }
+    render() {
+        const { 
+            theme,
+            panChanged,
+            library, 
+            width,
+            height,
+            graph,
+        } = this.props
 
-    function onPanScale(x: number, y: number, scale: number) {
-        // TODO : not working ? 
-        panChanged(x, y, scale)
-    }
-
-    const contextMenus: any = {
-        main: null,
-        selection: null,
-        nodeInport: null,
-        nodeOutport: null,
-        graphInport: null,
-        graphOutport: null,
-        edge: {
-            icon: 'long-arrow-right',
-            s4: {
-                icon: 'trash',
-                iconLabel: 'delete',
-                action: deleteEdge,
+        const themeClassName = `the-graph-${theme}`
+    
+        // Context menu specification
+        const deleteNode = (graph: fbpGraph.Graph, itemKey: string, item: GraphEdge) => {
+            graph.removeNode(itemKey)
+        }
+        const deleteEdge = (graph: fbpGraph.Graph, itemKey: string, item: GraphEdge) => {
+            graph.removeEdge(item.from.node, item.from.port, item.to.node, item.to.port)
+        }
+    
+        const onPanScale = (x: number, y: number, scale: number) => {
+            panChanged(-x, -y, scale)
+        }
+    
+        const contextMenus: any = {
+            main: null,
+            selection: null,
+            nodeInport: null,
+            nodeOutport: null,
+            graphInport: null,
+            graphOutport: null,
+            edge: {
+                icon: 'long-arrow-right',
+                s4: {
+                    icon: 'trash',
+                    iconLabel: 'delete',
+                    action: deleteEdge,
+                },
             },
-        },
-        node: {
-            s4: {
-                icon: 'trash',
-                iconLabel: 'delete',
-                action: deleteNode,
+            node: {
+                s4: {
+                    icon: 'trash',
+                    iconLabel: 'delete',
+                    action: deleteNode,
+                },
             },
-        },
+        }
+    
+        const props = {
+            width,
+            height,
+            graph,
+            library,
+            menus: contextMenus,
+            nodeIcons: {},
+            onPanScale,
+        }
+    
+        return (
+            <Container className={themeClassName}>
+                <TheGraph.App {...props} />
+            </Container>
+        )
     }
-
-    const props = {
-        width: window.innerWidth,
-        height: window.innerWidth,
-        graph,
-        library,
-        menus: contextMenus,
-        nodeIcons: {},
-        onPanScale,
-    }
-
-    // editor.style.width = `${props.width}px`
-    // editor.style.height = `${props.height}px`
-
-    return (
-        <Container className={themeClassName}>
-            <TheGraph.App {...props} />
-        </Container>
-    )
 }
 
 export default connect(
-    (state: AppState) => ({
-        theme: getUiTheme(state),
-        graph: getModelGraph(state),
-        library: getModelLibrary(state),
-    }),
+    (state: AppState) => {
+        const appDimensions = getUiAppDimensions(state)
+        return {
+            theme: getUiTheme(state),
+            graph: getModelGraph(state),
+            library: getModelLibrary(state),
+            width: appDimensions.width,
+            height: appDimensions.height,
+        }
+    },
     {panChanged: panScaleChanged}
 )(GraphCanvas)

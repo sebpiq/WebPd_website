@@ -6,12 +6,13 @@ import evalEngine, {
     ENGINE_ARRAYS_VARIABLE_NAME,
 } from '@webpd/engine-live-eval'
 import { all, takeLatest, put, select, call, take, fork } from 'redux-saga/effects'
-import { getCurrentPdPatch, getModelGraph, getUiPanX, getUiPanY, getWebpdContext, getWebpdEngine, getWebpdIsInitialized } from './selectors'
+import { getCurrentPdPatch, getModelGraph, getUiCanvasCenterPoint, getWebpdContext, getWebpdEngine, getWebpdIsInitialized } from './selectors'
 import { setCreated, setInitialized, WebPdDspToggled, WEBPD_CREATE, WEBPD_DSP_TOGGLE } from './webpd'
 import { incrementGraphVersion, ModelAddNode, ModelRequestLoadPd, MODEL_ADD_NODE, MODEL_REQUEST_LOAD_PD, setGraph } from './model'
 import { updateEdgeMetadata, addNode, generateLibrary, loadPdJson, getPdJson, generateId } from '../core/graph-conversion'
 import { Library } from '../core/types'
 import { END, EventChannel, eventChannel } from 'redux-saga'
+import { AppDimensions, Point } from './ui'
 
 const uiGraphEventChannel = (uiGraph: fbpGraph.Graph) => {
     return eventChannel(emitter => {
@@ -108,22 +109,16 @@ function* webpdToggleDsp(action: WebPdDspToggled) {
 
 function* createNode(action: ModelAddNode) {
     const uiGraph: fbpGraph.Graph = yield select(getModelGraph)
-    const panX: number = yield select(getUiPanX)
-    const panY: number = yield select(getUiPanY)
+    const canvasCenterPoint: Point = yield select(getUiCanvasCenterPoint)
     const webpdEngine: Engine = yield select(getWebpdEngine)
     const patch: PdJson.Patch = yield select(getCurrentPdPatch)
     const nodeId = generateId(patch)
-    // TODO : layout x, y
     const pdNode: PdJson.Node = {
         id: nodeId,
         type: action.payload.type,
         args: action.payload.args,
-        layout: {
-            x: panX / 5 + 25,
-            y: panY / 5 + 100,
-        }
     }
-    addNode(uiGraph, pdNode, webpdEngine.settings)
+    addNode(uiGraph, pdNode, canvasCenterPoint, webpdEngine.settings)
     yield call(graphChanged, uiGraph)
 }
 
