@@ -1,6 +1,32 @@
 import { NodeViewBuilders, PortletView } from "./types";
 
 const NODE_VIEW_BUILDERS: NodeViewBuilders = {
+    '*~': {
+        build: () => {
+            return {
+                inlets: [
+                    {type: 'signal', name: 'operand 1'},
+                    {type: 'mixed', name: 'operand 2'},
+                ],
+                outlets: [
+                    {type: 'signal', name: 'multiplication'},
+                ]
+            }
+        }
+    },
+    '+~': {
+        build: () => {
+            return {
+                inlets: [
+                    {type: 'signal', name: 'operand 1'},
+                    {type: 'mixed', name: 'operand 2'},
+                ],
+                outlets: [
+                    {type: 'signal', name: 'sum'},
+                ]
+            }
+        }
+    },
     'osc~': {
         build: () => {
             return {

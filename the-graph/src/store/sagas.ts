@@ -1,6 +1,6 @@
 import * as fbpGraph from 'fbp-graph'
-import compileDspGraph, { NODE_IMPLEMENTATIONS } from '@webpd/compiler-js'
-import compilePdJson from '@webpd/dsp-graph'
+import compileToJsCode, { NODE_IMPLEMENTATIONS } from '@webpd/compiler-js'
+import compileToDspGraph from '@webpd/dsp-graph'
 import evalEngine, {
     Engine,
     ENGINE_ARRAYS_VARIABLE_NAME,
@@ -50,8 +50,11 @@ function* uiGraphEventsSaga(uiGraph: fbpGraph.Graph) {
 
 function* graphChanged (uiGraph: fbpGraph.Graph) {
     const isWebpdInitialized: boolean = yield select(getWebpdIsInitialized)
+    const webpdEngine: Engine = yield select(getWebpdEngine)
     yield put(incrementGraphVersion())
     const pdJson = getPdJson(uiGraph)
+    const library: Library = yield call(generateLibrary, pdJson, webpdEngine.settings)
+    yield put(setGraph(uiGraph, library))
     if (isWebpdInitialized) {
         yield call(runDspGraph, pdJson)
     }
@@ -60,8 +63,8 @@ function* graphChanged (uiGraph: fbpGraph.Graph) {
 
 function* runDspGraph(pdJson: PdJson.Pd) {
     const webpdEngine: Engine = yield select(getWebpdEngine)
-    const dspGraph = compilePdJson(pdJson)
-    const code: PdEngine.SignalProcessorCode = yield call(compileDspGraph, dspGraph, NODE_IMPLEMENTATIONS, {
+    const dspGraph = compileToDspGraph(pdJson)
+    const code: PdEngine.SignalProcessorCode = yield call(compileToJsCode, dspGraph, NODE_IMPLEMENTATIONS, {
         ...webpdEngine.settings,
         arraysVariableName: ENGINE_ARRAYS_VARIABLE_NAME,
     })

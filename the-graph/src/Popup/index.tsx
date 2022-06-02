@@ -43,32 +43,57 @@ interface Props {
     setPopup: typeof setPopup
 }
 
-const PopupComponent = ({ popup, setPopup }: Props) => {
-    if (!popup) {
-        return null
+class PopupComponent extends React.Component<Props> {
+
+    constructor(props: Props) {
+        super(props)
+        this.escapedPressed = this.escapedPressed.bind(this)
     }
 
-    const onCloseClick = () => {
-        setPopup(null)
+    componentDidMount(){
+        document.addEventListener("keydown", this.escapedPressed, false)
     }
 
-    let popupElem: JSX.Element = null
-    if (popup.type === POPUP_NODE_LIBRARY) {
-        popupElem = <NodeLibraryPopUp />
-    } else if (popup.type === POPUP_NODE_CREATE) {
-        popupElem = <NodeCreatePopUp />
+    componentWillUnmount(){
+        document.removeEventListener("keydown", this.escapedPressed, false)
     }
 
-    return (
-        <Container>
-            <CloseButton onClick={onCloseClick}>
-                ×
-            </CloseButton>
-            <InnerContainer>
-                {popupElem}
-            </InnerContainer>
-        </Container>
-    )
+    escapedPressed(event: KeyboardEvent) {
+        const { setPopup } = this.props
+        if (event.key === "Escape") {
+            setPopup(null)
+        }
+    }
+
+    render() {
+        const { popup, setPopup } = this.props
+
+        if (!popup) {
+            return null
+        }
+    
+        const onCloseClick = () => {
+            setPopup(null)
+        }
+    
+        let popupElem: JSX.Element = null
+        if (popup.type === POPUP_NODE_LIBRARY) {
+            popupElem = <NodeLibraryPopUp />
+        } else if (popup.type === POPUP_NODE_CREATE) {
+            popupElem = <NodeCreatePopUp />
+        }
+    
+        return (
+            <Container>
+                <CloseButton onClick={onCloseClick}>
+                    ×
+                </CloseButton>
+                <InnerContainer>
+                    {popupElem}
+                </InnerContainer>
+            </Container>
+        )
+    }
 }
 
 export default connect(
