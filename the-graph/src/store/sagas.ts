@@ -13,7 +13,7 @@ import { generateLibrary, loadPdJson, getPdJson } from '../core/graph-conversion
 import { Library } from '../core/types'
 import { END, EventChannel, eventChannel } from 'redux-saga'
 import { Point } from './ui'
-import { addGraphNode, editGraphNode, generateId, runGraphChangedCleaning } from '../core/model'
+import { addGraphNode, editGraphNode, generateId } from '../core/model'
 
 const uiGraphEventChannel = (uiGraph: fbpGraph.Graph) => {
     return eventChannel(emitter => {
@@ -39,8 +39,6 @@ function* uiGraphEventsSaga(uiGraph: fbpGraph.Graph) {
       while (true) {
         // take(END) will cause the saga to terminate by jumping to the finally block
         yield take(events)
-        const webpdEngine: Engine = yield select(getWebpdEngine)
-        runGraphChangedCleaning(uiGraph, webpdEngine.settings)
         yield call(graphChanged, uiGraph)
       }
     } catch(err) {

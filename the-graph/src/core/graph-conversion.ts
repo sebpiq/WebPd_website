@@ -1,7 +1,7 @@
 import * as fbpGraph from 'fbp-graph'
 import NODE_VIEW_BUILDERS, { DEFAULT_ICON } from './node-view-builders'
 import { Library } from './types'
-import { addGraphNode, uiComponentName, UiEdgeMetadata, uiPortletId } from './model'
+import { addGraphNode, getGraphNode, uiComponentName, uiPortletId } from './model'
 
 export const getPdJson = (uiGraph: fbpGraph.Graph): PdJson.Pd => {
     const patch: PdJson.Patch = {
@@ -28,10 +28,20 @@ export const getPdJson = (uiGraph: fbpGraph.Graph): PdJson.Pd => {
     })
 
     uiGraph.edges.forEach((edge) => {
-        if (!edge.metadata || !edge.metadata.pdConnection) {
-            throw new Error(`Missing metadata.pdConnection on edge "${edge.from.node} -> ${edge.to.node}"`)
+        const sourceNode = getGraphNode(uiGraph, edge.from.node)
+        const sinkNode = getGraphNode(uiGraph, edge.to.node)
+        const pdConnection: PdJson.Connection = {
+            source: {
+                nodeId: sourceNode.id, 
+                portletId: sourceNode.metadata.pdPortletLookup.outlets[edge.from.port]
+            },
+            sink: {
+                nodeId: sinkNode.id, 
+                portletId: sinkNode.metadata.pdPortletLookup.inlets[edge.to.port]
+            },
         }
-        patch.connections.push(edge.metadata.pdConnection)
+        console.log(pdConnection, edge, sourceNode, sinkNode)
+        patch.connections.push(pdConnection)
     })
 
     return pd
@@ -67,13 +77,11 @@ export const loadPdJson = (pd: PdJson.Pd, engineSettings: PdEngine.Settings): fb
         const { outlets: outletViews } = sourceNodeViewBuilder.build(sourceNode.args, engineSettings)
         const { inlets: inletViews } = sinkNodeViewBuilder.build(sinkNode.args, engineSettings)
         const { source, sink } = pdConnection
-        const uiEdgeMetadata: UiEdgeMetadata = { pdConnection }
         uiGraph.addEdge(
             source.nodeId,
             uiPortletId(outletViews[source.portletId]),
             sink.nodeId,
             uiPortletId(inletViews[sink.portletId]),
-            uiEdgeMetadata
         )
     })
 

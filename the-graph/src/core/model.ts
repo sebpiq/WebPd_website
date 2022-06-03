@@ -2,6 +2,9 @@ import * as fbpGraph from 'fbp-graph'
 import NODE_VIEW_BUILDERS from './node-view-builders'
 import { PortletView } from './types'
 import { Point } from '../store/ui'
+import { GraphNode } from 'fbp-graph/src/Types'
+
+type PortletLookupMap = { [portletGraphName: string]: PdJson.PortletId }
 
 export interface UiNodeMetadata {
     x: number
@@ -10,31 +13,23 @@ export interface UiNodeMetadata {
     sublabel: string
     icon: string
     pdNode: PdJson.Node
+    pdPortletLookup: {
+        outlets: PortletLookupMap,
+        inlets: PortletLookupMap,
+    }
 }
 
-export interface UiEdgeMetadata {
-    pdConnection: PdJson.Connection
+export interface GraphNodeWithMetadata extends GraphNode {
+    id: PdJson.ObjectLocalId
+    metadata: UiNodeMetadata
 }
 
-export const runGraphChangedCleaning = (uiGraph: fbpGraph.Graph, engineSettings: PdEngine.Settings) => {
-    uiGraph.edges.forEach((edge) => {
-        // If edge metadata doesn't exist, we crate it first
-        if (!edge.metadata || !edge.metadata.pdConnection) {
-            const sourceNode = (uiGraph.getNode(edge.from.node).metadata as UiNodeMetadata).pdNode
-            const sinkNode = (uiGraph.getNode(edge.to.node).metadata as UiNodeMetadata).pdNode
-            const sourceNodeViewBuilder = NODE_VIEW_BUILDERS[sourceNode.type]
-            const sinkNodeViewBuilder = NODE_VIEW_BUILDERS[sinkNode.type]
-            const { outlets: outletViews } = sourceNodeViewBuilder.build(sourceNode.args, engineSettings)
-            const { inlets: inletViews } = sinkNodeViewBuilder.build(sinkNode.args, engineSettings)
-            const uiEdgeMetadata: UiEdgeMetadata = {
-                pdConnection: {
-                    source: {nodeId: sourceNode.id, portletId: pdPortletId(edge.from.port, outletViews) },
-                    sink: {nodeId: sinkNode.id, portletId: pdPortletId(edge.to.port, inletViews) },
-                }
-            }
-            edge.metadata = uiEdgeMetadata
-        }
-    })
+export const getGraphNode = (uiGraph: fbpGraph.Graph, nodeId: PdJson.ObjectLocalId): GraphNodeWithMetadata => {
+    const node = uiGraph.getNode(nodeId)
+    if (!hasNodeMetadata(node)) {
+        throw new Error(`Node "${nodeId}" doesn't have metadata`)
+    }
+    return node
 }
 
 export const addGraphNode = (
@@ -45,6 +40,18 @@ export const addGraphNode = (
     position: Point, 
     engineSettings: PdEngine.Settings
 ) => {
+    // Building the lookup map to find pd portlet ids from graph portlet name
+    const nodeViewBuilder = NODE_VIEW_BUILDERS[nodeType]
+    const { outlets: outletViews, inlets: inletViews } = nodeViewBuilder.build(nodeArgs, engineSettings)
+    const outletsLookup: PortletLookupMap = {}
+    const inletsLookup: PortletLookupMap = {}
+    outletViews.forEach((outletView, portletId) => {
+        outletsLookup[outletView.name] = portletId
+    })
+    inletViews.forEach((inletView, portletId) => {
+        inletsLookup[inletView.name] = portletId
+    })
+
     const uiNodeMetadata: UiNodeMetadata = {
         x: position.x,
         y: position.y,
@@ -57,6 +64,10 @@ export const addGraphNode = (
             type: nodeType,
             args: nodeArgs,
         },
+        pdPortletLookup: {
+            outlets: outletsLookup,
+            inlets: inletsLookup,
+        }
     }
     uiGraph.addNode(nodeId, uiComponentName(nodeType, nodeArgs, engineSettings), uiNodeMetadata)
 }
@@ -98,21 +109,6 @@ export const uiComponentName = (
 export const uiPortletId = (portletView: PortletView) => 
     portletView.name
 
-export const pdPortletId = (uiPortletId: string, portletViews: Array<PortletView>): PdJson.PortletId => {
-    let found: PdJson.PortletId = null
-    for (let i = 0 ; i < portletViews.length ; i++) {
-        const portletView = portletViews[i]
-        if (portletView.name === uiPortletId) {
-            found = i
-            break
-        }
-    }
-    if (found === null) {
-        throw new Error(`unknown portlet "${uiPortletId}"`)
-    }
-    return found
-}
-
 export const generateId = (patch: PdJson.Patch): PdJson.ObjectLocalId => {
     const ids = Object.keys(patch.nodes)
     let newId = (+new Date()).toString()
@@ -120,4 +116,8 @@ export const generateId = (patch: PdJson.Patch): PdJson.ObjectLocalId => {
         newId = (+new Date()).toString()
     }
     return newId
+}
+
+const hasNodeMetadata = (node: GraphNode): node is GraphNodeWithMetadata => {
+    return !!node.metadata && node.metadata.pdNode
 }
