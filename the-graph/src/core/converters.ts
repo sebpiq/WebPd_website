@@ -1,7 +1,10 @@
 import * as fbpGraph from 'fbp-graph'
 import NODE_VIEW_BUILDERS, { DEFAULT_ICON } from './node-view-builders'
+import compileToJsCode, { NODE_IMPLEMENTATIONS } from '@webpd/compiler-js'
+import compileToDspGraph from '@webpd/dsp-graph'
 import { Library } from './types'
 import { addGraphNode, getGraphNode, generateComponentName } from './model'
+import { ENGINE_ARRAYS_VARIABLE_NAME } from '@webpd/engine-live-eval'
 
 export const graphToPd = (graph: fbpGraph.Graph): PdJson.Pd => {
     const patch: PdJson.Patch = {
@@ -105,4 +108,12 @@ export const pdToLibrary = (pd: PdJson.Pd, engineSettings: PdEngine.Settings): L
         })
     })
     return library
+}
+
+export const pdToJsCode = (pd: PdJson.Pd, settings: PdEngine.Settings) => {
+    const dspGraph = compileToDspGraph(pd)
+    return compileToJsCode(dspGraph, NODE_IMPLEMENTATIONS, {
+        ...settings,
+        arraysVariableName: ENGINE_ARRAYS_VARIABLE_NAME,
+    })
 }

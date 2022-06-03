@@ -4,11 +4,12 @@ import styled from 'styled-components'
 import NodeLibraryPopUp from './NodeLibraryPopUp'
 import { AppState } from '../store'
 import { getUiPopup } from '../store/selectors'
-import { POPUP_NODE_LIBRARY, setPopup, Popup, UiTheme, POPUP_NODE_CREATE, POPUP_NODE_EDIT } from '../store/ui'
+import { POPUP_NODE_LIBRARY, setPopup, Popup, UiTheme, POPUP_NODE_CREATE, POPUP_NODE_EDIT, POPUP_EXPORT } from '../store/ui'
 import themeConfig, { Colors } from '../theme-config'
 import NodeCreateEditPopUp from './NodeCreateEditPopUp'
 import ThemedButton from '../styled-components/ThemedButton'
 import themed from '../styled-components/themed'
+import ExportPopUp from './ExportPopUp'
 
 const Container = themed(styled.div<{ theme: UiTheme, colors: Colors }>`
     position: fixed;
@@ -87,6 +88,8 @@ class PopupComponent extends React.Component<Props> {
                 nodeType={popup.data.nodeType} 
                 nodeArgs={popup.data.nodeArgs}
             />
+        } else if (popup.type === POPUP_EXPORT) {
+            popupElem = <ExportPopUp />
         }
     
         return (

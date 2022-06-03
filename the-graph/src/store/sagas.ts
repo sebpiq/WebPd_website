@@ -1,15 +1,12 @@
 import * as fbpGraph from 'fbp-graph'
-import compileToJsCode, { NODE_IMPLEMENTATIONS } from '@webpd/compiler-js'
-import compileToDspGraph from '@webpd/dsp-graph'
 import evalEngine, {
     Engine,
-    ENGINE_ARRAYS_VARIABLE_NAME,
 } from '@webpd/engine-live-eval'
 import { all, takeLatest, put, select, call, take, fork } from 'redux-saga/effects'
 import { getCurrentPdPatch, getModelGraph, getUiCanvasCenterPoint, getWebpdContext, getWebpdEngine, getWebpdIsInitialized } from './selectors'
 import { setCreated, setInitialized, WebPdDspToggled, WEBPD_CREATE, WEBPD_DSP_TOGGLE } from './webpd'
 import { incrementGraphVersion, ModelAddNode, ModelEditNode, ModelRequestLoadPd, MODEL_ADD_NODE, MODEL_EDIT_NODE, MODEL_REQUEST_LOAD_PD, setGraph } from './model'
-import { pdToLibrary, pdToGraph, graphToPd } from '../core/converters'
+import { pdToLibrary, pdToGraph, graphToPd, pdToJsCode } from '../core/converters'
 import { Library } from '../core/types'
 import { END, EventChannel, eventChannel } from 'redux-saga'
 import { Point } from './ui'
@@ -60,13 +57,9 @@ function* graphChanged (graph: fbpGraph.Graph) {
     console.log('ui GRAPH CHANGED')
 }
 
-function* updateWebpdDsp(pdJson: PdJson.Pd) {
+function* updateWebpdDsp(pd: PdJson.Pd) {
     const webpdEngine: Engine = yield select(getWebpdEngine)
-    const dspGraph = compileToDspGraph(pdJson)
-    const code: PdEngine.SignalProcessorCode = yield call(compileToJsCode, dspGraph, NODE_IMPLEMENTATIONS, {
-        ...webpdEngine.settings,
-        arraysVariableName: ENGINE_ARRAYS_VARIABLE_NAME,
-    })
+    const code = pdToJsCode(pd, webpdEngine.settings)
     yield call(evalEngine.run, webpdEngine, code, {})
 }
 

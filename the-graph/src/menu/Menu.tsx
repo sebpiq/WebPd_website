@@ -2,6 +2,7 @@ import React from 'react'
 import styled from 'styled-components'
 import themeConfig from '../theme-config'
 import ButtonAddNode from './ButtonAddNode'
+import ButtonExport from './ButtonExport'
 import ToggleDsp from './ToggleDsp'
 import ToggleTheme from './ToggleTheme'
 
@@ -25,6 +26,7 @@ const Menu = () => {
             <ToggleDsp />
             <ToggleTheme />
             <ButtonAddNode />
+            <ButtonExport />
         </Container>
     )
 }
