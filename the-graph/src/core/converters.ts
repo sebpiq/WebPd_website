@@ -1,9 +1,9 @@
 import * as fbpGraph from 'fbp-graph'
 import NODE_VIEW_BUILDERS, { DEFAULT_ICON } from './node-view-builders'
 import { Library } from './types'
-import { addGraphNode, getGraphNode, uiComponentName, uiPortletId } from './model'
+import { addGraphNode, getGraphNode, generateComponentName } from './model'
 
-export const getPdJson = (uiGraph: fbpGraph.Graph): PdJson.Pd => {
+export const graphToPd = (graph: fbpGraph.Graph): PdJson.Pd => {
     const patch: PdJson.Patch = {
         id: '0',
         args: [],
@@ -19,7 +19,7 @@ export const getPdJson = (uiGraph: fbpGraph.Graph): PdJson.Pd => {
         arrays: {} 
     }
 
-    uiGraph.nodes.forEach(node => {
+    graph.nodes.forEach(node => {
         if (!node.metadata || !node.metadata.pdNode) {
             throw new Error(`Missing metadata.pdNode on node "${node.id}"`)
         }
@@ -27,9 +27,9 @@ export const getPdJson = (uiGraph: fbpGraph.Graph): PdJson.Pd => {
         patch.nodes[pdNode.id] = pdNode
     })
 
-    uiGraph.edges.forEach((edge) => {
-        const sourceNode = getGraphNode(uiGraph, edge.from.node)
-        const sinkNode = getGraphNode(uiGraph, edge.to.node)
+    graph.edges.forEach((edge) => {
+        const sourceNode = getGraphNode(graph, edge.from.node)
+        const sinkNode = getGraphNode(graph, edge.to.node)
         const pdConnection: PdJson.Connection = {
             source: {
                 nodeId: sourceNode.id, 
@@ -40,15 +40,14 @@ export const getPdJson = (uiGraph: fbpGraph.Graph): PdJson.Pd => {
                 portletId: sinkNode.metadata.pdPortletLookup.inlets[edge.to.port]
             },
         }
-        console.log(pdConnection, edge, sourceNode, sinkNode)
         patch.connections.push(pdConnection)
     })
 
     return pd
 }
 
-export const loadPdJson = (pd: PdJson.Pd, engineSettings: PdEngine.Settings): fbpGraph.Graph => {
-    const uiGraph = new fbpGraph.Graph('patch')
+export const pdToGraph = (pd: PdJson.Pd, engineSettings: PdEngine.Settings): fbpGraph.Graph => {
+    const graph = new fbpGraph.Graph('patch')
     const patches = Object.values(pd.patches)
     if (patches.length > 1) {
         throw new Error(`Pd file with multiple patches not supported`)
@@ -60,7 +59,7 @@ export const loadPdJson = (pd: PdJson.Pd, engineSettings: PdEngine.Settings): fb
         const x = pdNode.layout.y * 5
         const y = pdNode.layout.x * 5
         addGraphNode(
-            uiGraph, 
+            graph, 
             pdNode.id, 
             pdNode.type,
             pdNode.args,
@@ -77,23 +76,23 @@ export const loadPdJson = (pd: PdJson.Pd, engineSettings: PdEngine.Settings): fb
         const { outlets: outletViews } = sourceNodeViewBuilder.build(sourceNode.args, engineSettings)
         const { inlets: inletViews } = sinkNodeViewBuilder.build(sinkNode.args, engineSettings)
         const { source, sink } = pdConnection
-        uiGraph.addEdge(
+        graph.addEdge(
             source.nodeId,
-            uiPortletId(outletViews[source.portletId]),
+            outletViews[source.portletId].name,
             sink.nodeId,
-            uiPortletId(inletViews[sink.portletId]),
+            inletViews[sink.portletId].name,
         )
     })
 
-    return uiGraph
+    return graph
 }
 
-export const generateLibrary = (pd: PdJson.Pd, engineSettings: PdEngine.Settings): Library => {
+export const pdToLibrary = (pd: PdJson.Pd, engineSettings: PdEngine.Settings): Library => {
     const library: Library = {} 
     Object.values(pd.patches).forEach((patch) => {
         Object.values(patch.nodes).forEach(pdNode => {
             const nodeViewBuilder = NODE_VIEW_BUILDERS[pdNode.type]
-            const componentName = uiComponentName(pdNode.type, pdNode.args, engineSettings)
+            const componentName = generateComponentName(pdNode.type, pdNode.args, engineSettings)
             const { inlets, outlets } = nodeViewBuilder.build(pdNode.args, engineSettings)
 
             library[componentName] = {

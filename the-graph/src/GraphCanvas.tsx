@@ -8,7 +8,7 @@ import { POPUP_NODE_EDIT, setPanScale, setPopup } from './store/ui'
 import { getModelGraph, getModelLibrary, getUiAppDimensions, getUiTheme } from './store/selectors'
 import { UiLibrary, UiTheme } from './store/ui'
 import styled from 'styled-components'
-import { UiNodeMetadata } from './core/model'
+import { getGraphNode } from './core/model'
 
 const Container = styled.div`
     background-color: transparent;
@@ -49,22 +49,18 @@ class GraphCanvas extends React.Component<Props> {
         const themeClassName = `the-graph-${theme}`
     
         // Context menu specification
-        const deleteNode = (graph: fbpGraph.Graph, itemKey: string, item: GraphNode) => {
-            graph.removeNode(itemKey)
+        const deleteNode = (graph: fbpGraph.Graph, nodeId: string, _: GraphNode) => {
+            graph.removeNode(nodeId)
         }
 
-        const editNode = (_: fbpGraph.Graph, __: string, item: GraphNode) => {
-            const uiNodeMetadata = item.metadata as UiNodeMetadata
-            if (!uiNodeMetadata) {
-                throw new Error(`Node "${item.id}" has no metadata`)
-            }
-            const pdNode = uiNodeMetadata.pdNode
+        const editNode = (graph: fbpGraph.Graph, nodeId: string) => {
+            const node = getGraphNode(graph, nodeId)
             setPopup({
                 type: POPUP_NODE_EDIT, 
                 data: {
-                    nodeArgs: pdNode.args,
-                    nodeType: pdNode.type,
-                    nodeId: pdNode.id,
+                    nodeArgs: node.metadata.pdNode.args,
+                    nodeType: node.metadata.pdNode.type,
+                    nodeId: node.metadata.pdNode.id,
                 }
             })
         }

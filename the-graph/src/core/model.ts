@@ -1,12 +1,11 @@
 import * as fbpGraph from 'fbp-graph'
 import NODE_VIEW_BUILDERS from './node-view-builders'
-import { PortletView } from './types'
 import { Point } from '../store/ui'
 import { GraphNode } from 'fbp-graph/src/Types'
 
 type PortletLookupMap = { [portletGraphName: string]: PdJson.PortletId }
 
-export interface UiNodeMetadata {
+export interface NodeMetadata {
     x: number
     y: number
     label: string
@@ -21,11 +20,11 @@ export interface UiNodeMetadata {
 
 export interface GraphNodeWithMetadata extends GraphNode {
     id: PdJson.ObjectLocalId
-    metadata: UiNodeMetadata
+    metadata: NodeMetadata
 }
 
-export const getGraphNode = (uiGraph: fbpGraph.Graph, nodeId: PdJson.ObjectLocalId): GraphNodeWithMetadata => {
-    const node = uiGraph.getNode(nodeId)
+export const getGraphNode = (graph: fbpGraph.Graph, nodeId: PdJson.ObjectLocalId): GraphNodeWithMetadata => {
+    const node = graph.getNode(nodeId)
     if (!hasNodeMetadata(node)) {
         throw new Error(`Node "${nodeId}" doesn't have metadata`)
     }
@@ -33,7 +32,7 @@ export const getGraphNode = (uiGraph: fbpGraph.Graph, nodeId: PdJson.ObjectLocal
 }
 
 export const addGraphNode = (
-    uiGraph: fbpGraph.Graph, 
+    graph: fbpGraph.Graph, 
     nodeId: PdJson.ObjectLocalId,
     nodeType: PdSharedTypes.NodeType, 
     nodeArgs: PdJson.ObjectArgs,
@@ -52,13 +51,13 @@ export const addGraphNode = (
         inletsLookup[inletView.name] = portletId
     })
 
-    const uiNodeMetadata: UiNodeMetadata = {
+    const nodeMetadata: NodeMetadata = {
         x: position.x,
         y: position.y,
         label: nodeType,
         icon: 'chevron-right',
         // We put at least a space otherwise ThGraph will put a default sublabel
-        sublabel: nodeSublabel(nodeArgs),
+        sublabel: generateSublabel(nodeArgs),
         pdNode: {
             id: nodeId,
             type: nodeType,
@@ -69,34 +68,37 @@ export const addGraphNode = (
             inlets: inletsLookup,
         }
     }
-    uiGraph.addNode(nodeId, uiComponentName(nodeType, nodeArgs, engineSettings), uiNodeMetadata)
+    graph.addNode(nodeId, generateComponentName(nodeType, nodeArgs, engineSettings), nodeMetadata)
 }
 
+// TODO : handle case when editing node args changes the node's in/outlets
 export const editGraphNode = (
-    uiGraph: fbpGraph.Graph, 
+    graph: fbpGraph.Graph, 
     nodeId: PdJson.ObjectLocalId, 
     nodeArgs: PdJson.ObjectArgs
 ) => {
-    const node = uiGraph.getNode(nodeId)
-    const uiNodeMetadata = node.metadata as UiNodeMetadata
+    const node = graph.getNode(nodeId)
+    if (!hasNodeMetadata(node)) {
+        throw new Error(`Node "${nodeId}" doesn't have metadata`)
+    }
     const pdNode: PdJson.Node = {
-        ...uiNodeMetadata.pdNode, 
+        ...node.metadata.pdNode, 
         args: nodeArgs
     }
-    uiGraph.setNodeMetadata(node.id, {
+    graph.setNodeMetadata(node.id, {
         ...node.metadata, 
-        sublabel: nodeSublabel(pdNode.args),
+        sublabel: generateSublabel(pdNode.args),
         pdNode
-    } as UiNodeMetadata)
+    } as NodeMetadata)
 }
 
-export const nodeSublabel = (nodeArgs: PdJson.ObjectArgs) => 
+export const generateSublabel = (nodeArgs: PdJson.ObjectArgs) => 
     nodeArgs.map(v => v.toString()).join(' ') || ' '
 
 // Pd nodes can have for a same node type variable inlet / outlet number. 
 // This is the case, for example, of trigger.
 // The-graph takes only a static definition of inports / outports for one component.
-export const uiComponentName = (
+export const generateComponentName = (
     nodeType: PdSharedTypes.NodeType, 
     nodeArgs: PdJson.ObjectArgs, 
     engineSettings: PdEngine.Settings
@@ -105,9 +107,6 @@ export const uiComponentName = (
     const { inlets, outlets } = nodeViewBuilder.build(nodeArgs, engineSettings)
     return `${nodeType}:${inlets.length}:${outlets.length}`
 }
-
-export const uiPortletId = (portletView: PortletView) => 
-    portletView.name
 
 export const generateId = (patch: PdJson.Patch): PdJson.ObjectLocalId => {
     const ids = Object.keys(patch.nodes)

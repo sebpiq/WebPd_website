@@ -9,37 +9,36 @@ import { all, takeLatest, put, select, call, take, fork } from 'redux-saga/effec
 import { getCurrentPdPatch, getModelGraph, getUiCanvasCenterPoint, getWebpdContext, getWebpdEngine, getWebpdIsInitialized } from './selectors'
 import { setCreated, setInitialized, WebPdDspToggled, WEBPD_CREATE, WEBPD_DSP_TOGGLE } from './webpd'
 import { incrementGraphVersion, ModelAddNode, ModelEditNode, ModelRequestLoadPd, MODEL_ADD_NODE, MODEL_EDIT_NODE, MODEL_REQUEST_LOAD_PD, setGraph } from './model'
-import { generateLibrary, loadPdJson, getPdJson } from '../core/graph-conversion'
+import { pdToLibrary, pdToGraph, graphToPd } from '../core/converters'
 import { Library } from '../core/types'
 import { END, EventChannel, eventChannel } from 'redux-saga'
 import { Point } from './ui'
-import { addGraphNode, editGraphNode, generateId } from '../core/model'
+import * as model from '../core/model'
 
-const uiGraphEventChannel = (uiGraph: fbpGraph.Graph) => {
+const graphEventChannel = (graph: fbpGraph.Graph) => {
     return eventChannel(emitter => {
-        uiGraph.on('endTransaction', () => {
-            console.log('endTransaction', uiGraph)
-            
+        graph.on('endTransaction', () => {
+            console.log('endTransaction', graph)
             emitter(null)
         })
         // TODO ? 
-        uiGraph.on('close', () => {
+        graph.on('close', () => {
             emitter(END)
         })
         return () => {
-            uiGraph.removeAllListeners()
+            graph.removeAllListeners()
         }
     })
 }
 
-function* uiGraphEventsSaga(uiGraph: fbpGraph.Graph) {
+function* graphEventsSaga(graph: fbpGraph.Graph) {
     // TODO : terminate on new UI graph (and clean / kill EventChannel)
-    const events: EventChannel<null> = yield call(uiGraphEventChannel, uiGraph)
+    const events: EventChannel<null> = yield call(graphEventChannel, graph)
     try {    
       while (true) {
         // take(END) will cause the saga to terminate by jumping to the finally block
         yield take(events)
-        yield call(graphChanged, uiGraph)
+        yield call(graphChanged, graph)
       }
     } catch(err) {
         console.error(err)
@@ -48,20 +47,20 @@ function* uiGraphEventsSaga(uiGraph: fbpGraph.Graph) {
     }
 }
 
-function* graphChanged (uiGraph: fbpGraph.Graph) {
+function* graphChanged (graph: fbpGraph.Graph) {
     const isWebpdInitialized: boolean = yield select(getWebpdIsInitialized)
     const webpdEngine: Engine = yield select(getWebpdEngine)
     yield put(incrementGraphVersion())
-    const pdJson = getPdJson(uiGraph)
-    const library: Library = yield call(generateLibrary, pdJson, webpdEngine.settings)
-    yield put(setGraph(uiGraph, library))
+    const pdJson = graphToPd(graph)
+    const library: Library = yield call(pdToLibrary, pdJson, webpdEngine.settings)
+    yield put(setGraph(graph, library))
     if (isWebpdInitialized) {
-        yield call(runDspGraph, pdJson)
+        yield call(updateWebpdDsp, pdJson)
     }
     console.log('ui GRAPH CHANGED')
 }
 
-function* runDspGraph(pdJson: PdJson.Pd) {
+function* updateWebpdDsp(pdJson: PdJson.Pd) {
     const webpdEngine: Engine = yield select(getWebpdEngine)
     const dspGraph = compileToDspGraph(pdJson)
     const code: PdEngine.SignalProcessorCode = yield call(compileToJsCode, dspGraph, NODE_IMPLEMENTATIONS, {
@@ -71,7 +70,7 @@ function* runDspGraph(pdJson: PdJson.Pd) {
     yield call(evalEngine.run, webpdEngine, code, {})
 }
 
-function* webpdCreateEngine() {
+function* createWebpdEngine() {
     const context = new AudioContext()
     const webpdEngine: Engine = yield call(evalEngine.create, context, {
         sampleRate: context.sampleRate,
@@ -80,86 +79,86 @@ function* webpdCreateEngine() {
     yield put(setCreated(context, webpdEngine))
 }
 
-function* webpdInitializeEngine() {
+function* initializeWebpdEngine() {
     const context: AudioContext = yield select(getWebpdContext)
-    const uiGraph: fbpGraph.Graph = yield select(getModelGraph)
+    const graph: fbpGraph.Graph = yield select(getModelGraph)
     let webpdEngine: Engine = yield select(getWebpdEngine)
     webpdEngine = yield call(evalEngine.init, webpdEngine)
     yield put(setInitialized(context, webpdEngine))
 
-    const pdJson = getPdJson(uiGraph)
+    const pdJson = graphToPd(graph)
     if (pdJson) {
-        yield call(runDspGraph, pdJson)
+        yield call(updateWebpdDsp, pdJson)
     }
 }
 
-function* webpdToggleDsp(action: WebPdDspToggled) {
+function* toggleWebpdDsp(action: WebPdDspToggled) {
     const context: AudioContext = yield select(getWebpdContext)
     const isWebpdInitialized: boolean = yield select(getWebpdIsInitialized)
     if (action.payload.isDspOn) {
         yield call(() => context.resume())
         if (!isWebpdInitialized) {
-            yield call(webpdInitializeEngine)
+            yield call(initializeWebpdEngine)
         }
     } else {
         yield call(() => context.suspend())
     }
 }
 
-function* createNode(action: ModelAddNode) {
-    const uiGraph: fbpGraph.Graph = yield select(getModelGraph)
+function* createGraphNode(action: ModelAddNode) {
+    const graph: fbpGraph.Graph = yield select(getModelGraph)
     const canvasCenterPoint: Point = yield select(getUiCanvasCenterPoint)
     const webpdEngine: Engine = yield select(getWebpdEngine)
     const patch: PdJson.Patch = yield select(getCurrentPdPatch)
-    const nodeId = generateId(patch)
-    addGraphNode(uiGraph, nodeId, action.payload.nodeType, action.payload.nodeArgs, canvasCenterPoint, webpdEngine.settings)
-    yield call(graphChanged, uiGraph)
+    const nodeId = model.generateId(patch)
+    model.addGraphNode(graph, nodeId, action.payload.nodeType, action.payload.nodeArgs, canvasCenterPoint, webpdEngine.settings)
+    yield call(graphChanged, graph)
 }
 
-function* _editNode(action: ModelEditNode) {
-    const uiGraph: fbpGraph.Graph = yield select(getModelGraph)
-    editGraphNode(uiGraph, action.payload.nodeId, action.payload.nodeArgs)
+function* editGraphNode(action: ModelEditNode) {
+    const graph: fbpGraph.Graph = yield select(getModelGraph)
+    model.editGraphNode(graph, action.payload.nodeId, action.payload.nodeArgs)
 }
 
 function* requestLoadPd(action: ModelRequestLoadPd) {
     const pdJson = action.payload.pd
     const webpdEngine: Engine = yield select(getWebpdEngine)
     const isWebpdInitialized: boolean = yield select(getWebpdIsInitialized)
-    const uiGraph: fbpGraph.Graph = yield call(loadPdJson, pdJson, webpdEngine.settings)
-    const library: Library = yield call(generateLibrary, pdJson, webpdEngine.settings)
-    yield put(setGraph(uiGraph, library))
+    const graph: fbpGraph.Graph = yield call(pdToGraph, pdJson, webpdEngine.settings)
+    const library: Library = yield call(pdToLibrary, pdJson, webpdEngine.settings)
+    yield put(setGraph(graph, library))
     if (isWebpdInitialized) {
-        yield call(runDspGraph, pdJson)
+        yield call(updateWebpdDsp, pdJson)
     }
-    yield fork(uiGraphEventsSaga, uiGraph)
+    yield fork(graphEventsSaga, graph)
 }
 
-function* webpdRequestLoadJsonSaga() {
+function* requestLoadPdSaga() {
     yield takeLatest(MODEL_REQUEST_LOAD_PD, requestLoadPd)
 }
 
-function* webpdCreateSaga() {
-    yield takeLatest(WEBPD_CREATE, webpdCreateEngine)
+function* createWebpdEngineSaga() {
+    yield takeLatest(WEBPD_CREATE, createWebpdEngine)
 }
 
-function* webpdDspToggleSaga() {
-    yield takeLatest(WEBPD_DSP_TOGGLE, webpdToggleDsp)
+function* toggleWebpdDspSaga() {
+    yield takeLatest(WEBPD_DSP_TOGGLE, toggleWebpdDsp)
 }
 
-function* webpdCreateNodeSaga() {
-    yield takeLatest(MODEL_ADD_NODE, createNode)
+function* createGraphNodeSaga() {
+    yield takeLatest(MODEL_ADD_NODE, createGraphNode)
 }
 
-function* webpdEditNodeSaga() {
-    yield takeLatest(MODEL_EDIT_NODE, _editNode)
+function* editGraphNodeSaga() {
+    yield takeLatest(MODEL_EDIT_NODE, editGraphNode)
 }
 
 export default function* rootSaga() {
     yield all([
-        webpdCreateSaga(),
-        webpdDspToggleSaga(),
-        webpdRequestLoadJsonSaga(),
-        webpdCreateNodeSaga(),
-        webpdEditNodeSaga(),
+        createWebpdEngineSaga(),
+        toggleWebpdDspSaga(),
+        requestLoadPdSaga(),
+        createGraphNodeSaga(),
+        editGraphNodeSaga(),
     ])
 }

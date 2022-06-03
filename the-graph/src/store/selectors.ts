@@ -1,5 +1,5 @@
 import { AppState } from "."
-import { getPdJson } from "../core/graph-conversion"
+import { graphToPd } from "../core/converters"
 import { Point, Popup } from "./ui"
 
 export const getUiTheme = (state: AppState) => state.ui.theme
@@ -12,7 +12,7 @@ export const getModelLibrary = (state: AppState) => state.model.library
 
 export const getCurrentPdPatch = (state: AppState) => {
     const graph = getModelGraph(state)
-    const pd = getPdJson(graph)
+    const pd = graphToPd(graph)
     return Object.values(pd.patches)[0]
 }
 
@@ -29,7 +29,6 @@ export const getUiCanvasCenterPoint = (state: AppState): Point => {
         x: (panX + appWidth / 2) / scale,
         y: (panY + appHeight / 2) / scale,
     }
-    console.log(center)
     return center
 }
 
