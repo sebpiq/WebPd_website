@@ -9,10 +9,11 @@ import { all, takeLatest, put, select, call, take, fork } from 'redux-saga/effec
 import { getCurrentPdPatch, getModelGraph, getUiCanvasCenterPoint, getWebpdContext, getWebpdEngine, getWebpdIsInitialized } from './selectors'
 import { setCreated, setInitialized, WebPdDspToggled, WEBPD_CREATE, WEBPD_DSP_TOGGLE } from './webpd'
 import { incrementGraphVersion, ModelAddNode, ModelEditNode, ModelRequestLoadPd, MODEL_ADD_NODE, MODEL_EDIT_NODE, MODEL_REQUEST_LOAD_PD, setGraph } from './model'
-import { updateEdgeMetadata, addNode, editNode, generateLibrary, loadPdJson, getPdJson, generateId } from '../core/graph-conversion'
+import { generateLibrary, loadPdJson, getPdJson } from '../core/graph-conversion'
 import { Library } from '../core/types'
 import { END, EventChannel, eventChannel } from 'redux-saga'
 import { Point } from './ui'
+import { addGraphNode, editGraphNode, generateId, runGraphChangedCleaning } from '../core/model'
 
 const uiGraphEventChannel = (uiGraph: fbpGraph.Graph) => {
     return eventChannel(emitter => {
@@ -39,7 +40,7 @@ function* uiGraphEventsSaga(uiGraph: fbpGraph.Graph) {
         // take(END) will cause the saga to terminate by jumping to the finally block
         yield take(events)
         const webpdEngine: Engine = yield select(getWebpdEngine)
-        updateEdgeMetadata(uiGraph, webpdEngine.settings)
+        runGraphChangedCleaning(uiGraph, webpdEngine.settings)
         yield call(graphChanged, uiGraph)
       }
     } catch(err) {
@@ -113,18 +114,13 @@ function* createNode(action: ModelAddNode) {
     const webpdEngine: Engine = yield select(getWebpdEngine)
     const patch: PdJson.Patch = yield select(getCurrentPdPatch)
     const nodeId = generateId(patch)
-    const pdNode: PdJson.Node = {
-        id: nodeId,
-        type: action.payload.nodeType,
-        args: action.payload.nodeArgs,
-    }
-    addNode(uiGraph, pdNode, canvasCenterPoint, webpdEngine.settings)
+    addGraphNode(uiGraph, nodeId, action.payload.nodeType, action.payload.nodeArgs, canvasCenterPoint, webpdEngine.settings)
     yield call(graphChanged, uiGraph)
 }
 
 function* _editNode(action: ModelEditNode) {
     const uiGraph: fbpGraph.Graph = yield select(getModelGraph)
-    editNode(uiGraph, action.payload.nodeId, action.payload.nodeArgs)
+    editGraphNode(uiGraph, action.payload.nodeId, action.payload.nodeArgs)
 }
 
 function* requestLoadPd(action: ModelRequestLoadPd) {

@@ -1,7 +1,7 @@
 import * as fbpGraph from 'fbp-graph'
 import NODE_VIEW_BUILDERS, { DEFAULT_ICON } from './node-view-builders'
-import { Library, PortletView, UiEdgeMetadata, UiNodeMetadata } from './types'
-import { Point } from '../store/ui'
+import { Library } from './types'
+import { addGraphNode, uiComponentName, UiEdgeMetadata, uiPortletId } from './model'
 
 export const getPdJson = (uiGraph: fbpGraph.Graph): PdJson.Pd => {
     const patch: PdJson.Patch = {
@@ -37,57 +37,6 @@ export const getPdJson = (uiGraph: fbpGraph.Graph): PdJson.Pd => {
     return pd
 }
 
-export const updateEdgeMetadata = (uiGraph: fbpGraph.Graph, engineSettings: PdEngine.Settings) => {
-    uiGraph.edges.forEach((edge) => {
-        // If edge metadata doesn't exist, we crate it first
-        if (!edge.metadata || !edge.metadata.pdConnection) {
-            const sourceNode = (uiGraph.getNode(edge.from.node).metadata as UiNodeMetadata).pdNode
-            const sinkNode = (uiGraph.getNode(edge.to.node).metadata as UiNodeMetadata).pdNode
-            const sourceNodeViewBuilder = NODE_VIEW_BUILDERS[sourceNode.type]
-            const sinkNodeViewBuilder = NODE_VIEW_BUILDERS[sinkNode.type]
-            const { outlets: outletViews } = sourceNodeViewBuilder.build(sourceNode.args, engineSettings)
-            const { inlets: inletViews } = sinkNodeViewBuilder.build(sinkNode.args, engineSettings)
-            const uiEdgeMetadata: UiEdgeMetadata = {
-                pdConnection: {
-                    source: {nodeId: sourceNode.id, portletId: pdPortletId(edge.from.port, outletViews) },
-                    sink: {nodeId: sinkNode.id, portletId: pdPortletId(edge.to.port, inletViews) },
-                }
-            }
-            edge.metadata = uiEdgeMetadata
-        }
-    })
-}
-
-const nodeSublabel = (pdNode: PdJson.Node) => 
-    pdNode.args.map(v => v.toString()).join(' ') || ' '
-
-export const addNode = (uiGraph: fbpGraph.Graph, pdNode: PdJson.Node, position: Point, engineSettings: PdEngine.Settings) => {
-    const uiNodeMetadata: UiNodeMetadata = {
-        x: position.x,
-        y: position.y,
-        label: pdNode.type,
-        icon: 'chevron-right',
-        // We put at least a space otherwise ThGraph will put a default sublabel
-        sublabel: nodeSublabel(pdNode),
-        pdNode,
-    }
-    uiGraph.addNode(pdNode.id, uiComponentName(pdNode, engineSettings), uiNodeMetadata)
-}
-
-export const editNode = (uiGraph: fbpGraph.Graph, nodeId: PdJson.ObjectLocalId, nodeArgs: PdJson.ObjectArgs) => {
-    const node = uiGraph.getNode(nodeId)
-    const uiNodeMetadata = node.metadata as UiNodeMetadata
-    const pdNode: PdJson.Node = {
-        ...uiNodeMetadata.pdNode, 
-        args: nodeArgs
-    }
-    uiGraph.setNodeMetadata(node.id, {
-        ...node.metadata, 
-        sublabel: nodeSublabel(pdNode),
-        pdNode
-    } as UiNodeMetadata)
-}
-
 export const loadPdJson = (pd: PdJson.Pd, engineSettings: PdEngine.Settings): fbpGraph.Graph => {
     const uiGraph = new fbpGraph.Graph('patch')
     const patches = Object.values(pd.patches)
@@ -100,7 +49,14 @@ export const loadPdJson = (pd: PdJson.Pd, engineSettings: PdEngine.Settings): fb
         // TODO : layout manage better
         const x = pdNode.layout.y * 5
         const y = pdNode.layout.x * 5
-        addNode(uiGraph, pdNode, {x, y}, engineSettings)
+        addGraphNode(
+            uiGraph, 
+            pdNode.id, 
+            pdNode.type,
+            pdNode.args,
+            {x, y}, 
+            engineSettings
+        )
     })
 
     Object.values(patch.connections).forEach(pdConnection => {
@@ -127,13 +83,13 @@ export const loadPdJson = (pd: PdJson.Pd, engineSettings: PdEngine.Settings): fb
 export const generateLibrary = (pd: PdJson.Pd, engineSettings: PdEngine.Settings): Library => {
     const library: Library = {} 
     Object.values(pd.patches).forEach((patch) => {
-        Object.values(patch.nodes).forEach(node => {
-            const nodeViewBuilder = NODE_VIEW_BUILDERS[node.type]
-            const componentName = uiComponentName(node, engineSettings)
-            const { inlets, outlets } = nodeViewBuilder.build(node.args, engineSettings)
+        Object.values(patch.nodes).forEach(pdNode => {
+            const nodeViewBuilder = NODE_VIEW_BUILDERS[pdNode.type]
+            const componentName = uiComponentName(pdNode.type, pdNode.args, engineSettings)
+            const { inlets, outlets } = nodeViewBuilder.build(pdNode.args, engineSettings)
 
             library[componentName] = {
-                name: node.type,
+                name: pdNode.type,
                 description: 'missing description :\'(',
                 iconsvg: nodeViewBuilder.icon ? nodeViewBuilder.icon : DEFAULT_ICON,
                 inports: inlets.map(inlet => ({ name: inlet.name, type: inlet.type })),
@@ -142,40 +98,4 @@ export const generateLibrary = (pd: PdJson.Pd, engineSettings: PdEngine.Settings
         })
     })
     return library
-}
-
-// Pd nodes can have for a same node type variable inlet / outlet number. 
-// This is the case, for example, of trigger.
-// The-graph takes only a static definition of inports / outports for one component.
-const uiComponentName = (node: PdJson.Node, engineSettings: PdEngine.Settings) => {
-    const nodeViewBuilder = NODE_VIEW_BUILDERS[node.type]
-    const { inlets, outlets } = nodeViewBuilder.build(node.args, engineSettings)
-    return `${node.type}:${inlets.length}:${outlets.length}`
-}
-
-const uiPortletId = (portletView: PortletView) => 
-    portletView.name
-
-const pdPortletId = (uiPortletId: string, portletViews: Array<PortletView>): PdJson.PortletId => {
-    let found: PdJson.PortletId = null
-    for (let i = 0 ; i < portletViews.length ; i++) {
-        const portletView = portletViews[i]
-        if (portletView.name === uiPortletId) {
-            found = i
-            break
-        }
-    }
-    if (found === null) {
-        throw new Error(`unknown portlet "${uiPortletId}"`)
-    }
-    return found
-}
-
-export const generateId = (patch: PdJson.Patch): PdJson.ObjectLocalId => {
-    const ids = Object.keys(patch.nodes)
-    let newId = (+new Date()).toString()
-    while (ids.includes(newId)) {
-        newId = (+new Date()).toString()
-    }
-    return newId
 }

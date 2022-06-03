@@ -1,16 +1,3 @@
-export interface UiNodeMetadata {
-    x: number
-    y: number
-    label: string
-    sublabel: string
-    icon: string
-    pdNode: PdJson.Node
-}
-
-export interface UiEdgeMetadata {
-    pdConnection: PdJson.Connection
-}
-
 export interface PortletView {
     type: PdJson.PortletType
     // must be unique for each portlet 

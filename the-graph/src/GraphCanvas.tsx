@@ -8,7 +8,7 @@ import { POPUP_NODE_EDIT, setPanScale, setPopup } from './store/ui'
 import { getModelGraph, getModelLibrary, getUiAppDimensions, getUiTheme } from './store/selectors'
 import { UiLibrary, UiTheme } from './store/ui'
 import styled from 'styled-components'
-import { UiNodeMetadata } from './core/types'
+import { UiNodeMetadata } from './core/model'
 
 const Container = styled.div`
     background-color: transparent;
