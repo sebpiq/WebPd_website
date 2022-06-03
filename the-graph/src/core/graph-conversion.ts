@@ -58,6 +58,9 @@ export const updateEdgeMetadata = (uiGraph: fbpGraph.Graph, engineSettings: PdEn
     })
 }
 
+const nodeSublabel = (pdNode: PdJson.Node) => 
+    pdNode.args.map(v => v.toString()).join(' ') || ' '
+
 export const addNode = (uiGraph: fbpGraph.Graph, pdNode: PdJson.Node, position: Point, engineSettings: PdEngine.Settings) => {
     const uiNodeMetadata: UiNodeMetadata = {
         x: position.x,
@@ -65,10 +68,24 @@ export const addNode = (uiGraph: fbpGraph.Graph, pdNode: PdJson.Node, position: 
         label: pdNode.type,
         icon: 'chevron-right',
         // We put at least a space otherwise ThGraph will put a default sublabel
-        sublabel: pdNode.args.map(v => v.toString()).join(' ') || ' ',
+        sublabel: nodeSublabel(pdNode),
         pdNode,
     }
     uiGraph.addNode(pdNode.id, uiComponentName(pdNode, engineSettings), uiNodeMetadata)
+}
+
+export const editNode = (uiGraph: fbpGraph.Graph, nodeId: PdJson.ObjectLocalId, nodeArgs: PdJson.ObjectArgs) => {
+    const node = uiGraph.getNode(nodeId)
+    const uiNodeMetadata = node.metadata as UiNodeMetadata
+    const pdNode: PdJson.Node = {
+        ...uiNodeMetadata.pdNode, 
+        args: nodeArgs
+    }
+    uiGraph.setNodeMetadata(node.id, {
+        ...node.metadata, 
+        sublabel: nodeSublabel(pdNode),
+        pdNode
+    } as UiNodeMetadata)
 }
 
 export const loadPdJson = (pd: PdJson.Pd, engineSettings: PdEngine.Settings): fbpGraph.Graph => {
@@ -162,41 +179,3 @@ export const generateId = (patch: PdJson.Patch): PdJson.ObjectLocalId => {
     }
     return newId
 }
-
-// const library = {
-//   basic: {
-//     name: 'osc~',
-//     description: 'basic demo component',
-//     icon: 'eye',
-//     inports: [
-//       { name: 'in0', type: 'all' },
-//       { name: 'in1', type: 'all' },
-//     ],
-//     outports: [
-//       { name: 'out', type: 'all' },
-//     ],
-//   },
-//   tall: {
-//     name: 'tall',
-//     description: 'tall demo component',
-//     icon: 'cog',
-//     inports: [
-//       { name: 'in0', type: 'all' },
-//       { name: 'in1', type: 'all' },
-//       { name: 'in2', type: 'all' },
-//       { name: 'in3', type: 'all' },
-//       { name: 'in4', type: 'all' },
-//       { name: 'in5', type: 'all' },
-//       { name: 'in6', type: 'all' },
-//       { name: 'in7', type: 'all' },
-//       { name: 'in8', type: 'all' },
-//       { name: 'in9', type: 'all' },
-//       { name: 'in10', type: 'all' },
-//       { name: 'in11', type: 'all' },
-//       { name: 'in12', type: 'all' },
-//     ],
-//     outports: [
-//       { name: 'out0', type: 'all' },
-//     ],
-//   },
-// };

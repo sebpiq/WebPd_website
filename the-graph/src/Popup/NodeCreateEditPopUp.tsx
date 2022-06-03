@@ -3,9 +3,9 @@ import { parseArg } from '@webpd/pd-parser'
 import { connect } from 'react-redux'
 import styled from "styled-components"
 import { AppState } from '../store'
-import { addNode } from '../store/model'
-import { getCurrentPdPatch, getUiPopup } from '../store/selectors'
-import { POPUP_NODE_CREATE, setPopup, UiTheme } from '../store/ui'
+import { addNode, editNode } from '../store/model'
+import { getCurrentPdPatch } from '../store/selectors'
+import { setPopup, UiTheme } from '../store/ui'
 import ThemedInput from '../styled-components/ThemedInput'
 import { NODE_BUILDERS } from '@webpd/dsp-graph'
 import themeConfig, { Colors } from '../theme-config'
@@ -60,7 +60,15 @@ const NodeArgsViewer = connect(
 interface Props {
     setPopup: typeof setPopup
     addNode: typeof addNode
+    editNode: typeof addNode
     nodeType: PdSharedTypes.NodeType
+    nodeId?: PdJson.ObjectLocalId
+    nodeArgs?: PdJson.ObjectArgs
+}
+
+interface State {
+    newArgs: PdJson.ObjectArgs | null
+    inputValue: string
 }
 
 const Container = styled.div`
@@ -95,11 +103,14 @@ const SubmitButton = styled(ThemedInput)`
     width: 100%;
 `
 
-class NodeCreatePopUp extends React.Component<Props, { args: PdJson.ObjectArgs | null }> {
+class NodeCreatePopUp extends React.Component<Props, State> {
 
     constructor(props: Props) {
         super(props)
-        this.state = { args: [] }
+        this.state = { 
+            newArgs: this.props.nodeArgs ? this.props.nodeArgs : [],
+            inputValue: this.props.nodeArgs ? this.props.nodeArgs.map(v => v.toString()).join(' ') : '',
+        }
     }
 
     componentDidMount() {
@@ -109,18 +120,24 @@ class NodeCreatePopUp extends React.Component<Props, { args: PdJson.ObjectArgs |
     }
 
     render() {
-        const {nodeType, setPopup, addNode} = this.props
-        const {args} = this.state
+        const {nodeType, setPopup, addNode, editNode, nodeId, nodeArgs: currentArgs} = this.props
+        const {newArgs, inputValue} = this.state
 
         const onArgsChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-            const rawArgs = event.currentTarget.value.split(' ')
-            const args: PdJson.ObjectArgs = rawArgs.map((rawArg: string) => parseArg(rawArg))
-            this.setState({ args })
+            const inputValue = event.currentTarget.value
+            const newArgs: PdJson.ObjectArgs = event.currentTarget.value
+                .split(' ')
+                .map((rawArg: string) => parseArg(rawArg))
+            this.setState({ newArgs, inputValue })
         }
 
         const onSubmit = (event: React.FormEvent<HTMLFormElement>) => {
             event.preventDefault()
-            addNode(nodeType, args)
+            if (nodeId) {
+                editNode(nodeId, newArgs)
+            } else {
+                addNode(nodeType, newArgs)
+            }
             setPopup(null)
         }
 
@@ -135,10 +152,11 @@ class NodeCreatePopUp extends React.Component<Props, { args: PdJson.ObjectArgs |
                             onChange={onArgsChange} 
                             placeholder="Write object arguments separated by a space"
                             autoComplete="off"
+                            value={inputValue}
                         />
                     </TypeAndArgsContainer>
-                    <NodeArgsViewer nodeArgs={args} nodeType={nodeType} />
-                    <SubmitButton type="submit" value="Create" />
+                    <NodeArgsViewer nodeArgs={newArgs} nodeType={nodeType} />
+                    <SubmitButton type="submit" value={currentArgs ? "Save changes" : "Create"} />
                 </form>
             </Container>
         )
@@ -147,12 +165,6 @@ class NodeCreatePopUp extends React.Component<Props, { args: PdJson.ObjectArgs |
 }
 
 export default connect(
-    (state: AppState) => {
-        const popup = getUiPopup(state)
-        if (popup.type !== POPUP_NODE_CREATE) {
-            throw new Error(`Unexpected popup "${popup.type}"`)
-        }
-        return { nodeType: popup.data.nodeType }
-    }, 
-    { addNode, setPopup }
+    null, 
+    { addNode, setPopup, editNode }
 )(NodeCreatePopUp)

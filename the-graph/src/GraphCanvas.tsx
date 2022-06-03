@@ -1,13 +1,14 @@
 import React from 'react'
 import * as fbpGraph from 'fbp-graph'
-import { GraphEdge } from 'fbp-graph/src/Types'
+import { GraphEdge, GraphNode } from 'fbp-graph/src/Types'
 import TheGraph from 'the-graph'
 import { connect } from 'react-redux'
 import { AppState } from './store'
-import { setPanScale } from './store/ui'
+import { POPUP_NODE_EDIT, setPanScale, setPopup } from './store/ui'
 import { getModelGraph, getModelLibrary, getUiAppDimensions, getUiTheme } from './store/selectors'
 import { UiLibrary, UiTheme } from './store/ui'
 import styled from 'styled-components'
+import { UiNodeMetadata } from './core/types'
 
 const Container = styled.div`
     background-color: transparent;
@@ -28,7 +29,8 @@ export interface Props {
     library: UiLibrary,
     width: number
     height: number
-    panChanged: typeof setPanScale
+    setPanScale: typeof setPanScale
+    setPopup: typeof setPopup
 }
 
 class GraphCanvas extends React.Component<Props> {
@@ -36,7 +38,8 @@ class GraphCanvas extends React.Component<Props> {
     render() {
         const { 
             theme,
-            panChanged,
+            setPanScale,
+            setPopup,
             library, 
             width,
             height,
@@ -46,15 +49,32 @@ class GraphCanvas extends React.Component<Props> {
         const themeClassName = `the-graph-${theme}`
     
         // Context menu specification
-        const deleteNode = (graph: fbpGraph.Graph, itemKey: string, item: GraphEdge) => {
+        const deleteNode = (graph: fbpGraph.Graph, itemKey: string, item: GraphNode) => {
             graph.removeNode(itemKey)
         }
-        const deleteEdge = (graph: fbpGraph.Graph, itemKey: string, item: GraphEdge) => {
+
+        const editNode = (_: fbpGraph.Graph, __: string, item: GraphNode) => {
+            const uiNodeMetadata = item.metadata as UiNodeMetadata
+            if (!uiNodeMetadata) {
+                throw new Error(`Node "${item.id}" has no metadata`)
+            }
+            const pdNode = uiNodeMetadata.pdNode
+            setPopup({
+                type: POPUP_NODE_EDIT, 
+                data: {
+                    nodeArgs: pdNode.args,
+                    nodeType: pdNode.type,
+                    nodeId: pdNode.id,
+                }
+            })
+        }
+
+        const deleteEdge = (graph: fbpGraph.Graph, _: string, item: GraphEdge) => {
             graph.removeEdge(item.from.node, item.from.port, item.to.node, item.to.port)
         }
     
         const onPanScale = (x: number, y: number, scale: number) => {
-            panChanged(-x, -y, scale)
+            setPanScale(-x, -y, scale)
         }
     
         const contextMenus: any = {
@@ -73,6 +93,11 @@ class GraphCanvas extends React.Component<Props> {
                 },
             },
             node: {
+                n4: {
+                    icon: 'cog',
+                    iconLabel: 'edit',
+                    action: editNode,
+                },
                 s4: {
                     icon: 'trash',
                     iconLabel: 'delete',
@@ -125,5 +150,5 @@ export default connect(
             height: appDimensions.height,
         }
     },
-    {panChanged: setPanScale}
+    {setPanScale, setPopup}
 )(GraphCanvas)

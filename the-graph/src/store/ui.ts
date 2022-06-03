@@ -16,6 +16,7 @@ export interface Point {
 
 export const POPUP_NODE_LIBRARY = 'POPUP_NODE_LIBRARY'
 export const POPUP_NODE_CREATE = 'POPUP_NODE_CREATE'
+export const POPUP_NODE_EDIT = 'POPUP_NODE_EDIT'
 
 export type UiPopup = typeof POPUP_NODE_LIBRARY | typeof POPUP_NODE_CREATE
 
@@ -26,11 +27,20 @@ interface NodeCreatePopupData {
     }
 }
 
+interface NodeEditPopupData {
+    type: typeof POPUP_NODE_EDIT
+    data: {
+        nodeType: PdSharedTypes.NodeType
+        nodeArgs: PdJson.ObjectArgs
+        nodeId: PdJson.ObjectLocalId
+    }
+}
+
 interface NodeLibraryPopupData {
     type: typeof POPUP_NODE_LIBRARY
 }
 
-export type Popup = NodeCreatePopupData | NodeLibraryPopupData
+export type Popup = NodeCreatePopupData | NodeLibraryPopupData | NodeEditPopupData
 
 // ------------- Action Types ------------ //
 export type UiTheme = 'dark' | 'light'

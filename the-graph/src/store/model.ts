@@ -5,6 +5,7 @@ import { Library } from '../core/types'
 export const MODEL_SET_GRAPH = 'MODEL_SET_GRAPH'
 export const MODEL_INCREMENT_GRAPH_VERSION = 'MODEL_INCREMENT_GRAPH_VERSION'
 export const MODEL_ADD_NODE = 'MODEL_ADD_NODE'
+export const MODEL_EDIT_NODE = 'MODEL_EDIT_NODE'
 export const MODEL_REQUEST_LOAD_PD = 'MODEL_REQUEST_LOAD_PD'
 
 
@@ -19,8 +20,16 @@ interface ModelSetGraph {
 export interface ModelAddNode {
     type: typeof MODEL_ADD_NODE
     payload: {
-        type: PdSharedTypes.NodeType,
-        args: PdJson.ObjectArgs
+        nodeType: PdSharedTypes.NodeType,
+        nodeArgs: PdJson.ObjectArgs
+    }
+}
+
+export interface ModelEditNode {
+    type: typeof MODEL_EDIT_NODE
+    payload: {
+        nodeId: PdJson.ObjectLocalId,
+        nodeArgs: PdJson.ObjectArgs
     }
 }
 
@@ -35,7 +44,7 @@ export interface ModelRequestLoadPd {
     }
 }
 
-type ModelTypes = ModelSetGraph | ModelIncrementGraphVersion | ModelAddNode | ModelRequestLoadPd
+type ModelTypes = ModelSetGraph | ModelIncrementGraphVersion | ModelAddNode | ModelEditNode | ModelRequestLoadPd
 
 
 // ------------ Action Creators ---------- //
@@ -47,10 +56,17 @@ export const setGraph = (graph: fbpGraph.Graph, library: Library): ModelTypes =>
     }
 }
 
-export const addNode = (type: PdSharedTypes.NodeType, args: PdJson.ObjectArgs): ModelTypes => {
+export const addNode = (nodeType: PdSharedTypes.NodeType, nodeArgs: PdJson.ObjectArgs): ModelTypes => {
     return {
         type: MODEL_ADD_NODE,
-        payload: {type, args},
+        payload: {nodeType, nodeArgs},
+    }
+}
+
+export const editNode = (nodeId: PdJson.ObjectLocalId, nodeArgs: PdJson.ObjectArgs): ModelTypes => {
+    return {
+        type: MODEL_EDIT_NODE,
+        payload: {nodeId, nodeArgs},
     }
 }
 

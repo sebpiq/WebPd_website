@@ -8,11 +8,11 @@ import evalEngine, {
 import { all, takeLatest, put, select, call, take, fork } from 'redux-saga/effects'
 import { getCurrentPdPatch, getModelGraph, getUiCanvasCenterPoint, getWebpdContext, getWebpdEngine, getWebpdIsInitialized } from './selectors'
 import { setCreated, setInitialized, WebPdDspToggled, WEBPD_CREATE, WEBPD_DSP_TOGGLE } from './webpd'
-import { incrementGraphVersion, ModelAddNode, ModelRequestLoadPd, MODEL_ADD_NODE, MODEL_REQUEST_LOAD_PD, setGraph } from './model'
-import { updateEdgeMetadata, addNode, generateLibrary, loadPdJson, getPdJson, generateId } from '../core/graph-conversion'
+import { incrementGraphVersion, ModelAddNode, ModelEditNode, ModelRequestLoadPd, MODEL_ADD_NODE, MODEL_EDIT_NODE, MODEL_REQUEST_LOAD_PD, setGraph } from './model'
+import { updateEdgeMetadata, addNode, editNode, generateLibrary, loadPdJson, getPdJson, generateId } from '../core/graph-conversion'
 import { Library } from '../core/types'
 import { END, EventChannel, eventChannel } from 'redux-saga'
-import { AppDimensions, Point } from './ui'
+import { Point } from './ui'
 
 const uiGraphEventChannel = (uiGraph: fbpGraph.Graph) => {
     return eventChannel(emitter => {
@@ -115,11 +115,16 @@ function* createNode(action: ModelAddNode) {
     const nodeId = generateId(patch)
     const pdNode: PdJson.Node = {
         id: nodeId,
-        type: action.payload.type,
-        args: action.payload.args,
+        type: action.payload.nodeType,
+        args: action.payload.nodeArgs,
     }
     addNode(uiGraph, pdNode, canvasCenterPoint, webpdEngine.settings)
     yield call(graphChanged, uiGraph)
+}
+
+function* _editNode(action: ModelEditNode) {
+    const uiGraph: fbpGraph.Graph = yield select(getModelGraph)
+    editNode(uiGraph, action.payload.nodeId, action.payload.nodeArgs)
 }
 
 function* requestLoadPd(action: ModelRequestLoadPd) {
@@ -151,11 +156,16 @@ function* webpdCreateNodeSaga() {
     yield takeLatest(MODEL_ADD_NODE, createNode)
 }
 
+function* webpdEditNodeSaga() {
+    yield takeLatest(MODEL_EDIT_NODE, _editNode)
+}
+
 export default function* rootSaga() {
     yield all([
         webpdCreateSaga(),
         webpdDspToggleSaga(),
         webpdRequestLoadJsonSaga(),
         webpdCreateNodeSaga(),
+        webpdEditNodeSaga(),
     ])
 }

@@ -4,9 +4,9 @@ import styled from 'styled-components'
 import NodeLibraryPopUp from './NodeLibraryPopUp'
 import { AppState } from '../store'
 import { getUiPopup } from '../store/selectors'
-import { POPUP_NODE_LIBRARY, setPopup, Popup, UiTheme, POPUP_NODE_CREATE } from '../store/ui'
+import { POPUP_NODE_LIBRARY, setPopup, Popup, UiTheme, POPUP_NODE_CREATE, POPUP_NODE_EDIT } from '../store/ui'
 import themeConfig, { Colors } from '../theme-config'
-import NodeCreatePopUp from './NodeCreatePopUp'
+import NodeCreateEditPopUp from './NodeCreateEditPopUp'
 import ThemedButton from '../styled-components/ThemedButton'
 import themed from '../styled-components/themed'
 
@@ -80,7 +80,13 @@ class PopupComponent extends React.Component<Props> {
         if (popup.type === POPUP_NODE_LIBRARY) {
             popupElem = <NodeLibraryPopUp />
         } else if (popup.type === POPUP_NODE_CREATE) {
-            popupElem = <NodeCreatePopUp />
+            popupElem = <NodeCreateEditPopUp nodeType={popup.data.nodeType} />
+        } else if (popup.type === POPUP_NODE_EDIT) {
+            popupElem = <NodeCreateEditPopUp 
+                nodeId={popup.data.nodeId} 
+                nodeType={popup.data.nodeType} 
+                nodeArgs={popup.data.nodeArgs}
+            />
         }
     
         return (
