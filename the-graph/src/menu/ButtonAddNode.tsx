@@ -11,7 +11,7 @@ const ButtonAddNode = ({ setPopup }: Props) => {
     const onClick = () => { setPopup({type: POPUP_NODE_LIBRARY}) }
     return (
         <ThemedButton onClick={onClick}>
-            Add object
+            add object
         </ThemedButton>
     )
 }

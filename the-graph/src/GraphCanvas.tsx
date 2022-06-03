@@ -4,7 +4,7 @@ import { GraphEdge, GraphNode } from 'fbp-graph/src/Types'
 import TheGraph from 'the-graph'
 import { connect } from 'react-redux'
 import { AppState } from './store'
-import { POPUP_NODE_EDIT, setPanScale, setPopup } from './store/ui'
+import { POPUP_NODE_EDIT, POPUP_NODE_LIBRARY, setPanScale, setPopup } from './store/ui'
 import { getModelGraph, getModelLibrary, getUiAppDimensions, getUiTheme } from './store/selectors'
 import { UiLibrary, UiTheme } from './store/ui'
 import styled from 'styled-components'
@@ -19,6 +19,10 @@ const Container = styled.div`
     svg {
         .icon image {
             pointer-events: none;
+        }
+
+        .context-node-rect, .context-node-icon {
+            display: none;
         }
     }
 `
@@ -65,6 +69,8 @@ class GraphCanvas extends React.Component<Props> {
             })
         }
 
+        const addNode = () => setPopup({ type: POPUP_NODE_LIBRARY })
+
         const deleteEdge = (graph: fbpGraph.Graph, _: string, item: GraphEdge) => {
             graph.removeEdge(item.from.node, item.from.port, item.to.node, item.to.port)
         }
@@ -74,14 +80,20 @@ class GraphCanvas extends React.Component<Props> {
         }
     
         const contextMenus: any = {
-            main: null,
+            main: {
+                icon: 'long-arrow-right',
+                s4: {
+                    icon: 'plus',
+                    iconLabel: 'add object',
+                    action: addNode,
+                },
+            },
             selection: null,
             nodeInport: null,
             nodeOutport: null,
             graphInport: null,
             graphOutport: null,
             edge: {
-                icon: 'long-arrow-right',
                 s4: {
                     icon: 'trash',
                     iconLabel: 'delete',
@@ -89,8 +101,9 @@ class GraphCanvas extends React.Component<Props> {
                 },
             },
             node: {
+                icon: 'cogs',
                 n4: {
-                    icon: 'cog',
+                    icon: 'cogs',
                     iconLabel: 'edit',
                     action: editNode,
                 },
