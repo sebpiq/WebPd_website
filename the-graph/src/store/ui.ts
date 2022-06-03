@@ -76,7 +76,7 @@ export const setTheme = (theme: UiTheme): UiTypes => {
     }
 }
 
-export const panScaleChanged = (x: number, y: number, scale: number): UiTypes => {
+export const setPanScale = (x: number, y: number, scale: number): UiTypes => {
     return {
         type: UI_SET_PAN_SCALE,
         payload: {x, y, scale},

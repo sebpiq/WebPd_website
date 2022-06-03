@@ -4,7 +4,7 @@ import { GraphEdge } from 'fbp-graph/src/Types'
 import TheGraph from 'the-graph'
 import { connect } from 'react-redux'
 import { AppState } from './store'
-import { panScaleChanged } from './store/ui'
+import { setPanScale } from './store/ui'
 import { getModelGraph, getModelLibrary, getUiAppDimensions, getUiTheme } from './store/selectors'
 import { UiLibrary, UiTheme } from './store/ui'
 import styled from 'styled-components'
@@ -28,7 +28,7 @@ export interface Props {
     library: UiLibrary,
     width: number
     height: number
-    panChanged: typeof panScaleChanged
+    panChanged: typeof setPanScale
 }
 
 class GraphCanvas extends React.Component<Props> {
@@ -125,5 +125,5 @@ export default connect(
             height: appDimensions.height,
         }
     },
-    {panChanged: panScaleChanged}
+    {panChanged: setPanScale}
 )(GraphCanvas)

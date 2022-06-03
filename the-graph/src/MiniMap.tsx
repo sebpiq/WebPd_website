@@ -6,6 +6,7 @@ import { getModelGraph, getModelGraphVersion, getUiPanScale } from './store/sele
 import { connect } from 'react-redux'
 import styled from 'styled-components'
 import themeConfig from './theme-config'
+import { Point, setPanScale } from './store/ui'
 
 const Container = styled.div`
     position: absolute;
@@ -19,19 +20,21 @@ export interface Props {
     scale: number,
     graph: fbpGraph.Graph,
     graphVersion: number,
+    setPanScale: typeof setPanScale
 }
 
 const MiniMap = ({ 
-    panX, panY, scale, graph
+    panX, panY, scale, graph, setPanScale
 }: Props) => {
     // Attach nav
     function fitGraphInView() {
-        const editor = document.getElementById('editor')
+        // const editor = document.getElementById('editor')
         console.log('EDITOR TRIGGERFIT')
-        ;(editor as any).triggerFit()
+        // ;(editor as any).triggerFit()
     }
 
-    function panEditorTo() {}
+    function panEditorTo(point: Point) {
+    }
 
     const view = [
         panX,
@@ -67,5 +70,6 @@ export default connect(
             // Force re-rendering of mini-map everytime the graph is modified
             graphVersion: getModelGraphVersion(state)
         }
-    }
+    }, 
+    { setPanScale }
 )(MiniMap)
