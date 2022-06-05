@@ -1,7 +1,13 @@
 import { connect } from "react-redux";
 import { AppState } from "../store";
 import { getUiTheme } from "../store/selectors";
-import themeConfig from "../theme-config";
+import { UiTheme } from "../store/ui";
+import themeConfig, { Colors } from "../theme-config";
+
+export interface ThemedProps {
+    theme: UiTheme
+    colors: Colors
+}
 
 export default connect(
     (state: AppState) => {

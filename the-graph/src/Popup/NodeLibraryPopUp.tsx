@@ -3,7 +3,8 @@ import { connect } from 'react-redux'
 import styled from "styled-components"
 import NODE_VIEW_BUILDERS from "../core/node-view-builders"
 import { POPUP_NODE_CREATE, setPopup } from '../store/ui'
-import ThemedButton from '../styled-components/ThemedButton'
+import { onMobile } from '../styled-components/media-queries'
+import { ThemedButton2 } from '../styled-components/ThemedButton'
 import ThemedInput from '../styled-components/ThemedInput'
 import themeConfig from '../theme-config'
 
@@ -28,15 +29,22 @@ const SearchInputContainer = styled.div`
 const NodeTileContainer = styled.div`
     display: grid;
     grid-template-columns: 1fr 1fr 1fr 1fr 1fr 1fr 1fr 1fr;
-    grid-gap: ${themeConfig.spacing.default};
+    grid-template-rows: 0fr;
+    ${onMobile(`
+        grid-template-columns: 1fr 1fr 1fr;
+    `)}
+    grid-gap: calc(${themeConfig.spacing.default} / 2);
     height: 100%;
     width: 100%;
     padding: ${themeConfig.spacing.default};
 `
 
-const NodeTile = styled(ThemedButton)`
+const NodeTile = styled(ThemedButton2)`
     aspect-ratio: 1;
     font-size: 150%;
+    ${onMobile(`
+        font-size: 100%;
+    `)}
 `
 
 class NodeLibraryPopUp extends React.Component<Props, State> {

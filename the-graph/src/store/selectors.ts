@@ -32,6 +32,8 @@ export const getUiCanvasCenterPoint = (state: AppState): Point => {
     return center
 }
 
+export const getUiMobileMenuExpanded = (state: AppState) => state.ui.mobileMenuExpanded
+
 export const getWebpdIsCreated = (state: AppState) => state.webpd.isCreated
 
 export const getWebpdIsDspOn = (state: AppState) => state.webpd.isDspOn

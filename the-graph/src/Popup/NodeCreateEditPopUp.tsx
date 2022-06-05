@@ -6,7 +6,7 @@ import { AppState } from '../store'
 import { addNode, editNode } from '../store/model'
 import { getCurrentPdPatch } from '../store/selectors'
 import { setPopup, UiTheme } from '../store/ui'
-import ThemedInput from '../styled-components/ThemedInput'
+import ThemedInput, { ThemedInput2 } from '../styled-components/ThemedInput'
 import { NODE_BUILDERS } from '@webpd/dsp-graph'
 import themeConfig, { Colors } from '../theme-config'
 import themed from '../styled-components/themed'
@@ -21,12 +21,12 @@ const NodeArgsViewerContainer = themed(styled.div<{ theme: UiTheme, colors: Colo
     ul {
         list-style: none;
         padding: 0;
-        margin: ${themeConfig.spacing.default} 0;
+        margin: calc(${themeConfig.spacing.default} / 2) 0;
 
         li {
             ${({ colors }) => `
                 color: ${colors.text2};
-                background: ${colors.bg};
+                background: ${colors.bg2};
             `}
             padding: ${themeConfig.spacing.default};
         }
@@ -76,6 +76,7 @@ const Container = styled.div`
     flex-direction: column;
     max-width: 30em;
     width: 100%;
+    padding: 0 ${themeConfig.spacing.default};
 `
 
 const TypeAndArgsContainer = themed(styled.div<{ theme: UiTheme, colors: Colors }>`
@@ -84,7 +85,7 @@ const TypeAndArgsContainer = themed(styled.div<{ theme: UiTheme, colors: Colors 
     align-items: center;
 
     ${({ colors }) => `
-        background: ${colors.bg};
+        background: ${colors.bg2};
     `}
 
     & > span:first-child {  
@@ -146,7 +147,7 @@ class NodeCreatePopUp extends React.Component<Props, State> {
                 <form onSubmit={onSubmit} ref="nodeForm">
                     <TypeAndArgsContainer>
                         <span>{nodeType}</span>
-                        <ThemedInput 
+                        <ThemedInput2 
                             type="text" 
                             name="args" 
                             onChange={onArgsChange} 

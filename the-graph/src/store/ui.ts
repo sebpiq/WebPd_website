@@ -52,7 +52,8 @@ export type UiLibrary = any
 export const UI_SET_THEME = 'UI_SET_THEME'
 export const UI_SET_PAN_SCALE = 'UI_SET_PAN_SCALE'
 export const UI_SET_POPUP = 'UI_SET_POPUP'
-export const UI_SET_APP_DIMENSIONS = 'UI_SETAPP_DIMENSIONS'
+export const UI_SET_APP_DIMENSIONS = 'UI_SET_APP_DIMENSIONS'
+export const UI_SET_MOBILE_MENU_EXPANDED = 'UI_SET_MOBILE_MENU_EXPANDED'
 
 interface UiSetPanScale {
     type: typeof UI_SET_PAN_SCALE
@@ -78,7 +79,12 @@ interface UiSetAppDimensions {
     payload: AppDimensions
 }
 
-type UiTypes = UiSetTheme | UiSetPanScale | UiSetPopup | UiSetAppDimensions
+interface UiSetMobileMenuExpanded {
+    type: typeof UI_SET_MOBILE_MENU_EXPANDED
+    payload: boolean
+}
+
+type UiTypes = UiSetTheme | UiSetPanScale | UiSetPopup | UiSetAppDimensions | UiSetMobileMenuExpanded
 
 
 // ------------ Action Creators ---------- //
@@ -110,12 +116,20 @@ export const setAppDimensions = (width: number, height: number) => {
     }
 }
 
+export const setMobileMenuExpanded = (expanded: boolean) => {
+    return {
+        type: UI_SET_MOBILE_MENU_EXPANDED,
+        payload: expanded,
+    }
+}
+
 // ----------------- State --------------- //
 export interface UiState {
     popup: Popup | null
     theme: UiTheme
     panScale: PanScale
     appDimensions: AppDimensions
+    mobileMenuExpanded: boolean
 }
 
 export const initialState: UiState = {
@@ -129,7 +143,8 @@ export const initialState: UiState = {
     appDimensions: {
         width: window.innerWidth,
         height: window.innerHeight,
-    }
+    },
+    mobileMenuExpanded: false
 }
 
 // ---------------- Reducer -------------- //
@@ -151,12 +166,19 @@ export const uiReducer = (
         case UI_SET_POPUP:
             return {
                 ...state,
-                popup: action.payload.popup
+                popup: action.payload.popup,
+                mobileMenuExpanded: false,
             }
         case UI_SET_APP_DIMENSIONS:
             return {
                 ...state,
                 appDimensions: action.payload,
+            }
+        case UI_SET_MOBILE_MENU_EXPANDED:
+            return {
+                ...state,
+                popup: null,
+                mobileMenuExpanded: action.payload
             }
         default:
             return state

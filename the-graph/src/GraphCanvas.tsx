@@ -69,7 +69,10 @@ class GraphCanvas extends React.Component<Props> {
             })
         }
 
-        const addNode = () => setPopup({ type: POPUP_NODE_LIBRARY })
+        const addNode = (a: any, b: any, c: any, d: any) => {
+            console.log(a, b, c, d)
+            setPopup({ type: POPUP_NODE_LIBRARY })
+        }
 
         const deleteEdge = (graph: fbpGraph.Graph, _: string, item: GraphEdge) => {
             graph.removeEdge(item.from.node, item.from.port, item.to.node, item.to.port)

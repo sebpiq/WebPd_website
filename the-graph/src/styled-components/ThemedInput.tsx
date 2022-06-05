@@ -4,9 +4,19 @@ import { UiTheme } from '../store/ui'
 import themeConfig, { Colors } from '../theme-config'
 import themed from './themed'
 
-export default themed(styled.input<{ theme: UiTheme, colors: Colors }>`
+const mixin = `
     font-family: ${themeConfig.fontFamilies.default};
     border: 1px solid transparent;
+    padding: 1em;
+    cursor: pointer;
+    transition: border-color 250ms;
+    &:disabled {
+        color: Grey;
+    }
+`
+
+export default themed(styled.input<{ theme: UiTheme, colors: Colors }>`
+    ${mixin}
     ${({ colors }) => `
         background: ${colors.bg};
         color: ${colors.text};
@@ -14,7 +24,15 @@ export default themed(styled.input<{ theme: UiTheme, colors: Colors }>`
             border-color: ${colors.text};
         }
     `}
-    padding: 1em;
-    cursor: pointer;
-    transition: border-color 250ms;
+`)
+
+export const ThemedInput2 = themed(styled.input<{ theme: UiTheme, colors: Colors }>`
+    ${mixin}
+    ${({ colors }) => `
+        background: ${colors.bg2};
+        color: ${colors.text2};
+        &:hover, &:focus {
+            border-color: ${colors.text2};
+        }
+    `}
 `)

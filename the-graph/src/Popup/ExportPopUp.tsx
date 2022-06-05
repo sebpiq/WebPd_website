@@ -8,9 +8,12 @@ import { AppState } from '../store'
 import { Engine } from '@webpd/engine-live-eval'
 import renderPdFile from '@webpd/pd-renderer'
 import { getCurrentPdPatch, getModelGraph, getWebpdEngine } from '../store/selectors'
-import themeConfig from '../theme-config'
-import ThemedInput from '../styled-components/ThemedInput'
+import themeConfig, { Colors } from '../theme-config'
+import ThemedInput, { ThemedInput2 } from '../styled-components/ThemedInput'
 import { download } from '../core/browser'
+import themed from '../styled-components/themed'
+import { UiTheme } from '../store/ui'
+import { onDesktop, onMobile } from '../styled-components/media-queries'
 
 interface Props {
     webpdEngine: Engine
@@ -38,34 +41,78 @@ const CodeAreaContainer = styled.div`
     flex: auto 1 1;
     pre {
         min-height: 100%;
+        overflow: auto;
+        color: black;
         background-color: LightGrey;
         margin: 0;
         padding: ${themeConfig.spacing.default};
     }
 `
 
-const ButtonsContainer = styled.div`
-    button {
-        margin: ${themeConfig.spacing.default} 0em;
-        margin-left: ${themeConfig.spacing.default};
-        &:last-child {
-            margin-right: ${themeConfig.spacing.default};
-        }
+const TabsContainer = styled.div`
+    ${onMobile(`
+        display: flex;
+        flex-direction: column;
+        padding: ${themeConfig.spacing.default};
+    `)}
+
+    button {        
+        ${onDesktop(`
+            margin: ${themeConfig.spacing.default} 0em;
+            margin-left: ${themeConfig.spacing.default};
+            &:last-child {
+                margin-right: ${themeConfig.spacing.default};
+            }
+        `)}
+
+        ${onMobile(`
+            margin-bottom: calc(${themeConfig.spacing.default} / 2);
+            &:last-child {
+                margin-bottom: 0;
+            }
+        `)}
     }
 
 `
 
 const DownloadContainer = styled.div`
-    form > * {
-        margin: ${themeConfig.spacing.default} 0em;
-        margin-left: ${themeConfig.spacing.default};
-        &:last-child {
-            margin-right: ${themeConfig.spacing.default};
+    form {
+        ${onMobile(`        
+            display: flex;
+            flex-direction: column;
+            padding: ${themeConfig.spacing.default};
+        `)}
+
+        & > * {
+            ${onDesktop(`
+                margin: ${themeConfig.spacing.default} 0em;
+                margin-left: ${themeConfig.spacing.default};
+                &:last-child {
+                    margin-right: ${themeConfig.spacing.default};
+                }
+            `)}
         }
     }
 `
 
-const FilenameSpan = styled.span``
+const FilenameContainer = themed(styled.div<{ theme: UiTheme, colors: Colors }>`
+    display: inline-block;
+
+    ${onMobile(`
+        margin-bottom: calc(${themeConfig.spacing.default} / 2);
+    `)}
+
+    ${({ colors }) => `
+        background-color: ${colors.bg2};
+    `}
+    & > span:last-child {
+        padding: 0 0.5em;
+    }
+    input {
+        padding-right: 0.1em;
+        text-align: right;
+    }
+`)
 
 
 class ExportPopUp extends React.Component<Props, State> {
@@ -82,7 +129,6 @@ class ExportPopUp extends React.Component<Props, State> {
 
     componentDidUpdate(_: Readonly<Props>, prevState: Readonly<State>) {
         if (prevState.currentTab !== this.state.currentTab) {
-            console.log(this.refs.downloadForm)
             const form = this.refs.downloadForm as HTMLFormElement
             const input = form.querySelector('input[name="filename"]') as HTMLInputElement
             input.focus()
@@ -103,9 +149,9 @@ class ExportPopUp extends React.Component<Props, State> {
         }
 
         const onPdClick = () => {
-            const pdJson = graphToPd(graph)
-            const pd = renderPdFile(pdJson, patch.id)
-            this.setState({ pd, currentTab: 'pd' })
+            const pd = graphToPd(graph)
+            const pdFile = renderPdFile(pd, patch.id)
+            this.setState({ pd: pdFile, currentTab: 'pd' })
         }
 
         const onFilenameChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -123,10 +169,10 @@ class ExportPopUp extends React.Component<Props, State> {
 
         return (
             <Container>
-                <ButtonsContainer>
+                <TabsContainer>
                     <ThemedButton onClick={onJsClick}>.js - JavaScript code</ThemedButton>
                     <ThemedButton onClick={onPdClick} >.pd - Pure Data file</ThemedButton>
-                </ButtonsContainer>
+                </TabsContainer>
                 {currentTab ? 
                     <CodeAreaContainer>
                         <pre>
@@ -137,14 +183,16 @@ class ExportPopUp extends React.Component<Props, State> {
                 {currentTab ? 
                     <DownloadContainer>
                         <form onSubmit={onDownloadClick} ref="downloadForm">
-                            <FilenameSpan>
-                                <ThemedInput 
+                            <FilenameContainer>
+                                <ThemedInput2 
                                     type="text" 
                                     name="filename" 
                                     onChange={onFilenameChange}
+                                    placeholder="filename"
+                                    autoComplete="off"
                                 />
                                 <span>.{extension}</span>
-                            </FilenameSpan>
+                            </FilenameContainer>
                             <ThemedInput 
                                 type="submit" 
                                 value="download"
@@ -156,7 +204,6 @@ class ExportPopUp extends React.Component<Props, State> {
             </Container>
         )
     }
-
 }
 
 export default connect(

@@ -12,16 +12,21 @@ const CONFIG = {
     colors: {
         dark: {
             bg: "#444",
+            bg2: "#aaa",
             text: "white",
             text2: "#999",
-            bgPopup: "rgba(0, 0, 0, 0.5)",
+            bgPopup: "rgba(0, 0, 0, 0.7)",
         },
         light: {
             bg: "pink",
+            bg2: "#F4E7EA",
             text: "black",
             text2: "#555",
-            bgPopup: "rgba(255, 255, 255, 0.5)",
+            bgPopup: "rgba(255, 255, 255, 0.9)",
         }
+    },
+    responsiveDimensions: {
+        mobileW: 720
     }
 }
 
