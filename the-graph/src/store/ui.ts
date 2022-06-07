@@ -1,3 +1,5 @@
+export const LOCALSTORAGE_HELP_SEEN_KEY = 'webpd-help-seen'
+
 export interface AppDimensions {
     width: number, 
     height: number,
@@ -18,6 +20,7 @@ export const POPUP_NODE_LIBRARY = 'POPUP_NODE_LIBRARY'
 export const POPUP_NODE_CREATE = 'POPUP_NODE_CREATE'
 export const POPUP_NODE_EDIT = 'POPUP_NODE_EDIT'
 export const POPUP_EXPORT = 'POPUP_EXPORT'
+export const POPUP_ABOUT = 'POPUP_ABOUT'
 
 interface NodeCreatePopupData {
     type: typeof POPUP_NODE_CREATE
@@ -43,7 +46,11 @@ interface ExportPopupData {
     type: typeof POPUP_EXPORT
 }
 
-export type Popup = NodeCreatePopupData | NodeLibraryPopupData | NodeEditPopupData | ExportPopupData
+interface AboutPopupData {
+    type: typeof POPUP_ABOUT
+}
+
+export type Popup = NodeCreatePopupData | NodeLibraryPopupData | NodeEditPopupData | ExportPopupData | AboutPopupData
 
 // ------------- Action Types ------------ //
 export type UiTheme = 'dark' | 'light'
@@ -132,8 +139,10 @@ export interface UiState {
     mobileMenuExpanded: boolean
 }
 
+const aboutSeen = !!localStorage.getItem(LOCALSTORAGE_HELP_SEEN_KEY)
+
 export const initialState: UiState = {
-    popup: null,
+    popup: (!aboutSeen) ? { type: POPUP_ABOUT } : null,
     theme: 'light',
     panScale: {
         x: 0, 
@@ -144,7 +153,7 @@ export const initialState: UiState = {
         width: window.innerWidth,
         height: window.innerHeight,
     },
-    mobileMenuExpanded: false
+    mobileMenuExpanded: false,
 }
 
 // ---------------- Reducer -------------- //

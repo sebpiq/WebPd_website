@@ -2,6 +2,7 @@ import React from 'react'
 import styled from 'styled-components'
 import { UiTheme } from '../store/ui'
 import themeConfig, { Colors } from '../theme-config'
+import { onDesktop } from './media-queries'
 import themed from './themed'
 
 const mixin = `
@@ -10,6 +11,9 @@ const mixin = `
     padding: 1em;
     cursor: pointer;
     transition: border-color 250ms;
+    ${onDesktop(`
+        font-size: 80%;
+    `)}
 `
 
 export default themed(styled.button<{ theme: UiTheme, colors: Colors }>`

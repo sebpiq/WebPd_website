@@ -2,10 +2,14 @@ import React from 'react'
 import styled from 'styled-components'
 import { UiTheme } from '../store/ui'
 import themeConfig, { Colors } from '../theme-config'
+import { onDesktop } from './media-queries'
 import themed from './themed'
 
 const mixin = `
     font-family: ${themeConfig.fontFamilies.default};
+    ${onDesktop(`
+        font-size: 80%;
+    `)}
     border: 1px solid transparent;
     padding: 1em;
     cursor: pointer;

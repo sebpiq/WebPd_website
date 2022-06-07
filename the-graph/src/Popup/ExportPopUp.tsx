@@ -24,7 +24,8 @@ interface Props {
 interface State {
     js: string | null
     pd: string | null
-    currentTab: 'js' | 'pd' | null
+    wasm: string | null
+    currentTab: 'js' | 'pd' | 'wasm' | null
     filename: string | null
 }
 
@@ -56,7 +57,7 @@ const TabsContainer = styled.div`
         padding: ${themeConfig.spacing.default};
     `)}
 
-    button {        
+    button {
         ${onDesktop(`
             margin: ${themeConfig.spacing.default} 0em;
             margin-left: ${themeConfig.spacing.default};
@@ -119,16 +120,18 @@ class ExportPopUp extends React.Component<Props, State> {
 
     constructor(props: Props) {
         super(props)
+        const pd = graphToPd(this.props.graph)
         this.state = {
             js: null,
-            pd: null,
-            currentTab: null,
+            pd: renderPdFile(pd, this.props.patch.id),
+            wasm: null,
+            currentTab: 'pd',
             filename: null
         }
     }
 
     componentDidUpdate(_: Readonly<Props>, prevState: Readonly<State>) {
-        if (prevState.currentTab !== this.state.currentTab) {
+        if (prevState.currentTab !== this.state.currentTab && this.refs.downloadForm) {
             const form = this.refs.downloadForm as HTMLFormElement
             const input = form.querySelector('input[name="filename"]') as HTMLInputElement
             input.focus()
@@ -137,9 +140,9 @@ class ExportPopUp extends React.Component<Props, State> {
 
     render() {
         const {graph, webpdEngine, patch} = this.props
-        const {currentTab, js, pd, filename} = this.state
+        const {currentTab, js, pd, wasm, filename} = this.state
 
-        const code = { pd, js }[currentTab]
+        const code = { pd, js, wasm }[currentTab]
         const extension = currentTab
 
         const onJsClick = () => {
@@ -154,6 +157,10 @@ class ExportPopUp extends React.Component<Props, State> {
             this.setState({ pd: pdFile, currentTab: 'pd' })
         }
 
+        const onWasmClick = () => {
+            this.setState({ wasm: 'COMING SOON ...', currentTab: 'wasm' })
+        }
+
         const onFilenameChange = (event: React.ChangeEvent<HTMLInputElement>) => {
             const filenameInput = event.currentTarget as HTMLInputElement
             this.setState({ filename: filenameInput.value })
@@ -164,14 +171,16 @@ class ExportPopUp extends React.Component<Props, State> {
             download(`${filename}.${extension}`, code, {
                 'js': 'application/javascript',
                 'pd': 'application/puredata',
+                'wasm': 'application/wasm',
             }[extension])
         }
 
         return (
             <Container>
                 <TabsContainer>
-                    <ThemedButton onClick={onJsClick}>.js - JavaScript code</ThemedButton>
                     <ThemedButton onClick={onPdClick} >.pd - Pure Data file</ThemedButton>
+                    <ThemedButton onClick={onJsClick}>.js - JavaScript code</ThemedButton>
+                    <ThemedButton onClick={onWasmClick} >.wasm - WebAssembly binary</ThemedButton>
                 </TabsContainer>
                 {currentTab ? 
                     <CodeAreaContainer>
@@ -180,7 +189,7 @@ class ExportPopUp extends React.Component<Props, State> {
                         </pre> 
                     </CodeAreaContainer>
                 : null}
-                {currentTab ? 
+                {currentTab && currentTab !== 'wasm' ? 
                     <DownloadContainer>
                         <form onSubmit={onDownloadClick} ref="downloadForm">
                             <FilenameContainer>

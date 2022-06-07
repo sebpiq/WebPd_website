@@ -4,12 +4,13 @@ import styled from 'styled-components'
 import NodeLibraryPopUp from './NodeLibraryPopUp'
 import { AppState } from '../store'
 import { getUiPopup } from '../store/selectors'
-import { POPUP_NODE_LIBRARY, setPopup, Popup, POPUP_NODE_CREATE, POPUP_NODE_EDIT, POPUP_EXPORT } from '../store/ui'
+import { POPUP_NODE_LIBRARY, setPopup, Popup, POPUP_NODE_CREATE, POPUP_NODE_EDIT, POPUP_EXPORT, POPUP_ABOUT } from '../store/ui'
 import themeConfig from '../theme-config'
 import NodeCreateEditPopUp from './NodeCreateEditPopUp'
-import ThemedButton, { ThemedButton2 } from '../styled-components/ThemedButton'
+import { ThemedButton2 } from '../styled-components/ThemedButton'
 import themed, { ThemedProps } from '../styled-components/themed'
 import ExportPopUp from './ExportPopUp'
+import AboutPopUp from './AboutPopUp'
 
 const Container = themed(styled.div<ThemedProps>`
     position: fixed;
@@ -26,6 +27,8 @@ const Container = themed(styled.div<ThemedProps>`
 
 const InnerContainer = styled.div`
     margin: 0 auto;
+    padding: calc(3 * ${themeConfig.spacing.default}) 0;
+    max-width: 800px;
     height: 100%;
     display: flex;
     flex-direction: column;
@@ -90,6 +93,8 @@ class PopupComponent extends React.Component<Props> {
             />
         } else if (popup.type === POPUP_EXPORT) {
             popupElem = <ExportPopUp />
+        } else if (popup.type === POPUP_ABOUT) {
+            popupElem = <AboutPopUp />
         }
     
         return (

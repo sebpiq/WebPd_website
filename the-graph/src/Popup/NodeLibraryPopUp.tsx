@@ -28,7 +28,7 @@ const SearchInputContainer = styled.div`
 
 const NodeTileContainer = styled.div`
     display: grid;
-    grid-template-columns: 1fr 1fr 1fr 1fr 1fr 1fr 1fr 1fr;
+    grid-template-columns: 1fr 1fr 1fr 1fr 1fr;
     grid-template-rows: 0fr;
     ${onMobile(`
         grid-template-columns: 1fr 1fr 1fr;
@@ -41,7 +41,7 @@ const NodeTileContainer = styled.div`
 
 const NodeTile = styled(ThemedButton2)`
     aspect-ratio: 1;
-    font-size: 150%;
+    font-size: 140%;
     ${onMobile(`
         font-size: 100%;
     `)}

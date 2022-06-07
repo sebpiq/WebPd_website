@@ -9,7 +9,7 @@ import { incrementGraphVersion, ModelAddNode, ModelEditNode, ModelRequestLoadPd,
 import { pdToLibrary, pdToGraph, graphToPd, pdToJsCode } from '../core/converters'
 import { Library } from '../core/types'
 import { END, EventChannel, eventChannel } from 'redux-saga'
-import { Point } from './ui'
+import { LOCALSTORAGE_HELP_SEEN_KEY, Point, UI_SET_POPUP } from './ui'
 import * as model from '../core/model'
 
 const graphEventChannel = (graph: fbpGraph.Graph) => {
@@ -126,6 +126,10 @@ function* requestLoadPd(action: ModelRequestLoadPd) {
     yield fork(graphEventsSaga, graph)
 }
 
+function* setHelpSeen() {
+    localStorage.setItem(LOCALSTORAGE_HELP_SEEN_KEY, 'true')
+}
+
 function* requestLoadPdSaga() {
     yield takeLatest(MODEL_REQUEST_LOAD_PD, requestLoadPd)
 }
@@ -146,6 +150,10 @@ function* editGraphNodeSaga() {
     yield takeLatest(MODEL_EDIT_NODE, editGraphNode)
 }
 
+function* setPopupSaga() {
+    yield takeLatest(UI_SET_POPUP, setHelpSeen)
+}
+
 export default function* rootSaga() {
     yield all([
         createWebpdEngineSaga(),
@@ -153,5 +161,6 @@ export default function* rootSaga() {
         requestLoadPdSaga(),
         createGraphNodeSaga(),
         editGraphNodeSaga(),
+        setPopupSaga(),
     ])
 }

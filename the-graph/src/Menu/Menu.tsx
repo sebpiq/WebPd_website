@@ -8,6 +8,7 @@ import { onDesktop, onMobile } from '../styled-components/media-queries'
 import themed from '../styled-components/themed'
 import themeConfig, { Colors } from '../theme-config'
 import BurgerMenu from './BurgerMenu'
+import ButtonAbout from './ButtonAbout'
 import ButtonAddNode from './ButtonAddNode'
 import ButtonExport from './ButtonExport'
 import ToggleDsp from './ToggleDsp'
@@ -85,6 +86,7 @@ class Menu extends React.Component<Props> {
             <ToggleTheme />,
             <ButtonAddNode />,
             <ButtonExport />,
+            <ButtonAbout />,
         ]
 
         const onBurgerClick = () => {
