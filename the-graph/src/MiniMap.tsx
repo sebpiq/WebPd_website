@@ -43,7 +43,7 @@ const MiniMap = ({
         window.innerHeight,
     ]
 
-    const width = Math.min(window.innerWidth / 2, 216)
+    const width = Math.min(window.innerWidth / 2.5, 216)
     const props = {
         height: width * (162 / 216),
         width,

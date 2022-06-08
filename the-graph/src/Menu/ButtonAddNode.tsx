@@ -1,7 +1,7 @@
 import React from 'react'
 import { connect } from 'react-redux'
 import { setPopup, POPUP_NODE_LIBRARY } from '../store/ui'
-import ThemedButton from '../styled-components/ThemedButton'
+import MenuButton from './MenuButton'
 
 interface Props {
     setPopup: typeof setPopup
@@ -10,9 +10,9 @@ interface Props {
 const ButtonAddNode = ({ setPopup }: Props) => {
     const onClick = () => { setPopup({type: POPUP_NODE_LIBRARY}) }
     return (
-        <ThemedButton onClick={onClick}>
+        <MenuButton onClick={onClick}>
             add object
-        </ThemedButton>
+        </MenuButton>
     )
 }
 

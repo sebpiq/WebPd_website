@@ -1,7 +1,7 @@
 import React from 'react'
 import { connect } from 'react-redux'
 import { POPUP_ABOUT, setPopup } from '../store/ui'
-import ThemedButton from '../styled-components/ThemedButton'
+import MenuButton from './MenuButton'
 
 interface Props {
     setPopup: typeof setPopup
@@ -10,9 +10,9 @@ interface Props {
 const ButtonAbout = ({ setPopup }: Props) => {
     const onClick = () => { setPopup({ type: POPUP_ABOUT }) }
     return (
-        <ThemedButton onClick={onClick}>
+        <MenuButton onClick={onClick}>
             about
-        </ThemedButton>
+        </MenuButton>
     )
 }
 

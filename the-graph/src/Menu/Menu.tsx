@@ -3,7 +3,7 @@ import { connect } from 'react-redux'
 import styled from 'styled-components'
 import { AppState } from '../store'
 import { getUiMobileMenuExpanded } from '../store/selectors'
-import { setMobileMenuExpanded, UiTheme } from '../store/ui'
+import { setMobileMenuExpanded, setPopup, UiTheme } from '../store/ui'
 import { onDesktop, onMobile } from '../styled-components/media-queries'
 import themed from '../styled-components/themed'
 import themeConfig, { Colors } from '../theme-config'
@@ -45,7 +45,7 @@ const MobileContainer = themed(styled.div<{expanded: boolean, colors: Colors, th
     ${props => `
         height: ${props.expanded ? '100vh': 'auto'};
         ${props.expanded ? 'width: 100vw;': ''}
-        background-color: ${props.colors.bgPopup};
+        ${props.expanded ? `background-color: ${props.colors.bgPopup};` : ''}
     `}    
     padding: ${themeConfig.spacing.default};
     ${onDesktop(`
@@ -95,12 +95,16 @@ class Menu extends React.Component<Props> {
             setMobileMenuExpanded(!expanded)
         }
 
+        const onClickMobileContainer = () => {
+            setMobileMenuExpanded(false)
+        }
+
         return (
             <Container>
                 <DesktopContainer>
                     {menuItems}
                 </DesktopContainer>
-                <MobileContainer expanded={expanded}>
+                <MobileContainer expanded={expanded} onClick={onClickMobileContainer}>
                     <BurgerMenuContainer>
                         <BurgerMenu onClick={onBurgerClick}></BurgerMenu>
                     </BurgerMenuContainer>

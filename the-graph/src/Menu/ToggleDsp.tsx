@@ -4,9 +4,9 @@ import { connect } from 'react-redux'
 import { AppState } from '../store'
 import { getWebpdIsDspOn } from '../store/selectors'
 import { toggleDsp } from '../store/webpd'
-import ThemedButton from '../styled-components/ThemedButton'
+import MenuButton from './MenuButton'
 
-const StyledMenuButton = styled(ThemedButton)`
+const StyledMenuButton = styled(MenuButton)`
     min-width: 3em;
 `
 

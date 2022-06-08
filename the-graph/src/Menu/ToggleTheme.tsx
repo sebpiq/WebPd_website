@@ -3,7 +3,7 @@ import { connect } from 'react-redux'
 import { AppState } from '../store'
 import { getUiTheme } from '../store/selectors'
 import { setTheme, UiTheme } from '../store/ui'
-import ThemedButton from '../styled-components/ThemedButton'
+import MenuButton from './MenuButton'
 
 interface Props {
     theme: UiTheme
@@ -16,9 +16,9 @@ const ToggleTheme = ({ theme, setTheme }: Props) => {
         setTheme(theme === 'dark' ? 'light' : 'dark')
     }
     return (
-        <ThemedButton onClick={onClick}>
+        <MenuButton onClick={onClick}>
             <i className="fa fa-adjust"></i>theme
-        </ThemedButton>
+        </MenuButton>
     )
 }
 

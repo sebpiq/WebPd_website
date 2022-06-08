@@ -1,7 +1,7 @@
 import React from 'react'
 import { connect } from 'react-redux'
 import { POPUP_EXPORT, setPopup } from '../store/ui'
-import ThemedButton from '../styled-components/ThemedButton'
+import MenuButton from './MenuButton'
 
 interface Props {
     setPopup: typeof setPopup
@@ -10,9 +10,9 @@ interface Props {
 const ButtonExport = ({ setPopup }: Props) => {
     const onClick = () => { setPopup({ type: POPUP_EXPORT }) }
     return (
-        <ThemedButton onClick={onClick}>
+        <MenuButton onClick={onClick}>
             export
-        </ThemedButton>
+        </MenuButton>
     )
 }
 
