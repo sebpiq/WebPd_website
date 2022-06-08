@@ -45,6 +45,17 @@ const NODE_VIEW_BUILDERS: NodeViewBuilders = {
         },
         icon: 'icons/sine.svg'
     },
+    'noise~': {
+        build: () => {
+            return {
+                inlets: [],
+                outlets: [
+                    {type: 'signal', name: 'output'},
+                ]
+            }
+        },
+        icon: 'icons/noise.svg'
+    },
     'dac~': {
         build: (_, engineSettings) => {
             const inlets: Array<PortletView> = []
