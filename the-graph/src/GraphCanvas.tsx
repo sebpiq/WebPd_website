@@ -69,8 +69,7 @@ class GraphCanvas extends React.Component<Props> {
             })
         }
 
-        const addNode = (a: any, b: any, c: any, d: any) => {
-            console.log(a, b, c, d)
+        const addNode = () => {
             setPopup({ type: POPUP_NODE_LIBRARY })
         }
 

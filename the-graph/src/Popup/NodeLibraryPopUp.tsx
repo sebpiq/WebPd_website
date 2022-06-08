@@ -1,6 +1,7 @@
 import React from 'react'
 import { connect } from 'react-redux'
 import styled from "styled-components"
+import { isTouchDevice } from '../core/browser'
 import NODE_VIEW_BUILDERS from "../core/node-view-builders"
 import { POPUP_NODE_CREATE, setPopup } from '../store/ui'
 import { onMobile } from '../styled-components/media-queries'
@@ -68,9 +69,22 @@ class NodeLibraryPopUp extends React.Component<Props, State> {
             .filter(nodeType => !searchFilter || nodeType.includes(searchFilter))
         
         const nodeTiles = filteredNodes.map(nodeType => {
-                const onTileClick = () => setPopup({ type: POPUP_NODE_CREATE, data: { nodeType } })
+                const onTileClick = (event: React.MouseEvent<HTMLButtonElement> | React.TouchEvent<HTMLButtonElement>) => {
+                    setPopup({ type: POPUP_NODE_CREATE, data: { nodeType } })
+                }
+                const handlers: {
+                    onClick?: (event: React.MouseEvent<HTMLButtonElement> | React.TouchEvent<HTMLButtonElement>) => void
+                    onTouchEnd?: (event: React.MouseEvent<HTMLButtonElement> | React.TouchEvent<HTMLButtonElement>) => void
+                } = {}
+
+                if (isTouchDevice()) {
+                    handlers.onTouchEnd = onTileClick
+                } else {
+                    handlers.onClick = onTileClick
+                }
+
                 return (
-                    <NodeTile onClick={onTileClick}>{nodeType}</NodeTile>
+                    <NodeTile {...handlers}>{nodeType}</NodeTile>
                 )
             })
 

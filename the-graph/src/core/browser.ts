@@ -11,3 +11,8 @@ export const download = (filename: string, data: string, mimetype: string) => {
         document.body.removeChild(elem)
     }
 }
+
+export const isTouchDevice = () => (('ontouchstart' in window) ||
+    (navigator.maxTouchPoints > 0) ||
+    ((navigator as any).msMaxTouchPoints > 0))
+  
