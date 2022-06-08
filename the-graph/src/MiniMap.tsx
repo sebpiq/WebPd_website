@@ -42,9 +42,11 @@ const MiniMap = ({
         window.innerWidth,
         window.innerHeight,
     ]
+
+    const width = Math.min(window.innerWidth / 2, 216)
     const props = {
-        height: 162,
-        width: 216,
+        height: width * (162 / 216),
+        width,
         graph,
         onTap: fitGraphInView,
         onPanTo: panEditorTo,

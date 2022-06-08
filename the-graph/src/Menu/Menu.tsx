@@ -18,11 +18,12 @@ const Container = styled.div`
     position: absolute;
     top: 0;
     left: 0;
-    width: 100%;
+    width: 0;
     z-index: ${themeConfig.zIndex.Menu}
 `
 
 const DesktopContainer = styled.div`
+    width: 100vw;
     ${onMobile(`
         display: none;
     `)}
@@ -43,6 +44,7 @@ const MobileContainer = themed(styled.div<{expanded: boolean, colors: Colors, th
     background-color: rgba(0, 0, 0, 0);
     ${props => `
         height: ${props.expanded ? '100vh': 'auto'};
+        ${props.expanded ? 'width: 100vw;': ''}
         background-color: ${props.colors.bgPopup};
     `}    
     padding: ${themeConfig.spacing.default};

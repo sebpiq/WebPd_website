@@ -1,5 +1,6 @@
 import React from 'react'
 import styled from "styled-components"
+import { onMobile } from '../styled-components/media-queries'
 import themeConfig from '../theme-config'
 
 interface Props {}
@@ -8,6 +9,9 @@ const Container = styled.div`
     height: 100%;
     width: 100%;
     font-size: 130%;
+    ${onMobile(`
+        font-size: 100%;
+    `)}
     display: flex;
     flex-direction: column;
     justify-content: center;
