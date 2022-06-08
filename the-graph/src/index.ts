@@ -35,4 +35,7 @@ injectGlobal`
     * {
         box-sizing: border-box;
     }
+    .the-graph-light .icon {
+        font-family: 'FontAwesome';
+    }
 `
