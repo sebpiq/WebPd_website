@@ -69,12 +69,15 @@ class NodeLibraryPopUp extends React.Component<Props, State> {
             .filter(nodeType => !searchFilter || nodeType.includes(searchFilter))
         
         const nodeTiles = filteredNodes.map(nodeType => {
-                const onTileClick = (event: React.MouseEvent<HTMLButtonElement> | React.TouchEvent<HTMLButtonElement>) => {
+                // BUG : on mobile when touch on context menu, it triggers
+                // click on the popup that is then shown. We prevent this by using
+                // a different handler here.
+                const onTileClick = () => {
                     setPopup({ type: POPUP_NODE_CREATE, data: { nodeType } })
                 }
                 const handlers: {
-                    onClick?: (event: React.MouseEvent<HTMLButtonElement> | React.TouchEvent<HTMLButtonElement>) => void
-                    onTouchEnd?: (event: React.MouseEvent<HTMLButtonElement> | React.TouchEvent<HTMLButtonElement>) => void
+                    onClick?: () => void
+                    onTouchEnd?: () => void
                 } = {}
 
                 if (isTouchDevice()) {
