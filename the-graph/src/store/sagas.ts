@@ -5,12 +5,13 @@ import evalEngine, {
 import { all, takeLatest, put, select, call, take, fork } from 'redux-saga/effects'
 import { getCurrentPdPatch, getModelGraph, getUiCanvasCenterPoint, getWebpdContext, getWebpdEngine, getWebpdIsInitialized } from './selectors'
 import { setCreated, setInitialized, WebPdDspToggled, WEBPD_CREATE, WEBPD_DSP_TOGGLE } from './webpd'
-import { incrementGraphVersion, ModelAddNode, ModelEditNode, ModelRequestLoadPd, MODEL_ADD_NODE, MODEL_EDIT_NODE, MODEL_REQUEST_LOAD_PD, setGraph } from './model'
+import { incrementGraphVersion, ModelAddNode, ModelEditNode, ModelRequestLoadArray, ModelRequestLoadPd, MODEL_ADD_NODE, MODEL_EDIT_NODE, MODEL_REQUEST_LOAD_ARRAY, MODEL_REQUEST_LOAD_PD, setArrayLoaded, setGraph } from './model'
 import { pdToLibrary, pdToGraph, graphToPd, pdToJsCode } from '../core/converters'
 import { Library } from '../core/types'
 import { END, EventChannel, eventChannel } from 'redux-saga'
 import { LOCALSTORAGE_HELP_SEEN_KEY, Point, UI_SET_POPUP } from './ui'
 import * as model from '../core/model'
+import { readFileAsArrayBuffer } from '../core/browser'
 
 const graphEventChannel = (graph: fbpGraph.Graph) => {
     return eventChannel(emitter => {
@@ -126,6 +127,14 @@ function* requestLoadPd(action: ModelRequestLoadPd) {
     yield fork(graphEventsSaga, graph)
 }
 
+function* requestLoadArray(action: ModelRequestLoadArray) {
+    const context = new AudioContext()
+    const arrayBuffer: ArrayBuffer = yield call(readFileAsArrayBuffer, action.payload.arrayFile)
+    const audioBuffer: AudioBuffer = yield call(context.decodeAudioData.bind(context), arrayBuffer)
+    // !!! Loading only first channel of stereo audio
+    yield put(setArrayLoaded(action.payload.arrayName, audioBuffer.getChannelData(0)))
+}
+
 function* setHelpSeen() {
     localStorage.setItem(LOCALSTORAGE_HELP_SEEN_KEY, 'true')
 }
@@ -154,6 +163,10 @@ function* setPopupSaga() {
     yield takeLatest(UI_SET_POPUP, setHelpSeen)
 }
 
+function* loadArraySaga() {
+    yield takeLatest(MODEL_REQUEST_LOAD_ARRAY, requestLoadArray)
+}
+
 export default function* rootSaga() {
     yield all([
         createWebpdEngineSaga(),
@@ -162,5 +175,6 @@ export default function* rootSaga() {
         createGraphNodeSaga(),
         editGraphNodeSaga(),
         setPopupSaga(),
+        loadArraySaga(),
     ])
 }

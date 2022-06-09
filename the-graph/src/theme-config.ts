@@ -11,17 +11,17 @@ const CONFIG = {
     },
     colors: {
         dark: {
-            bg: "#444",
-            bg2: "#aaa",
+            primary: "#444",
+            secondary: "#aaa",
             text: "white",
             text2: "#999",
             bgPopup: "rgba(0, 0, 0, 0.7)",
         },
         light: {
-            bg: "pink",
-            bg2: "#F4E7EA",
+            primary: "pink",
+            secondary: "#F4E7EA",
             text: "black",
-            text2: "#555",
+            text2: "#aaa",
             bgPopup: "rgba(255, 255, 255, 0.9)",
         }
     },

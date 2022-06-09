@@ -21,9 +21,9 @@ export const BurgerMenu = ({ colors, onClick }: Props) => {
     return (
         <Button onClick={onClickStopPropagation}>
             <svg viewBox="0 0 100 100" width="40" height="40">
-                <rect y="10" width="100" height="20" rx="8" fill={colors.bg}></rect>
-                <rect y="40" width="100" height="20" rx="8" fill={colors.bg}></rect>
-                <rect y="70" width="100" height="20" rx="8" fill={colors.bg}></rect>
+                <rect y="10" width="100" height="20" rx="8" fill={colors.primary}></rect>
+                <rect y="40" width="100" height="20" rx="8" fill={colors.primary}></rect>
+                <rect y="70" width="100" height="20" rx="8" fill={colors.primary}></rect>
             </svg>
         </Button>
     )

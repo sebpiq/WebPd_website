@@ -16,3 +16,12 @@ export const isTouchDevice = () => (('ontouchstart' in window) ||
     (navigator.maxTouchPoints > 0) ||
     ((navigator as any).msMaxTouchPoints > 0))
   
+export const readFileAsArrayBuffer = (file: File): Promise<ArrayBuffer> => {
+    const reader = new FileReader()
+    return new Promise((resolve, reject) => {
+        reader.addEventListener('load', (event) => {
+            resolve(event.target.result as ArrayBuffer)
+        })
+        reader.readAsArrayBuffer(file)
+    })
+}

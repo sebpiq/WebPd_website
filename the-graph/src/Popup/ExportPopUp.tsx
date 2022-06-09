@@ -2,18 +2,19 @@ import React from 'react'
 import { connect } from 'react-redux'
 import styled from "styled-components"
 import { graphToPd, pdToJsCode } from '../core/converters'
-import ThemedButton from '../styled-components/ThemedButton'
+import Button from '../styled-components/Button'
 import * as fbpGraph from 'fbp-graph'
 import { AppState } from '../store'
 import { Engine } from '@webpd/engine-live-eval'
 import renderPdFile from '@webpd/pd-renderer'
 import { getCurrentPdPatch, getModelGraph, getWebpdEngine } from '../store/selectors'
 import themeConfig, { Colors } from '../theme-config'
-import ThemedInput, { ThemedInput2 } from '../styled-components/ThemedInput'
+import Input, { Input2 } from '../styled-components/Input'
 import { download } from '../core/browser'
 import themed from '../styled-components/themed'
 import { UiTheme } from '../store/ui'
 import { onDesktop, onMobile } from '../styled-components/media-queries'
+import H2 from '../styled-components/H2'
 
 interface Props {
     webpdEngine: Engine
@@ -34,27 +35,14 @@ const Container = styled.div`
     width: 100%;
     display: flex;
     flex-direction: column;
-`
-
-const CodeAreaContainer = styled.div`
-    overflow: auto;
     padding: 0 ${themeConfig.spacing.default};
-    flex: auto 1 1;
-    pre {
-        min-height: 100%;
-        overflow: auto;
-        color: black;
-        background-color: LightGrey;
-        margin: 0;
-        padding: ${themeConfig.spacing.default};
-    }
 `
 
 const TabsContainer = styled.div`
     ${onMobile(`
         display: flex;
         flex-direction: column;
-        padding: ${themeConfig.spacing.default};
+        padding-top: ${themeConfig.spacing.default};
     `)}
 
     button {
@@ -76,12 +64,26 @@ const TabsContainer = styled.div`
 
 `
 
+const CodeAreaContainer = styled.div`
+    overflow: auto;
+    padding-top: ${themeConfig.spacing.default};
+    flex: auto 1 1;
+    pre {
+        min-height: 100%;
+        overflow: auto;
+        color: black;
+        background-color: LightGrey;
+        margin: 0;
+        padding-top: ${themeConfig.spacing.default};
+    }
+`
+
 const DownloadContainer = styled.div`
     form {
         ${onMobile(`        
             display: flex;
             flex-direction: column;
-            padding: ${themeConfig.spacing.default};
+            padding: ${themeConfig.spacing.default} 0;
         `)}
 
         & > * {
@@ -104,7 +106,7 @@ const FilenameContainer = themed(styled.div<{ theme: UiTheme, colors: Colors }>`
     `)}
 
     ${({ colors }) => `
-        background-color: ${colors.bg2};
+        background-color: ${colors.secondary};
     `}
     & > span:last-child {
         padding: 0 0.5em;
@@ -177,10 +179,11 @@ class ExportPopUp extends React.Component<Props, State> {
 
         return (
             <Container>
+                <H2>Export Your Patch</H2>
                 <TabsContainer>
-                    <ThemedButton onClick={onPdClick} >.pd - Pure Data file</ThemedButton>
-                    <ThemedButton onClick={onJsClick}>.js - JavaScript code</ThemedButton>
-                    <ThemedButton onClick={onWasmClick} >.wasm - WebAssembly binary</ThemedButton>
+                    <Button onClick={onPdClick} >.pd - Pure Data file</Button>
+                    <Button onClick={onJsClick}>.js - JavaScript code</Button>
+                    <Button onClick={onWasmClick} >.wasm - WebAssembly binary</Button>
                 </TabsContainer>
                 {currentTab ? 
                     <CodeAreaContainer>
@@ -193,7 +196,7 @@ class ExportPopUp extends React.Component<Props, State> {
                     <DownloadContainer>
                         <form onSubmit={onDownloadClick} ref="downloadForm">
                             <FilenameContainer>
-                                <ThemedInput2 
+                                <Input2 
                                     type="text" 
                                     name="filename" 
                                     onChange={onFilenameChange}
@@ -202,7 +205,7 @@ class ExportPopUp extends React.Component<Props, State> {
                                 />
                                 <span>.{extension}</span>
                             </FilenameContainer>
-                            <ThemedInput 
+                            <Input 
                                 type="submit" 
                                 value="download"
                                 disabled={!filename || filename.length === 0} 

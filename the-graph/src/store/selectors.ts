@@ -10,6 +10,8 @@ export const getModelGraphVersion = (state: AppState) => state.model.graphVersio
 
 export const getModelLibrary = (state: AppState) => state.model.library
 
+export const getModelArrays = (state: AppState) => state.model.arrays
+
 export const getCurrentPdPatch = (state: AppState) => {
     const graph = getModelGraph(state)
     const pd = graphToPd(graph)

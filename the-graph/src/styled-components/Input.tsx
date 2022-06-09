@@ -15,14 +15,15 @@ const mixin = `
     cursor: pointer;
     transition: border-color 250ms;
     &:disabled {
-        color: Grey;
+        text-decoration: line-through;
+        opacity: 0.5;
     }
 `
 
 export default themed(styled.input<{ theme: UiTheme, colors: Colors }>`
     ${mixin}
     ${({ colors }) => `
-        background: ${colors.bg};
+        background: ${colors.primary};
         color: ${colors.text};
         &:hover, &:focus {
             border-color: ${colors.text};
@@ -30,10 +31,10 @@ export default themed(styled.input<{ theme: UiTheme, colors: Colors }>`
     `}
 `)
 
-export const ThemedInput2 = themed(styled.input<{ theme: UiTheme, colors: Colors }>`
+export const Input2 = themed(styled.input<{ theme: UiTheme, colors: Colors }>`
     ${mixin}
     ${({ colors }) => `
-        background: ${colors.bg2};
+        background: ${colors.secondary};
         color: ${colors.text2};
         &:hover, &:focus {
             border-color: ${colors.text2};

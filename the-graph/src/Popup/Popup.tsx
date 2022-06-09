@@ -4,13 +4,14 @@ import styled from 'styled-components'
 import NodeLibraryPopUp from './NodeLibraryPopUp'
 import { AppState } from '../store'
 import { getUiPopup } from '../store/selectors'
-import { POPUP_NODE_LIBRARY, setPopup, Popup, POPUP_NODE_CREATE, POPUP_NODE_EDIT, POPUP_EXPORT, POPUP_ABOUT } from '../store/ui'
+import { POPUP_NODE_LIBRARY, setPopup, Popup, POPUP_NODE_CREATE, POPUP_NODE_EDIT, POPUP_EXPORT, POPUP_ABOUT, POPUP_ARRAYS } from '../store/ui'
 import themeConfig from '../theme-config'
 import NodeCreateEditPopUp from './NodeCreateEditPopUp'
-import { ThemedButton2 } from '../styled-components/ThemedButton'
+import { ThemedButton2 } from '../styled-components/Button'
 import themed, { ThemedProps } from '../styled-components/themed'
 import ExportPopUp from './ExportPopUp'
 import AboutPopUp from './AboutPopUp'
+import ArraysPopUp from './ArraysPopUp'
 
 const Container = themed(styled.div<ThemedProps>`
     position: fixed;
@@ -95,6 +96,8 @@ class PopupComponent extends React.Component<Props> {
             popupElem = <ExportPopUp />
         } else if (popup.type === POPUP_ABOUT) {
             popupElem = <AboutPopUp />
+        } else if (popup.type === POPUP_ARRAYS) {
+            popupElem = <ArraysPopUp />
         }
     
         return (

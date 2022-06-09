@@ -19,7 +19,7 @@ const mixin = `
 export default themed(styled.button<{ theme: UiTheme, colors: Colors }>`
     ${mixin}
     ${({ colors }) => `
-        background-color: ${colors.bg};
+        background-color: ${colors.primary};
         color: ${colors.text};
         &:hover {
             border-color: ${colors.text};
@@ -30,7 +30,7 @@ export default themed(styled.button<{ theme: UiTheme, colors: Colors }>`
 export const ThemedButton2 = themed(styled.button<{ theme: UiTheme, colors: Colors }>`
     ${mixin}
     ${({ colors }) => `
-        background-color: ${colors.bg2};
+        background-color: ${colors.secondary};
         color: ${colors.text2};
         &:hover {
             border-color: ${colors.text2};

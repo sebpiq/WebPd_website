@@ -21,6 +21,7 @@ export const POPUP_NODE_CREATE = 'POPUP_NODE_CREATE'
 export const POPUP_NODE_EDIT = 'POPUP_NODE_EDIT'
 export const POPUP_EXPORT = 'POPUP_EXPORT'
 export const POPUP_ABOUT = 'POPUP_ABOUT'
+export const POPUP_ARRAYS = 'POPUP_ARRAYS'
 
 interface NodeCreatePopupData {
     type: typeof POPUP_NODE_CREATE
@@ -50,7 +51,11 @@ interface AboutPopupData {
     type: typeof POPUP_ABOUT
 }
 
-export type Popup = NodeCreatePopupData | NodeLibraryPopupData | NodeEditPopupData | ExportPopupData | AboutPopupData
+interface ArraysPopupData {
+    type: typeof POPUP_ARRAYS
+}
+
+export type Popup = NodeCreatePopupData | NodeLibraryPopupData | NodeEditPopupData | ExportPopupData | AboutPopupData | ArraysPopupData
 
 // ------------- Action Types ------------ //
 export type UiTheme = 'dark' | 'light'

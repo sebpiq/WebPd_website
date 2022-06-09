@@ -10,6 +10,7 @@ import themeConfig, { Colors } from '../theme-config'
 import BurgerMenu from './BurgerMenu'
 import ButtonAbout from './ButtonAbout'
 import ButtonAddNode from './ButtonAddNode'
+import ButtonArrays from './ButtonArrays'
 import ButtonExport from './ButtonExport'
 import ToggleDsp from './ToggleDsp'
 import ToggleTheme from './ToggleTheme'
@@ -85,9 +86,10 @@ class Menu extends React.Component<Props> {
 
         const menuItems = [
             <ToggleDsp />,
-            <ToggleTheme />,
+            <ButtonArrays />,
             <ButtonAddNode />,
             <ButtonExport />,
+            <ToggleTheme />,
             <ButtonAbout />,
         ]
 

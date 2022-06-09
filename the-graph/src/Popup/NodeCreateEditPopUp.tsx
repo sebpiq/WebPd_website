@@ -6,10 +6,11 @@ import { AppState } from '../store'
 import { addNode, editNode } from '../store/model'
 import { getCurrentPdPatch } from '../store/selectors'
 import { setPopup, UiTheme } from '../store/ui'
-import ThemedInput, { ThemedInput2 } from '../styled-components/ThemedInput'
+import Input, { Input2 } from '../styled-components/Input'
 import { NODE_BUILDERS } from '@webpd/dsp-graph'
 import themeConfig, { Colors } from '../theme-config'
 import themed from '../styled-components/themed'
+import H2 from '../styled-components/H2'
 
 interface NodeArgsViewerProps {
     nodeType: PdSharedTypes.NodeType
@@ -26,7 +27,7 @@ const NodeArgsViewerContainer = themed(styled.div<{ theme: UiTheme, colors: Colo
         li {
             ${({ colors }) => `
                 color: ${colors.text2};
-                background: ${colors.bg2};
+                background: ${colors.secondary};
             `}
             padding: ${themeConfig.spacing.default};
         }
@@ -85,7 +86,7 @@ const TypeAndArgsContainer = themed(styled.div<{ theme: UiTheme, colors: Colors 
     align-items: center;
 
     ${({ colors }) => `
-        background: ${colors.bg2};
+        background: ${colors.secondary};
     `}
 
     & > span:first-child {  
@@ -100,7 +101,7 @@ const TypeAndArgsContainer = themed(styled.div<{ theme: UiTheme, colors: Colors 
     }
 `)
 
-const SubmitButton = styled(ThemedInput)`
+const SubmitButton = styled(Input)`
     width: 100%;
 `
 
@@ -144,10 +145,11 @@ class NodeCreatePopUp extends React.Component<Props, State> {
 
         return (
             <Container>
+                <H2>Set Object Arguments</H2>
                 <form onSubmit={onSubmit} ref="nodeForm">
                     <TypeAndArgsContainer>
                         <span>{nodeType}</span>
-                        <ThemedInput2 
+                        <Input2 
                             type="text" 
                             name="args" 
                             onChange={onArgsChange} 

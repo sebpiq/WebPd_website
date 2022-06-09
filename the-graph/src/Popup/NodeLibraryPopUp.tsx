@@ -4,9 +4,10 @@ import styled from "styled-components"
 import { isTouchDevice } from '../core/browser'
 import NODE_VIEW_BUILDERS from "../core/node-view-builders"
 import { POPUP_NODE_CREATE, setPopup } from '../store/ui'
+import H2 from '../styled-components/H2'
 import { onMobile } from '../styled-components/media-queries'
-import { ThemedButton2 } from '../styled-components/ThemedButton'
-import ThemedInput from '../styled-components/ThemedInput'
+import { ThemedButton2 } from '../styled-components/Button'
+import Input from '../styled-components/Input'
 import themeConfig from '../theme-config'
 
 interface Props {
@@ -20,11 +21,11 @@ interface State {
 const Container = styled.div`
     height: 100%;
     width: 100%;
+    padding: ${themeConfig.spacing.default};
 `
 
 const SearchInputContainer = styled.div`
-    padding-top: ${themeConfig.spacing.default};
-    padding-left: ${themeConfig.spacing.default};
+
 `
 
 const NodeTileContainer = styled.div`
@@ -37,7 +38,7 @@ const NodeTileContainer = styled.div`
     grid-gap: calc(${themeConfig.spacing.default} / 2);
     height: 100%;
     width: 100%;
-    padding: ${themeConfig.spacing.default};
+    padding-top: ${themeConfig.spacing.default};
 `
 
 const NodeTile = styled(ThemedButton2)`
@@ -106,9 +107,10 @@ class NodeLibraryPopUp extends React.Component<Props, State> {
 
         return (
             <Container>
+                <H2>Select Object Type</H2>
                 <SearchInputContainer>
                     <form ref="searchForm" onSubmit={onSearchSubmit}>
-                        <ThemedInput onChange={onSearchChange} type="text" placeholder="Search object" />
+                        <Input onChange={onSearchChange} type="text" placeholder="Search object" />
                     </form>
                 </SearchInputContainer>
                 <NodeTileContainer>

@@ -1,5 +1,5 @@
 import React from 'react'
-import ThemedButton from '../styled-components/ThemedButton'
+import Button from '../styled-components/Button'
 
 interface Props {
     onClick?: () => void
@@ -12,9 +12,9 @@ const MenuButton = ({ onClick, children }: Props) => {
         onClick()
     }
     return (
-        <ThemedButton onClick={onClickStopPropagation}>
+        <Button onClick={onClickStopPropagation}>
             {children}
-        </ThemedButton>
+        </Button>
     )
 }
 
