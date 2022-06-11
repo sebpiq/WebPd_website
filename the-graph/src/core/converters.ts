@@ -64,8 +64,8 @@ export const pdToGraph = (
 
     Object.values(patch.nodes).forEach((pdNode) => {
         // TODO : layout manage better
-        const x = pdNode.layout.y * 5
-        const y = pdNode.layout.x * 5
+        const x = pdNode.layout.y * 4
+        const y = pdNode.layout.x * 1
         addGraphNode(
             graph,
             pdNode.id,

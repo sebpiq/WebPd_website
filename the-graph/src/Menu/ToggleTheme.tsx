@@ -16,7 +16,7 @@ const ToggleTheme = ({ theme, setTheme }: Props) => {
     }
     return (
         <MenuButton onClick={onClick}>
-            <i className="fa fa-adjust"></i>theme
+            <i className="fa fa-adjust"></i>
         </MenuButton>
     )
 }

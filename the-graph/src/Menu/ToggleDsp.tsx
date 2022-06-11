@@ -8,6 +8,9 @@ import MenuButton from './MenuButton'
 
 const StyledMenuButton = styled(MenuButton)`
     min-width: 3em;
+    i {
+        margin-right: 0.3em;
+    }
 `
 
 interface Props {
@@ -24,6 +27,7 @@ const ToggleDsp = ({ toggleDsp, isDspOn }: Props) => {
             ) : (
                 <i className="fa fa-volume-off"></i>
             )}
+            DSP
         </StyledMenuButton>
     )
 }

@@ -46,15 +46,13 @@ const TabsContainer = styled.div`
     ${onMobile(`
         display: flex;
         flex-direction: column;
-        padding-top: ${themeConfig.spacing.default};
     `)}
 
     button {
         ${onDesktop(`
-            margin: ${themeConfig.spacing.default} 0em;
-            margin-left: ${themeConfig.spacing.default};
+            margin-right: ${themeConfig.spacing.default};
             &:last-child {
-                margin-right: ${themeConfig.spacing.default};
+                margin-right: 0;
             }
         `)}
 
@@ -69,7 +67,7 @@ const TabsContainer = styled.div`
 
 const CodeAreaContainer = styled.div`
     overflow: auto;
-    padding-top: ${themeConfig.spacing.default};
+    margin: ${themeConfig.spacing.default} 0;
     flex: auto 1 1;
     pre {
         min-height: 100%;
@@ -78,6 +76,7 @@ const CodeAreaContainer = styled.div`
         background-color: LightGrey;
         margin: 0;
         padding-top: ${themeConfig.spacing.default};
+        padding-left: ${themeConfig.spacing.default};
     }
 `
 
@@ -86,15 +85,13 @@ const DownloadContainer = styled.div`
         ${onMobile(`        
             display: flex;
             flex-direction: column;
-            padding: ${themeConfig.spacing.default} 0;
         `)}
 
         & > * {
             ${onDesktop(`
-                margin: ${themeConfig.spacing.default} 0em;
-                margin-left: ${themeConfig.spacing.default};
+                margin-right: ${themeConfig.spacing.default};
                 &:last-child {
-                    margin-right: ${themeConfig.spacing.default};
+                    margin-right: 0;
                 }
             `)}
         }

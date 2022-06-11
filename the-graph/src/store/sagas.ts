@@ -26,13 +26,15 @@ import {
     WEBPD_DSP_TOGGLE,
 } from './webpd'
 import {
-    ArraysMap,
+    arrayLoadError,
+    Arrays,
     incrementGraphVersion,
     ModelAddNode,
     ModelEditNode,
     ModelRequestLoadArray,
     ModelRequestLoadPd,
     MODEL_ADD_NODE,
+    MODEL_ARRAY_LOADED,
     MODEL_EDIT_NODE,
     MODEL_REQUEST_LOAD_ARRAY,
     MODEL_REQUEST_LOAD_PD,
@@ -102,7 +104,15 @@ function* graphChanged(graph: fbpGraph.Graph) {
 
 function* updateWebpdDsp(pd: PdJson.Pd) {
     const webpdEngine: Engine = yield select(getWebpdEngine)
-    const arrays: ArraysMap = yield select(getModelArrays)
+    const arraysData: Arrays = yield select(getModelArrays)
+    const arrays: {[arrayName: string]: Float32Array} = {}
+    Object.entries(arraysData).forEach(([arrayName, arrayDatum]) => {
+        if (arrayDatum.code !== 'loaded') {
+            return
+        }
+        arrays[arrayName] = arrayDatum.array
+    })
+
     const code = pdToJsCode(pd, webpdEngine.settings)
     yield call(evalEngine.run, webpdEngine, code, arrays)
 }
@@ -191,14 +201,27 @@ function* requestLoadArray(action: ModelRequestLoadArray) {
         readFileAsArrayBuffer,
         action.payload.arrayFile
     )
-    const audioBuffer: AudioBuffer = yield call(
-        context.decodeAudioData.bind(context),
-        arrayBuffer
-    )
+
+    let audioBuffer: AudioBuffer = null
+    try {
+        audioBuffer = yield call(
+            context.decodeAudioData.bind(context),
+            arrayBuffer
+        )
+    } catch(err) {
+        yield put(arrayLoadError(action.payload.arrayName, err.toString()))
+        return
+    }
+
     // !!! Loading only first channel of stereo audio
     yield put(
         setArrayLoaded(action.payload.arrayName, audioBuffer.getChannelData(0))
     )
+}
+
+function* arrayLoaded() {
+    const graph: fbpGraph.Graph = yield select(getModelGraph)
+    yield call(graphChanged, graph)
 }
 
 function* setHelpSeen() {
@@ -233,6 +256,10 @@ function* loadArraySaga() {
     yield takeLatest(MODEL_REQUEST_LOAD_ARRAY, requestLoadArray)
 }
 
+function* arrayLoadedSaga() {
+    yield takeLatest(MODEL_ARRAY_LOADED, arrayLoaded)
+}
+
 export default function* rootSaga() {
     yield all([
         createWebpdEngineSaga(),
@@ -242,5 +269,6 @@ export default function* rootSaga() {
         editGraphNodeSaga(),
         setPopupSaga(),
         loadArraySaga(),
+        arrayLoadedSaga(),
     ])
 }

@@ -1,7 +1,23 @@
 import * as fbpGraph from 'fbp-graph'
 import { Library } from '../core/types'
 
-export type ArraysMap = { [arrayName: string]: Float32Array }
+interface ArrayLoadedDatum {
+    code: 'loaded'
+    array: Float32Array
+}
+
+interface ArrayErrorDatum {
+    code: 'error'
+    message: string
+}
+
+interface ArrayLoadingDatum {
+    code: 'loading'
+}
+
+type ArrayDatum = ArrayLoadingDatum | ArrayLoadedDatum | ArrayErrorDatum
+
+export type Arrays = { [arrayName: string]: ArrayDatum }
 
 // ------------- Action Types ------------ //
 export const MODEL_SET_GRAPH = 'MODEL_SET_GRAPH'
@@ -11,6 +27,7 @@ export const MODEL_EDIT_NODE = 'MODEL_EDIT_NODE'
 export const MODEL_REQUEST_LOAD_PD = 'MODEL_REQUEST_LOAD_PD'
 export const MODEL_REQUEST_LOAD_ARRAY = 'MODEL_REQUEST_LOAD_ARRAY'
 export const MODEL_ARRAY_LOADED = 'MODEL_ARRAY_LOADED'
+export const MODEL_ARRAY_LOAD_ERROR = 'MODEL_ARRAY_LOAD_ERROR'
 export const MODEL_DELETE_ARRAY = 'MODEL_DELETE_ARRAY'
 
 interface ModelSetGraph {
@@ -64,6 +81,14 @@ interface ModelArrayLoaded {
     }
 }
 
+interface ModelArrayLoadError {
+    type: typeof MODEL_ARRAY_LOAD_ERROR
+    payload: {
+        arrayName: PdJson.ObjectGlobalId
+        message: string
+    }
+}
+
 interface ModelDeleteArray {
     type: typeof MODEL_DELETE_ARRAY
     payload: {
@@ -79,6 +104,7 @@ type ModelTypes =
     | ModelRequestLoadPd
     | ModelRequestLoadArray
     | ModelArrayLoaded
+    | ModelArrayLoadError
     | ModelDeleteArray
 
 // ------------ Action Creators ---------- //
@@ -126,6 +152,16 @@ export const requestLoadPd = (pd: PdJson.Pd): ModelTypes => {
     }
 }
 
+export const arrayLoadError = (arrayName: string, message: string): ModelTypes => {
+    return {
+        type: MODEL_ARRAY_LOAD_ERROR,
+        payload: {
+            arrayName,
+            message,
+        },
+    }
+}
+
 export const loadArray = (arrayName: string, arrayFile: File): ModelTypes => {
     return {
         type: MODEL_REQUEST_LOAD_ARRAY,
@@ -164,7 +200,7 @@ export interface ModelState {
     // which will be incremented at each graph change.
     graphVersion: number
     graph: fbpGraph.Graph
-    arrays: ArraysMap
+    arrays: Arrays
 }
 
 export const initialState: ModelState = {
@@ -175,6 +211,18 @@ export const initialState: ModelState = {
 }
 
 // ---------------- Reducer -------------- //
+
+const filterArrays = (arrays: Arrays, testFunc: (arrayName: string, arrayDatum: ArrayDatum) => boolean) => {
+    const arraysWithoutErrors: Arrays = {}
+    Object.entries(arrays).forEach(([arrayName, arrayDatum]) => {
+        if (!testFunc(arrayName, arrayDatum)) {
+            return
+        }
+        arraysWithoutErrors[arrayName] = arrayDatum
+    })
+    return arraysWithoutErrors
+}
+
 export const modelReducer = (
     state = initialState,
     action: ModelTypes
@@ -187,30 +235,55 @@ export const modelReducer = (
                 graph: action.payload.graph,
                 library: action.payload.library,
             }
+        
         case MODEL_INCREMENT_GRAPH_VERSION:
             return {
                 ...state,
                 graphVersion: state.graphVersion + 1,
             }
+
+        case MODEL_REQUEST_LOAD_ARRAY:
+            return {
+                ...state,
+                arrays: {
+                    ...filterArrays(state.arrays, (_, arrayDatum) => arrayDatum.code !== 'error'),
+                    [action.payload.arrayName]: {
+                        code: 'loading'
+                    }
+                }
+            }
+
         case MODEL_ARRAY_LOADED:
             return {
                 ...state,
                 arrays: {
-                    ...state.arrays,
-                    [action.payload.arrayName]: action.payload.array,
+                    ...filterArrays(state.arrays, (_, arrayDatum) => arrayDatum.code !== 'error'),
+                    [action.payload.arrayName]: {
+                        code: 'loaded',
+                        array: action.payload.array
+                    },
                 },
             }
-        case MODEL_DELETE_ARRAY:
-            const arraysWithoutDeleted: ArraysMap = {}
-            Object.entries(state.arrays).forEach(([arrayName, array]) => {
-                if (arrayName !== action.payload.arrayName) {
-                    arraysWithoutDeleted[arrayName] = array
-                }
-            })
+        
+        case MODEL_ARRAY_LOAD_ERROR:
             return {
                 ...state,
-                arrays: arraysWithoutDeleted,
+                arrays: {
+                    // Keep only last error
+                    ...filterArrays(state.arrays, (_, arrayDatum) => arrayDatum.code !== 'error'),
+                    [action.payload.arrayName]: {
+                        code: 'error',
+                        message: action.payload.message
+                    },
+                },
             }
+
+        case MODEL_DELETE_ARRAY:
+            return {
+                ...state,
+                arrays: filterArrays(state.arrays, (arrayName) => arrayName !== action.payload.arrayName),
+            }
+
         default:
             return state
     }

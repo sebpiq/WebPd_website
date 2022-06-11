@@ -10,6 +10,7 @@ const NODE_VIEW_BUILDERS: NodeViewBuilders = {
                 outlets: [{ type: 'control', name: 'bang' }],
             }
         },
+        noArguments: true,
     },
     metro: {
         build: () => {
@@ -77,6 +78,7 @@ const NODE_VIEW_BUILDERS: NodeViewBuilders = {
             }
         },
         icon: 'icons/noise.svg',
+        noArguments: true,
     },
     'dac~': {
         build: (_, engineSettings) => {
@@ -90,6 +92,7 @@ const NODE_VIEW_BUILDERS: NodeViewBuilders = {
             }
         },
         icon: 'icons/speaker.svg',
+        noArguments: true,
     },
 }
 

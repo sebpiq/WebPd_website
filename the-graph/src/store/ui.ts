@@ -22,6 +22,7 @@ export const POPUP_NODE_EDIT = 'POPUP_NODE_EDIT'
 export const POPUP_EXPORT = 'POPUP_EXPORT'
 export const POPUP_ABOUT = 'POPUP_ABOUT'
 export const POPUP_ARRAYS = 'POPUP_ARRAYS'
+export const POPUP_IMPORT = 'POPUP_IMPORT'
 
 interface NodeCreatePopupData {
     type: typeof POPUP_NODE_CREATE
@@ -55,11 +56,16 @@ interface ArraysPopupData {
     type: typeof POPUP_ARRAYS
 }
 
+interface ImportPopupData {
+    type: typeof POPUP_IMPORT
+}
+
 export type Popup =
     | NodeCreatePopupData
     | NodeLibraryPopupData
     | NodeEditPopupData
     | ExportPopupData
+    | ImportPopupData
     | AboutPopupData
     | ArraysPopupData
 

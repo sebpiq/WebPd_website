@@ -2,7 +2,7 @@ import React from 'react'
 import { connect } from 'react-redux'
 import styled from 'styled-components'
 import { AppState } from '../store'
-import { ArraysMap, deleteArray, loadArray } from '../store/model'
+import { Arrays, deleteArray, loadArray } from '../store/model'
 import { getModelArrays } from '../store/selectors'
 import H2 from '../styled-components/H2'
 import InfoDiv from '../styled-components/InfoDiv'
@@ -13,7 +13,7 @@ import Input, { Input2 } from '../styled-components/Input'
 import themeConfig from '../theme-config'
 
 interface Props {
-    arrays: ArraysMap
+    arrays: Arrays
     loadArray: typeof loadArray
     deleteArray: typeof deleteArray
 }
@@ -72,15 +72,29 @@ class ArraysPopUp extends React.Component<Props, State> {
         const { arrays, deleteArray, loadArray } = this.props
         const { newArrayName, newArrayFile } = this.state
 
-        const arrayElems = Object.entries(arrays).map(([arrayName, array]) => {
+        const arrayElems = Object.entries(arrays).map(([arrayName, arrayDatum]) => {
+            let label: string = ''
+            let hasDeleteButton = false
+            if (arrayDatum.code === 'error') {
+                label = arrayDatum.message
+            } else if (arrayDatum.code === 'loading') {
+                label = 'loading ... '
+            } else if (arrayDatum.code === 'loaded') {
+                label = `length : ${arrayDatum.array.length}`
+                hasDeleteButton = true
+            }
+
             const onDeleteClick = () => deleteArray(arrayName)
+            
             return (
                 <li>
                     <span>{arrayName}</span>
-                    <span>length : {array.length}</span>
-                    <ThemedButton2 onClick={onDeleteClick}>
-                        <i className="fa fa-trash"></i>
-                    </ThemedButton2>
+                    <span>{label}</span>
+                    {hasDeleteButton ? 
+                        <ThemedButton2 onClick={onDeleteClick}>
+                            <i className="fa fa-trash"></i>
+                        </ThemedButton2> : <span></span>
+                    }
                 </li>
             )
         })

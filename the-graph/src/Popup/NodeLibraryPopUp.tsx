@@ -9,9 +9,11 @@ import { onMobile } from '../styled-components/media-queries'
 import { ThemedButton2 } from '../styled-components/Button'
 import Input from '../styled-components/Input'
 import themeConfig from '../theme-config'
+import { addNode } from '../store/model'
 
 interface Props {
     setPopup: typeof setPopup
+    addNode: typeof addNode
 }
 
 interface State {
@@ -26,24 +28,23 @@ const Container = styled.div`
 
 const SearchInputContainer = styled.div``
 
-const NodeTileContainer = styled.div`
+const NodeTilesContainer = styled.div`
     display: grid;
-    grid-template-columns: 1fr 1fr 1fr 1fr 1fr;
-    grid-template-rows: 0fr;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
     ${onMobile(`
-        grid-template-columns: 1fr 1fr 1fr;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
     `)}
     grid-gap: calc(${themeConfig.spacing.default} / 2);
-    height: 100%;
     width: 100%;
     padding-top: ${themeConfig.spacing.default};
 `
 
 const NodeTile = styled(ThemedButton2)`
     aspect-ratio: 1;
-    font-size: 140%;
+    font-size: 120%;
+    word-wrap: break-word;
     ${onMobile(`
-        font-size: 100%;
+        font-size: 80%;
     `)}
 `
 
@@ -63,18 +64,25 @@ class NodeLibraryPopUp extends React.Component<Props, State> {
     }
 
     render() {
-        const { setPopup } = this.props
+        const { setPopup, addNode } = this.props
         const { searchFilter } = this.state
         const filteredNodes = Object.keys(NODE_VIEW_BUILDERS).filter(
             (nodeType) => !searchFilter || nodeType.includes(searchFilter)
         )
 
         const nodeTiles = filteredNodes.map((nodeType) => {
+            const nodeViewBuilder = NODE_VIEW_BUILDERS[nodeType]
+
             // BUG : on mobile when touch on context menu, it triggers
             // click on the popup that is then shown. We prevent this by using
             // a different handler here.
             const onTileClick = () => {
-                setPopup({ type: POPUP_NODE_CREATE, data: { nodeType } })
+                if (nodeViewBuilder.noArguments) {
+                    addNode(nodeType, [])
+                    setPopup(null)
+                } else {
+                    setPopup({ type: POPUP_NODE_CREATE, data: { nodeType } })
+                }
             }
             const handlers: {
                 onClick?: () => void
@@ -117,10 +125,10 @@ class NodeLibraryPopUp extends React.Component<Props, State> {
                         />
                     </form>
                 </SearchInputContainer>
-                <NodeTileContainer>{nodeTiles}</NodeTileContainer>
+                <NodeTilesContainer>{nodeTiles}</NodeTilesContainer>
             </Container>
         )
     }
 }
 
-export default connect(null, { setPopup })(NodeLibraryPopUp)
+export default connect(null, { setPopup, addNode })(NodeLibraryPopUp)

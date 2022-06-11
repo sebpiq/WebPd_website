@@ -13,6 +13,7 @@ import {
     POPUP_EXPORT,
     POPUP_ABOUT,
     POPUP_ARRAYS,
+    POPUP_IMPORT,
 } from '../store/ui'
 import themeConfig from '../theme-config'
 import NodeCreateEditPopUp from './NodeCreateEditPopUp'
@@ -21,6 +22,7 @@ import themed, { ThemedProps } from '../styled-components/themed'
 import ExportPopUp from './ExportPopUp'
 import AboutPopUp from './AboutPopUp'
 import ArraysPopUp from './ArraysPopUp'
+import ImportPopUp from './ImportPopUp'
 
 const Container = themed(styled.div<ThemedProps>`
     position: fixed;
@@ -108,6 +110,8 @@ class PopupComponent extends React.Component<Props> {
             popupElem = <AboutPopUp />
         } else if (popup.type === POPUP_ARRAYS) {
             popupElem = <ArraysPopUp />
+        } else if (popup.type === POPUP_IMPORT) {
+            popupElem = <ImportPopUp />
         }
 
         return (

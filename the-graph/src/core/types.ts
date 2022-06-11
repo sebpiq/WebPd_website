@@ -17,6 +17,7 @@ interface NodeViewBuilder {
         engineSettings: PdEngine.Settings
     ) => NodeView
     icon?: string
+    noArguments?: true
 }
 
 export type NodeViewBuilders = { [nodeType: string]: NodeViewBuilder }

@@ -26,3 +26,13 @@ export const readFileAsArrayBuffer = (file: File): Promise<ArrayBuffer> => {
         reader.readAsArrayBuffer(file)
     })
 }
+
+export const readFileAsString = (file: File): Promise<string> => {
+    const reader = new FileReader()
+    return new Promise((resolve, reject) => {
+        reader.addEventListener('load', (event) => {
+            resolve(event.target.result as string)
+        })
+        reader.readAsText(file)
+    })
+}

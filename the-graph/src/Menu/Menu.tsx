@@ -12,8 +12,8 @@ import ButtonAbout from './ButtonAbout'
 import ButtonAddNode from './ButtonAddNode'
 import ButtonArrays from './ButtonArrays'
 import ButtonExport from './ButtonExport'
+import ButtonImport from './ButtonImport'
 import ToggleDsp from './ToggleDsp'
-import ToggleTheme from './ToggleTheme'
 
 const Container = styled.div`
     position: absolute;
@@ -25,6 +25,9 @@ const Container = styled.div`
 
 const DesktopContainer = styled.div`
     width: 100vw;
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
     ${onMobile(`
         display: none;
     `)}
@@ -36,6 +39,9 @@ const DesktopContainer = styled.div`
         }
     }
 `
+
+const DesktopMenuItemsLeft = styled.div``
+const DesktopMenuItemsRight = styled.div``
 
 const MobileContainer = themed(styled.div<{
     expanded: boolean
@@ -85,12 +91,15 @@ class Menu extends React.Component<Props> {
     render() {
         const { expanded, setMobileMenuExpanded } = this.props
 
-        const menuItems = [
+        const menuItemsLeft = [
             <ToggleDsp />,
-            <ButtonArrays />,
+        ]
+
+        const menuItemsRight = [
             <ButtonAddNode />,
+            <ButtonArrays />,
+            <ButtonImport />,
             <ButtonExport />,
-            <ToggleTheme />,
             <ButtonAbout />,
         ]
 
@@ -104,7 +113,14 @@ class Menu extends React.Component<Props> {
 
         return (
             <Container>
-                <DesktopContainer>{menuItems}</DesktopContainer>
+                <DesktopContainer>
+                    <DesktopMenuItemsLeft>
+                        {menuItemsLeft}
+                    </DesktopMenuItemsLeft>
+                    <DesktopMenuItemsRight>
+                        {menuItemsRight}
+                    </DesktopMenuItemsRight>
+                </DesktopContainer>
                 <MobileContainer
                     expanded={expanded}
                     onClick={onClickMobileContainer}
@@ -113,7 +129,8 @@ class Menu extends React.Component<Props> {
                         <BurgerMenu onClick={onBurgerClick}></BurgerMenu>
                     </BurgerMenuContainer>
                     <MobileMenuItems expanded={expanded}>
-                        {menuItems}
+                        {menuItemsLeft}
+                        {menuItemsRight}
                     </MobileMenuItems>
                 </MobileContainer>
             </Container>
