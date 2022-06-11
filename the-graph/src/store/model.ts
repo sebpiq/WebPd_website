@@ -152,7 +152,10 @@ export const requestLoadPd = (pd: PdJson.Pd): ModelTypes => {
     }
 }
 
-export const arrayLoadError = (arrayName: string, message: string): ModelTypes => {
+export const arrayLoadError = (
+    arrayName: string,
+    message: string
+): ModelTypes => {
     return {
         type: MODEL_ARRAY_LOAD_ERROR,
         payload: {
@@ -212,7 +215,10 @@ export const initialState: ModelState = {
 
 // ---------------- Reducer -------------- //
 
-const filterArrays = (arrays: Arrays, testFunc: (arrayName: string, arrayDatum: ArrayDatum) => boolean) => {
+const filterArrays = (
+    arrays: Arrays,
+    testFunc: (arrayName: string, arrayDatum: ArrayDatum) => boolean
+) => {
     const arraysWithoutErrors: Arrays = {}
     Object.entries(arrays).forEach(([arrayName, arrayDatum]) => {
         if (!testFunc(arrayName, arrayDatum)) {
@@ -235,7 +241,7 @@ export const modelReducer = (
                 graph: action.payload.graph,
                 library: action.payload.library,
             }
-        
+
         case MODEL_INCREMENT_GRAPH_VERSION:
             return {
                 ...state,
@@ -246,34 +252,43 @@ export const modelReducer = (
             return {
                 ...state,
                 arrays: {
-                    ...filterArrays(state.arrays, (_, arrayDatum) => arrayDatum.code !== 'error'),
+                    ...filterArrays(
+                        state.arrays,
+                        (_, arrayDatum) => arrayDatum.code !== 'error'
+                    ),
                     [action.payload.arrayName]: {
-                        code: 'loading'
-                    }
-                }
+                        code: 'loading',
+                    },
+                },
             }
 
         case MODEL_ARRAY_LOADED:
             return {
                 ...state,
                 arrays: {
-                    ...filterArrays(state.arrays, (_, arrayDatum) => arrayDatum.code !== 'error'),
+                    ...filterArrays(
+                        state.arrays,
+                        (_, arrayDatum) => arrayDatum.code !== 'error'
+                    ),
                     [action.payload.arrayName]: {
                         code: 'loaded',
-                        array: action.payload.array
+                        array: action.payload.array,
                     },
                 },
             }
-        
+
         case MODEL_ARRAY_LOAD_ERROR:
             return {
                 ...state,
                 arrays: {
                     // Keep only last error
-                    ...filterArrays(state.arrays, (_, arrayDatum) => arrayDatum.code !== 'error'),
+                    ...filterArrays(
+                        state.arrays,
+                        (_, arrayDatum) => arrayDatum.code !== 'error'
+                    ),
                     [action.payload.arrayName]: {
                         code: 'error',
-                        message: action.payload.message
+                        message: action.payload.message,
                     },
                 },
             }
@@ -281,7 +296,10 @@ export const modelReducer = (
         case MODEL_DELETE_ARRAY:
             return {
                 ...state,
-                arrays: filterArrays(state.arrays, (arrayName) => arrayName !== action.payload.arrayName),
+                arrays: filterArrays(
+                    state.arrays,
+                    (arrayName) => arrayName !== action.payload.arrayName
+                ),
             }
 
         default:

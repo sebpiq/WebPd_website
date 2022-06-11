@@ -32,10 +32,10 @@ const Container = styled.div`
         display: flex;
         flex-direction: row;
         justify-content: space-between;
-        input[type="file"] {
+        input[type='file'] {
             flex: 2;
         }
-        input[type="submit"] {
+        input[type='submit'] {
             flex: 1;
         }
     }
@@ -46,8 +46,8 @@ const parsePdFile = (pdFile: string | null): PdJson.Pd => {
         return null
     }
     const pd = parsePd(pdFile)
-    Object.values(pd.patches).forEach(patch => {
-        Object.values(patch.nodes).forEach(node => {
+    Object.values(pd.patches).forEach((patch) => {
+        Object.values(patch.nodes).forEach((node) => {
             if (!NODE_VIEW_BUILDERS[node.type]) {
                 throw new Error(`Type [${node.type}] not implemented.`)
             }
@@ -57,21 +57,20 @@ const parsePdFile = (pdFile: string | null): PdJson.Pd => {
 }
 
 class ImportPopUp extends React.Component<Props, State> {
-
     constructor(props: Props) {
         super(props)
         this.state = { pdFile: null }
     }
 
     render() {
-        const {pdFile} = this.state
-        const {requestLoadPd, setPopup} = this.props
+        const { pdFile } = this.state
+        const { requestLoadPd, setPopup } = this.props
 
         let pd: PdJson.Pd | null = null
         let parseErrorElem: JSX.Element = null
         try {
             pd = parsePdFile(pdFile)
-        } catch(err) {
+        } catch (err) {
             parseErrorElem = <div>Error parsing : {err.message}</div>
         }
 
@@ -85,8 +84,9 @@ class ImportPopUp extends React.Component<Props, State> {
             const input: HTMLInputElement = event.currentTarget
             const file = input.files.item(0)
             if (file) {
-                readFileAsString(file)
-                    .then((pdFile) => this.setState({pdFile}))
+                readFileAsString(file).then((pdFile) =>
+                    this.setState({ pdFile })
+                )
             }
         }
 
@@ -99,11 +99,7 @@ class ImportPopUp extends React.Component<Props, State> {
                         onChange={onPdFileChange}
                         placeholder="select .pd file"
                     />
-                    <Input
-                        type="submit"
-                        value="load"
-                        disabled={!pd}
-                    />
+                    <Input type="submit" value="load" disabled={!pd} />
                 </form>
                 {parseErrorElem}
             </Container>
@@ -111,7 +107,4 @@ class ImportPopUp extends React.Component<Props, State> {
     }
 }
 
-export default connect(
-    null,
-    {requestLoadPd, setPopup}
-)(ImportPopUp)
+export default connect(null, { requestLoadPd, setPopup })(ImportPopUp)

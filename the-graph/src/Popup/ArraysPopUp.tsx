@@ -72,32 +72,36 @@ class ArraysPopUp extends React.Component<Props, State> {
         const { arrays, deleteArray, loadArray } = this.props
         const { newArrayName, newArrayFile } = this.state
 
-        const arrayElems = Object.entries(arrays).map(([arrayName, arrayDatum]) => {
-            let label: string = ''
-            let hasDeleteButton = false
-            if (arrayDatum.code === 'error') {
-                label = arrayDatum.message
-            } else if (arrayDatum.code === 'loading') {
-                label = 'loading ... '
-            } else if (arrayDatum.code === 'loaded') {
-                label = `length : ${arrayDatum.array.length}`
-                hasDeleteButton = true
-            }
+        const arrayElems = Object.entries(arrays).map(
+            ([arrayName, arrayDatum]) => {
+                let label: string = ''
+                let hasDeleteButton = false
+                if (arrayDatum.code === 'error') {
+                    label = arrayDatum.message
+                } else if (arrayDatum.code === 'loading') {
+                    label = 'loading ... '
+                } else if (arrayDatum.code === 'loaded') {
+                    label = `length : ${arrayDatum.array.length}`
+                    hasDeleteButton = true
+                }
 
-            const onDeleteClick = () => deleteArray(arrayName)
-            
-            return (
-                <li>
-                    <span>{arrayName}</span>
-                    <span>{label}</span>
-                    {hasDeleteButton ? 
-                        <ThemedButton2 onClick={onDeleteClick}>
-                            <i className="fa fa-trash"></i>
-                        </ThemedButton2> : <span></span>
-                    }
-                </li>
-            )
-        })
+                const onDeleteClick = () => deleteArray(arrayName)
+
+                return (
+                    <li>
+                        <span>{arrayName}</span>
+                        <span>{label}</span>
+                        {hasDeleteButton ? (
+                            <ThemedButton2 onClick={onDeleteClick}>
+                                <i className="fa fa-trash"></i>
+                            </ThemedButton2>
+                        ) : (
+                            <span></span>
+                        )}
+                    </li>
+                )
+            }
+        )
 
         const onSubmitNewArray = (event: React.FormEvent<HTMLFormElement>) => {
             event.preventDefault()

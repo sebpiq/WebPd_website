@@ -105,7 +105,7 @@ function* graphChanged(graph: fbpGraph.Graph) {
 function* updateWebpdDsp(pd: PdJson.Pd) {
     const webpdEngine: Engine = yield select(getWebpdEngine)
     const arraysData: Arrays = yield select(getModelArrays)
-    const arrays: {[arrayName: string]: Float32Array} = {}
+    const arrays: { [arrayName: string]: Float32Array } = {}
     Object.entries(arraysData).forEach(([arrayName, arrayDatum]) => {
         if (arrayDatum.code !== 'loaded') {
             return
@@ -208,7 +208,7 @@ function* requestLoadArray(action: ModelRequestLoadArray) {
             context.decodeAudioData.bind(context),
             arrayBuffer
         )
-    } catch(err) {
+    } catch (err) {
         yield put(arrayLoadError(action.payload.arrayName, err.toString()))
         return
     }

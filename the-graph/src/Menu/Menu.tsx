@@ -91,9 +91,7 @@ class Menu extends React.Component<Props> {
     render() {
         const { expanded, setMobileMenuExpanded } = this.props
 
-        const menuItemsLeft = [
-            <ToggleDsp />,
-        ]
+        const menuItemsLeft = [<ToggleDsp />]
 
         const menuItemsRight = [
             <ButtonAddNode />,
@@ -114,9 +112,7 @@ class Menu extends React.Component<Props> {
         return (
             <Container>
                 <DesktopContainer>
-                    <DesktopMenuItemsLeft>
-                        {menuItemsLeft}
-                    </DesktopMenuItemsLeft>
+                    <DesktopMenuItemsLeft>{menuItemsLeft}</DesktopMenuItemsLeft>
                     <DesktopMenuItemsRight>
                         {menuItemsRight}
                     </DesktopMenuItemsRight>

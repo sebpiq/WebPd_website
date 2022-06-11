@@ -14,7 +14,11 @@ const MenuButton = ({ onClick, children, className }: Props) => {
         event.stopPropagation()
         onClick()
     }
-    return <Button onClick={onClickStopPropagation} className={className}>{children}</Button>
+    return (
+        <Button onClick={onClickStopPropagation} className={className}>
+            {children}
+        </Button>
+    )
 }
 
 export default MenuButton
