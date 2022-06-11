@@ -1,4 +1,4 @@
-import themeConfig from "../theme-config";
+import themeConfig from '../theme-config'
 
 export const onMobile = (css: string) => `
     @media (max-width: ${themeConfig.responsiveDimensions.mobileW}px) {

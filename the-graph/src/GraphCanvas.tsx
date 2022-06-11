@@ -4,8 +4,18 @@ import { GraphEdge, GraphNode } from 'fbp-graph/src/Types'
 import TheGraph from 'the-graph'
 import { connect } from 'react-redux'
 import { AppState } from './store'
-import { POPUP_NODE_EDIT, POPUP_NODE_LIBRARY, setPanScale, setPopup } from './store/ui'
-import { getModelGraph, getModelLibrary, getUiAppDimensions, getUiTheme } from './store/selectors'
+import {
+    POPUP_NODE_EDIT,
+    POPUP_NODE_LIBRARY,
+    setPanScale,
+    setPopup,
+} from './store/ui'
+import {
+    getModelGraph,
+    getModelLibrary,
+    getUiAppDimensions,
+    getUiTheme,
+} from './store/selectors'
 import { UiLibrary, UiTheme } from './store/ui'
 import styled from 'styled-components'
 import { getGraphNode } from './core/model'
@@ -21,7 +31,8 @@ const Container = styled.div`
             pointer-events: none;
         }
 
-        .context-node-rect, .context-node-icon {
+        .context-node-rect,
+        .context-node-icon {
             display: none;
         }
     }
@@ -30,7 +41,7 @@ const Container = styled.div`
 export interface Props {
     theme: UiTheme
     graph: fbpGraph.Graph
-    library: UiLibrary,
+    library: UiLibrary
     width: number
     height: number
     setPanScale: typeof setPanScale
@@ -38,34 +49,37 @@ export interface Props {
 }
 
 class GraphCanvas extends React.Component<Props> {
-
     render() {
-        const { 
+        const {
             theme,
             setPanScale,
             setPopup,
-            library, 
+            library,
             width,
             height,
             graph,
         } = this.props
 
         const themeClassName = `the-graph-${theme}`
-    
+
         // Context menu specification
-        const deleteNode = (graph: fbpGraph.Graph, nodeId: string, _: GraphNode) => {
+        const deleteNode = (
+            graph: fbpGraph.Graph,
+            nodeId: string,
+            _: GraphNode
+        ) => {
             graph.removeNode(nodeId)
         }
 
         const editNode = (graph: fbpGraph.Graph, nodeId: string) => {
             const node = getGraphNode(graph, nodeId)
             setPopup({
-                type: POPUP_NODE_EDIT, 
+                type: POPUP_NODE_EDIT,
                 data: {
                     nodeArgs: node.metadata.pdNode.args,
                     nodeType: node.metadata.pdNode.type,
                     nodeId: node.metadata.pdNode.id,
-                }
+                },
             })
         }
 
@@ -73,14 +87,23 @@ class GraphCanvas extends React.Component<Props> {
             setPopup({ type: POPUP_NODE_LIBRARY })
         }
 
-        const deleteEdge = (graph: fbpGraph.Graph, _: string, item: GraphEdge) => {
-            graph.removeEdge(item.from.node, item.from.port, item.to.node, item.to.port)
+        const deleteEdge = (
+            graph: fbpGraph.Graph,
+            _: string,
+            item: GraphEdge
+        ) => {
+            graph.removeEdge(
+                item.from.node,
+                item.from.port,
+                item.to.node,
+                item.to.port
+            )
         }
-    
+
         const onPanScale = (x: number, y: number, scale: number) => {
             setPanScale(-x, -y, scale)
         }
-    
+
         const contextMenus: any = {
             main: {
                 icon: 'long-arrow-right',
@@ -116,10 +139,13 @@ class GraphCanvas extends React.Component<Props> {
                 },
             },
         }
-    
+
         if (this.refs.theGraphContainer) {
             // TODO : really ugly and causes bugs (grid is fxcked when size changed and we're panning)
-            const theGraphElem = (this.refs.theGraphContainer as HTMLDivElement).children.item(0) as HTMLElement
+            const theGraphElem = (this.refs
+                .theGraphContainer as HTMLDivElement).children.item(
+                0
+            ) as HTMLElement
             theGraphElem.style.width = `${width}px`
             theGraphElem.style.height = `${height}px`
             const canvas = theGraphElem.querySelector('canvas')
@@ -139,7 +165,7 @@ class GraphCanvas extends React.Component<Props> {
             nodeIcons: {},
             onPanScale,
         }
-    
+
         return (
             <Container className={themeClassName}>
                 <div ref="theGraphContainer">
@@ -161,5 +187,5 @@ export default connect(
             height: appDimensions.height,
         }
     },
-    {setPanScale, setPopup}
+    { setPanScale, setPopup }
 )(GraphCanvas)

@@ -7,15 +7,13 @@ interface Props {
 }
 
 const MenuButton = ({ onClick, children }: Props) => {
-    const onClickStopPropagation = (event: React.MouseEvent<HTMLButtonElement>) => { 
+    const onClickStopPropagation = (
+        event: React.MouseEvent<HTMLButtonElement>
+    ) => {
         event.stopPropagation()
         onClick()
     }
-    return (
-        <Button onClick={onClickStopPropagation}>
-            {children}
-        </Button>
-    )
+    return <Button onClick={onClickStopPropagation}>{children}</Button>
 }
 
 export default MenuButton

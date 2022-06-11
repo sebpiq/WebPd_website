@@ -20,7 +20,7 @@ const mixin = `
     }
 `
 
-export default themed(styled.input<{ theme: UiTheme, colors: Colors }>`
+export default themed(styled.input<{ theme: UiTheme; colors: Colors }>`
     ${mixin}
     ${({ colors }) => `
         background: ${colors.primary};
@@ -31,7 +31,7 @@ export default themed(styled.input<{ theme: UiTheme, colors: Colors }>`
     `}
 `)
 
-export const Input2 = themed(styled.input<{ theme: UiTheme, colors: Colors }>`
+export const Input2 = themed(styled.input<{ theme: UiTheme; colors: Colors }>`
     ${mixin}
     ${({ colors }) => `
         background: ${colors.secondary};

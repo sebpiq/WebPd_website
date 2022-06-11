@@ -1,8 +1,8 @@
 export const LOCALSTORAGE_HELP_SEEN_KEY = 'webpd-help-seen'
 
 export interface AppDimensions {
-    width: number, 
-    height: number,
+    width: number
+    height: number
 }
 
 export interface PanScale {
@@ -55,7 +55,13 @@ interface ArraysPopupData {
     type: typeof POPUP_ARRAYS
 }
 
-export type Popup = NodeCreatePopupData | NodeLibraryPopupData | NodeEditPopupData | ExportPopupData | AboutPopupData | ArraysPopupData
+export type Popup =
+    | NodeCreatePopupData
+    | NodeLibraryPopupData
+    | NodeEditPopupData
+    | ExportPopupData
+    | AboutPopupData
+    | ArraysPopupData
 
 // ------------- Action Types ------------ //
 export type UiTheme = 'dark' | 'light'
@@ -82,7 +88,7 @@ interface UiSetTheme {
 interface UiSetPopup {
     type: typeof UI_SET_POPUP
     payload: {
-        popup: Popup,
+        popup: Popup
     }
 }
 
@@ -96,35 +102,39 @@ interface UiSetMobileMenuExpanded {
     payload: boolean
 }
 
-type UiTypes = UiSetTheme | UiSetPanScale | UiSetPopup | UiSetAppDimensions | UiSetMobileMenuExpanded
-
+type UiTypes =
+    | UiSetTheme
+    | UiSetPanScale
+    | UiSetPopup
+    | UiSetAppDimensions
+    | UiSetMobileMenuExpanded
 
 // ------------ Action Creators ---------- //
 export const setTheme = (theme: UiTheme): UiTypes => {
     return {
         type: UI_SET_THEME,
-        payload: {theme},
+        payload: { theme },
     }
 }
 
 export const setPanScale = (x: number, y: number, scale: number): UiTypes => {
     return {
         type: UI_SET_PAN_SCALE,
-        payload: {x, y, scale},
+        payload: { x, y, scale },
     }
 }
 
 export const setPopup = (popup: Popup) => {
     return {
         type: UI_SET_POPUP,
-        payload: {popup},
+        payload: { popup },
     }
 }
 
 export const setAppDimensions = (width: number, height: number) => {
     return {
         type: UI_SET_APP_DIMENSIONS,
-        payload: {width, height},
+        payload: { width, height },
     }
 }
 
@@ -147,12 +157,12 @@ export interface UiState {
 const aboutSeen = !!localStorage.getItem(LOCALSTORAGE_HELP_SEEN_KEY)
 
 export const initialState: UiState = {
-    popup: (!aboutSeen) ? { type: POPUP_ABOUT } : null,
+    popup: !aboutSeen ? { type: POPUP_ABOUT } : null,
     theme: 'light',
     panScale: {
-        x: 0, 
-        y: 0, 
-        scale: 1
+        x: 0,
+        y: 0,
+        scale: 1,
     },
     appDimensions: {
         width: window.innerWidth,
@@ -162,15 +172,12 @@ export const initialState: UiState = {
 }
 
 // ---------------- Reducer -------------- //
-export const uiReducer = (
-    state = initialState,
-    action: UiTypes
-): UiState => {
+export const uiReducer = (state = initialState, action: UiTypes): UiState => {
     switch (action.type) {
         case UI_SET_THEME:
             return {
                 ...state,
-                theme: action.payload.theme
+                theme: action.payload.theme,
             }
         case UI_SET_PAN_SCALE:
             return {
@@ -192,7 +199,7 @@ export const uiReducer = (
             return {
                 ...state,
                 popup: null,
-                mobileMenuExpanded: action.payload
+                mobileMenuExpanded: action.payload,
             }
         default:
             return state

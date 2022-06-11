@@ -1,7 +1,7 @@
 import React from 'react'
 import { parseArg } from '@webpd/pd-parser'
 import { connect } from 'react-redux'
-import styled from "styled-components"
+import styled from 'styled-components'
 import { AppState } from '../store'
 import { addNode, editNode } from '../store/model'
 import { getCurrentPdPatch } from '../store/selectors'
@@ -18,7 +18,10 @@ interface NodeArgsViewerProps {
     patch: PdJson.Patch
 }
 
-const NodeArgsViewerContainer = themed(styled.div<{ theme: UiTheme, colors: Colors }>`
+const NodeArgsViewerContainer = themed(styled.div<{
+    theme: UiTheme
+    colors: Colors
+}>`
     ul {
         list-style: none;
         padding: 0;
@@ -34,16 +37,28 @@ const NodeArgsViewerContainer = themed(styled.div<{ theme: UiTheme, colors: Colo
     }
 `)
 
-const _NodeArgsViewer = ({ nodeType, nodeArgs, patch }: NodeArgsViewerProps) => {
+const _NodeArgsViewer = ({
+    nodeType,
+    nodeArgs,
+    patch,
+}: NodeArgsViewerProps) => {
     const nodeBuilder = NODE_BUILDERS[nodeType]
     let liElems: Array<JSX.Element> = null
     if (!nodeBuilder || !nodeArgs) {
         liElems = null
     } else {
-        const args = nodeBuilder.translateArgs(nodeArgs, patch)
+        let args: PdDspGraph.NodeArguments
+        try {
+            args = nodeBuilder.translateArgs(nodeArgs, patch)
+        } catch (err) {
+            console.error(err)
+            return null
+        }
         liElems = Object.entries(args).map(([argName, argValue]) => {
             return (
-                <li>{argName} : {argValue}</li>
+                <li>
+                    {argName} : {argValue}
+                </li>
             )
         })
     }
@@ -54,9 +69,9 @@ const _NodeArgsViewer = ({ nodeType, nodeArgs, patch }: NodeArgsViewerProps) => 
     )
 }
 
-const NodeArgsViewer = connect(
-    (state: AppState) => ({ patch: getCurrentPdPatch(state) })
-)(_NodeArgsViewer)
+const NodeArgsViewer = connect((state: AppState) => ({
+    patch: getCurrentPdPatch(state),
+}))(_NodeArgsViewer)
 
 interface Props {
     setPopup: typeof setPopup
@@ -80,7 +95,10 @@ const Container = styled.div`
     padding: 0 ${themeConfig.spacing.default};
 `
 
-const TypeAndArgsContainer = themed(styled.div<{ theme: UiTheme, colors: Colors }>`
+const TypeAndArgsContainer = themed(styled.div<{
+    theme: UiTheme
+    colors: Colors
+}>`
     display: flex;
     flex-direction: row;
     align-items: center;
@@ -89,7 +107,7 @@ const TypeAndArgsContainer = themed(styled.div<{ theme: UiTheme, colors: Colors 
         background: ${colors.secondary};
     `}
 
-    & > span:first-child {  
+    & > span:first-child {
         padding: 0 1em;
         ${({ colors }) => `
             color: ${colors.text2};
@@ -106,24 +124,36 @@ const SubmitButton = styled(Input)`
 `
 
 class NodeCreatePopUp extends React.Component<Props, State> {
-
     constructor(props: Props) {
         super(props)
-        this.state = { 
+        this.state = {
             newArgs: this.props.nodeArgs ? this.props.nodeArgs : [],
-            inputValue: this.props.nodeArgs ? this.props.nodeArgs.map(v => v.toString()).join(' ') : '',
+            inputValue: this.props.nodeArgs
+                ? this.props.nodeArgs.map((v) => v.toString()).join(' ')
+                : '',
         }
     }
 
     componentDidMount() {
-        const formElem: HTMLFormElement = (this.refs['nodeForm'] as HTMLFormElement)
-        const inputElem: HTMLInputElement = formElem.querySelector('input[name="args"]')
+        const formElem: HTMLFormElement = this.refs[
+            'nodeForm'
+        ] as HTMLFormElement
+        const inputElem: HTMLInputElement = formElem.querySelector(
+            'input[name="args"]'
+        )
         inputElem.focus()
     }
 
     render() {
-        const {nodeType, setPopup, addNode, editNode, nodeId, nodeArgs: currentArgs} = this.props
-        const {newArgs, inputValue} = this.state
+        const {
+            nodeType,
+            setPopup,
+            addNode,
+            editNode,
+            nodeId,
+            nodeArgs: currentArgs,
+        } = this.props
+        const { newArgs, inputValue } = this.state
 
         const onArgsChange = (event: React.ChangeEvent<HTMLInputElement>) => {
             const inputValue = event.currentTarget.value
@@ -149,25 +179,24 @@ class NodeCreatePopUp extends React.Component<Props, State> {
                 <form onSubmit={onSubmit} ref="nodeForm">
                     <TypeAndArgsContainer>
                         <span>{nodeType}</span>
-                        <Input2 
-                            type="text" 
-                            name="args" 
-                            onChange={onArgsChange} 
+                        <Input2
+                            type="text"
+                            name="args"
+                            onChange={onArgsChange}
                             placeholder="Write object arguments separated by a space"
                             autoComplete="off"
                             value={inputValue}
                         />
                     </TypeAndArgsContainer>
                     <NodeArgsViewer nodeArgs={newArgs} nodeType={nodeType} />
-                    <SubmitButton type="submit" value={currentArgs ? "Save changes" : "Create"} />
+                    <SubmitButton
+                        type="submit"
+                        value={currentArgs ? 'Save changes' : 'Create'}
+                    />
                 </form>
             </Container>
         )
     }
-
 }
 
-export default connect(
-    null, 
-    { addNode, setPopup, editNode }
-)(NodeCreatePopUp)
+export default connect(null, { addNode, setPopup, editNode })(NodeCreatePopUp)

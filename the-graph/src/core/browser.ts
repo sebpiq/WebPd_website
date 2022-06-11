@@ -1,7 +1,7 @@
 export const download = (filename: string, data: string, mimetype: string) => {
     const blob = new Blob([data], { type: mimetype })
-    if((window.navigator as any).msSaveOrOpenBlob) {
-        (window.navigator as any).msSaveBlob(blob, filename)
+    if ((window.navigator as any).msSaveOrOpenBlob) {
+        ;(window.navigator as any).msSaveBlob(blob, filename)
     } else {
         const elem = window.document.createElement('a')
         elem.href = window.URL.createObjectURL(blob)
@@ -12,10 +12,11 @@ export const download = (filename: string, data: string, mimetype: string) => {
     }
 }
 
-export const isTouchDevice = () => (('ontouchstart' in window) ||
-    (navigator.maxTouchPoints > 0) ||
-    ((navigator as any).msMaxTouchPoints > 0))
-  
+export const isTouchDevice = () =>
+    'ontouchstart' in window ||
+    navigator.maxTouchPoints > 0 ||
+    (navigator as any).msMaxTouchPoints > 0
+
 export const readFileAsArrayBuffer = (file: File): Promise<ArrayBuffer> => {
     const reader = new FileReader()
     return new Promise((resolve, reject) => {

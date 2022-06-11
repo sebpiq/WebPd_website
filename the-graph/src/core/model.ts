@@ -13,8 +13,8 @@ export interface NodeMetadata {
     icon: string
     pdNode: PdJson.Node
     pdPortletLookup: {
-        outlets: PortletLookupMap,
-        inlets: PortletLookupMap,
+        outlets: PortletLookupMap
+        inlets: PortletLookupMap
     }
 }
 
@@ -23,7 +23,10 @@ export interface GraphNodeWithMetadata extends GraphNode {
     metadata: NodeMetadata
 }
 
-export const getGraphNode = (graph: fbpGraph.Graph, nodeId: PdJson.ObjectLocalId): GraphNodeWithMetadata => {
+export const getGraphNode = (
+    graph: fbpGraph.Graph,
+    nodeId: PdJson.ObjectLocalId
+): GraphNodeWithMetadata => {
     const node = graph.getNode(nodeId)
     if (!hasNodeMetadata(node)) {
         throw new Error(`Node "${nodeId}" doesn't have metadata`)
@@ -32,16 +35,19 @@ export const getGraphNode = (graph: fbpGraph.Graph, nodeId: PdJson.ObjectLocalId
 }
 
 export const addGraphNode = (
-    graph: fbpGraph.Graph, 
+    graph: fbpGraph.Graph,
     nodeId: PdJson.ObjectLocalId,
-    nodeType: PdSharedTypes.NodeType, 
+    nodeType: PdSharedTypes.NodeType,
     nodeArgs: PdJson.ObjectArgs,
-    position: Point, 
+    position: Point,
     engineSettings: PdEngine.Settings
 ) => {
     // Building the lookup map to find pd portlet ids from graph portlet name
     const nodeViewBuilder = NODE_VIEW_BUILDERS[nodeType]
-    const { outlets: outletViews, inlets: inletViews } = nodeViewBuilder.build(nodeArgs, engineSettings)
+    const { outlets: outletViews, inlets: inletViews } = nodeViewBuilder.build(
+        nodeArgs,
+        engineSettings
+    )
     const outletsLookup: PortletLookupMap = {}
     const inletsLookup: PortletLookupMap = {}
     outletViews.forEach((outletView, portletId) => {
@@ -66,15 +72,19 @@ export const addGraphNode = (
         pdPortletLookup: {
             outlets: outletsLookup,
             inlets: inletsLookup,
-        }
+        },
     }
-    graph.addNode(nodeId, generateComponentName(nodeType, nodeArgs, engineSettings), nodeMetadata)
+    graph.addNode(
+        nodeId,
+        generateComponentName(nodeType, nodeArgs, engineSettings),
+        nodeMetadata
+    )
 }
 
 // TODO : handle case when editing node args changes the node's in/outlets
 export const editGraphNode = (
-    graph: fbpGraph.Graph, 
-    nodeId: PdJson.ObjectLocalId, 
+    graph: fbpGraph.Graph,
+    nodeId: PdJson.ObjectLocalId,
     nodeArgs: PdJson.ObjectArgs
 ) => {
     const node = graph.getNode(nodeId)
@@ -82,25 +92,25 @@ export const editGraphNode = (
         throw new Error(`Node "${nodeId}" doesn't have metadata`)
     }
     const pdNode: PdJson.Node = {
-        ...node.metadata.pdNode, 
-        args: nodeArgs
+        ...node.metadata.pdNode,
+        args: nodeArgs,
     }
     graph.setNodeMetadata(node.id, {
-        ...node.metadata, 
+        ...node.metadata,
         sublabel: generateSublabel(pdNode.args),
-        pdNode
+        pdNode,
     } as NodeMetadata)
 }
 
-export const generateSublabel = (nodeArgs: PdJson.ObjectArgs) => 
-    nodeArgs.map(v => v.toString()).join(' ') || ' '
+export const generateSublabel = (nodeArgs: PdJson.ObjectArgs) =>
+    nodeArgs.map((v) => v.toString()).join(' ') || ' '
 
-// Pd nodes can have for a same node type variable inlet / outlet number. 
+// Pd nodes can have for a same node type variable inlet / outlet number.
 // This is the case, for example, of trigger.
 // The-graph takes only a static definition of inports / outports for one component.
 export const generateComponentName = (
-    nodeType: PdSharedTypes.NodeType, 
-    nodeArgs: PdJson.ObjectArgs, 
+    nodeType: PdSharedTypes.NodeType,
+    nodeArgs: PdJson.ObjectArgs,
     engineSettings: PdEngine.Settings
 ) => {
     const nodeViewBuilder = NODE_VIEW_BUILDERS[nodeType]

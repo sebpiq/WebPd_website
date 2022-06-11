@@ -8,12 +8,10 @@ interface Props {
 }
 
 const ButtonExport = ({ setPopup }: Props) => {
-    const onClick = () => { setPopup({ type: POPUP_EXPORT }) }
-    return (
-        <MenuButton onClick={onClick}>
-            export
-        </MenuButton>
-    )
+    const onClick = () => {
+        setPopup({ type: POPUP_EXPORT })
+    }
+    return <MenuButton onClick={onClick}>export</MenuButton>
 }
 
 export default connect(null, { setPopup })(ButtonExport)

@@ -1,13 +1,17 @@
 import React from 'react'
 import { connect } from 'react-redux'
-import styled from "styled-components"
+import styled from 'styled-components'
 import { graphToPd, pdToJsCode } from '../core/converters'
 import Button from '../styled-components/Button'
 import * as fbpGraph from 'fbp-graph'
 import { AppState } from '../store'
 import { Engine } from '@webpd/engine-live-eval'
 import renderPdFile from '@webpd/pd-renderer'
-import { getCurrentPdPatch, getModelGraph, getWebpdEngine } from '../store/selectors'
+import {
+    getCurrentPdPatch,
+    getModelGraph,
+    getWebpdEngine,
+} from '../store/selectors'
 import themeConfig, { Colors } from '../theme-config'
 import Input, { Input2 } from '../styled-components/Input'
 import { download } from '../core/browser'
@@ -61,7 +65,6 @@ const TabsContainer = styled.div`
             }
         `)}
     }
-
 `
 
 const CodeAreaContainer = styled.div`
@@ -98,7 +101,7 @@ const DownloadContainer = styled.div`
     }
 `
 
-const FilenameContainer = themed(styled.div<{ theme: UiTheme, colors: Colors }>`
+const FilenameContainer = themed(styled.div<{ theme: UiTheme; colors: Colors }>`
     display: inline-block;
 
     ${onMobile(`
@@ -117,9 +120,7 @@ const FilenameContainer = themed(styled.div<{ theme: UiTheme, colors: Colors }>`
     }
 `)
 
-
 class ExportPopUp extends React.Component<Props, State> {
-
     constructor(props: Props) {
         super(props)
         const pd = graphToPd(this.props.graph)
@@ -128,21 +129,26 @@ class ExportPopUp extends React.Component<Props, State> {
             pd: renderPdFile(pd, this.props.patch.id),
             wasm: null,
             currentTab: 'pd',
-            filename: null
+            filename: null,
         }
     }
 
     componentDidUpdate(_: Readonly<Props>, prevState: Readonly<State>) {
-        if (prevState.currentTab !== this.state.currentTab && this.refs.downloadForm) {
+        if (
+            prevState.currentTab !== this.state.currentTab &&
+            this.refs.downloadForm
+        ) {
             const form = this.refs.downloadForm as HTMLFormElement
-            const input = form.querySelector('input[name="filename"]') as HTMLInputElement
+            const input = form.querySelector(
+                'input[name="filename"]'
+            ) as HTMLInputElement
             input.focus()
         }
     }
 
     render() {
-        const {graph, webpdEngine, patch} = this.props
-        const {currentTab, js, pd, wasm, filename} = this.state
+        const { graph, webpdEngine, patch } = this.props
+        const { currentTab, js, pd, wasm, filename } = this.state
 
         const code = { pd, js, wasm }[currentTab]
         const extension = currentTab
@@ -163,65 +169,69 @@ class ExportPopUp extends React.Component<Props, State> {
             this.setState({ wasm: 'COMING SOON ...', currentTab: 'wasm' })
         }
 
-        const onFilenameChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+        const onFilenameChange = (
+            event: React.ChangeEvent<HTMLInputElement>
+        ) => {
             const filenameInput = event.currentTarget as HTMLInputElement
             this.setState({ filename: filenameInput.value })
         }
 
         const onDownloadClick = (event: React.FormEvent<HTMLFormElement>) => {
             event.preventDefault()
-            download(`${filename}.${extension}`, code, {
-                'js': 'application/javascript',
-                'pd': 'application/puredata',
-                'wasm': 'application/wasm',
-            }[extension])
+            download(
+                `${filename}.${extension}`,
+                code,
+                {
+                    js: 'application/javascript',
+                    pd: 'application/puredata',
+                    wasm: 'application/wasm',
+                }[extension]
+            )
         }
 
         return (
             <Container>
                 <H2>Export Your Patch</H2>
                 <TabsContainer>
-                    <Button onClick={onPdClick} >.pd - Pure Data file</Button>
+                    <Button onClick={onPdClick}>.pd - Pure Data file</Button>
                     <Button onClick={onJsClick}>.js - JavaScript code</Button>
-                    <Button onClick={onWasmClick} >.wasm - WebAssembly binary</Button>
+                    <Button onClick={onWasmClick}>
+                        .wasm - WebAssembly binary
+                    </Button>
                 </TabsContainer>
-                {currentTab ? 
+                {currentTab ? (
                     <CodeAreaContainer>
-                        <pre>
-                            {code}
-                        </pre> 
+                        <pre>{code}</pre>
                     </CodeAreaContainer>
-                : null}
-                {currentTab && currentTab !== 'wasm' ? 
+                ) : null}
+                {currentTab && currentTab !== 'wasm' ? (
                     <DownloadContainer>
                         <form onSubmit={onDownloadClick} ref="downloadForm">
                             <FilenameContainer>
-                                <Input2 
-                                    type="text" 
-                                    name="filename" 
+                                <Input2
+                                    type="text"
+                                    name="filename"
                                     onChange={onFilenameChange}
                                     placeholder="filename"
                                     autoComplete="off"
                                 />
                                 <span>.{extension}</span>
                             </FilenameContainer>
-                            <Input 
-                                type="submit" 
+                            <Input
+                                type="submit"
                                 value="download"
-                                disabled={!filename || filename.length === 0} 
+                                disabled={!filename || filename.length === 0}
                             />
                         </form>
                     </DownloadContainer>
-                : null}
+                ) : null}
             </Container>
         )
     }
 }
 
-export default connect(
-    (state: AppState) => ({
-        graph: getModelGraph(state),
-        webpdEngine: getWebpdEngine(state),
-        patch: getCurrentPdPatch(state),
-    }),
-)(ExportPopUp)
+export default connect((state: AppState) => ({
+    graph: getModelGraph(state),
+    webpdEngine: getWebpdEngine(state),
+    patch: getCurrentPdPatch(state),
+}))(ExportPopUp)

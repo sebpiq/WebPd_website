@@ -1,4 +1,4 @@
-import { Engine } from "@webpd/engine-live-eval"
+import { Engine } from '@webpd/engine-live-eval'
 
 // ------------- Action Types ------------ //
 export const WEBPD_CREATE = 'WEBPD_CREATE'
@@ -13,7 +13,7 @@ export interface WebPdCreate {
 export interface WebPdCreated {
     type: typeof WEBPD_CREATED
     payload: {
-        context: AudioContext,
+        context: AudioContext
         engine: Engine
     }
 }
@@ -21,7 +21,7 @@ export interface WebPdCreated {
 export interface WebPdInitialized {
     type: typeof WEBPD_INITIALIZED
     payload: {
-        context: AudioContext,
+        context: AudioContext
         engine: Engine
     }
 }
@@ -29,18 +29,21 @@ export interface WebPdInitialized {
 export interface WebPdDspToggled {
     type: typeof WEBPD_DSP_TOGGLE
     payload: {
-        isDspOn: boolean,
+        isDspOn: boolean
     }
 }
 
-type WebPdTypes = WebPdDspToggled | WebPdInitialized | WebPdCreate | WebPdCreated
-
+type WebPdTypes =
+    | WebPdDspToggled
+    | WebPdInitialized
+    | WebPdCreate
+    | WebPdCreated
 
 // ------------ Action Creators ---------- //
 export const toggleDsp = (isDspOn: boolean): WebPdTypes => {
     return {
         type: WEBPD_DSP_TOGGLE,
-        payload: {isDspOn},
+        payload: { isDspOn },
     }
 }
 
@@ -50,17 +53,23 @@ export const create = (): WebPdTypes => {
     }
 }
 
-export const setCreated = (context: AudioContext, engine: Engine): WebPdTypes => {
+export const setCreated = (
+    context: AudioContext,
+    engine: Engine
+): WebPdTypes => {
     return {
         type: WEBPD_CREATED,
-        payload: {context, engine}
+        payload: { context, engine },
     }
 }
 
-export const setInitialized = (context: AudioContext, engine: Engine): WebPdTypes => {
+export const setInitialized = (
+    context: AudioContext,
+    engine: Engine
+): WebPdTypes => {
     return {
         type: WEBPD_INITIALIZED,
-        payload: {context, engine}
+        payload: { context, engine },
     }
 }
 
@@ -87,24 +96,24 @@ export const webPdReducer = (
     action: WebPdTypes
 ): WebPdState => {
     switch (action.type) {
-        case WEBPD_CREATED: 
+        case WEBPD_CREATED:
             return {
                 ...state,
                 isCreated: true,
                 context: action.payload.context,
                 engine: action.payload.engine,
             }
-        case WEBPD_INITIALIZED: 
+        case WEBPD_INITIALIZED:
             return {
                 ...state,
                 isInitialized: true,
                 context: action.payload.context,
                 engine: action.payload.engine,
             }
-        case WEBPD_DSP_TOGGLE: 
+        case WEBPD_DSP_TOGGLE:
             return {
                 ...state,
-                isDspOn: action.payload.isDspOn
+                isDspOn: action.payload.isDspOn,
             }
         default:
             return state

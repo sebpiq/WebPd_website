@@ -1,12 +1,50 @@
 import * as fbpGraph from 'fbp-graph'
-import evalEngine, {
-    Engine,
-} from '@webpd/engine-live-eval'
-import { all, takeLatest, put, select, call, take, fork } from 'redux-saga/effects'
-import { getCurrentPdPatch, getModelGraph, getUiCanvasCenterPoint, getWebpdContext, getWebpdEngine, getWebpdIsInitialized } from './selectors'
-import { setCreated, setInitialized, WebPdDspToggled, WEBPD_CREATE, WEBPD_DSP_TOGGLE } from './webpd'
-import { incrementGraphVersion, ModelAddNode, ModelEditNode, ModelRequestLoadArray, ModelRequestLoadPd, MODEL_ADD_NODE, MODEL_EDIT_NODE, MODEL_REQUEST_LOAD_ARRAY, MODEL_REQUEST_LOAD_PD, setArrayLoaded, setGraph } from './model'
-import { pdToLibrary, pdToGraph, graphToPd, pdToJsCode } from '../core/converters'
+import evalEngine, { Engine } from '@webpd/engine-live-eval'
+import {
+    all,
+    takeLatest,
+    put,
+    select,
+    call,
+    take,
+    fork,
+} from 'redux-saga/effects'
+import {
+    getCurrentPdPatch,
+    getModelArrays,
+    getModelGraph,
+    getUiCanvasCenterPoint,
+    getWebpdContext,
+    getWebpdEngine,
+    getWebpdIsInitialized,
+} from './selectors'
+import {
+    setCreated,
+    setInitialized,
+    WebPdDspToggled,
+    WEBPD_CREATE,
+    WEBPD_DSP_TOGGLE,
+} from './webpd'
+import {
+    ArraysMap,
+    incrementGraphVersion,
+    ModelAddNode,
+    ModelEditNode,
+    ModelRequestLoadArray,
+    ModelRequestLoadPd,
+    MODEL_ADD_NODE,
+    MODEL_EDIT_NODE,
+    MODEL_REQUEST_LOAD_ARRAY,
+    MODEL_REQUEST_LOAD_PD,
+    setArrayLoaded,
+    setGraph,
+} from './model'
+import {
+    pdToLibrary,
+    pdToGraph,
+    graphToPd,
+    pdToJsCode,
+} from '../core/converters'
 import { Library } from '../core/types'
 import { END, EventChannel, eventChannel } from 'redux-saga'
 import { LOCALSTORAGE_HELP_SEEN_KEY, Point, UI_SET_POPUP } from './ui'
@@ -14,12 +52,12 @@ import * as model from '../core/model'
 import { readFileAsArrayBuffer } from '../core/browser'
 
 const graphEventChannel = (graph: fbpGraph.Graph) => {
-    return eventChannel(emitter => {
+    return eventChannel((emitter) => {
         graph.on('endTransaction', () => {
             console.log('endTransaction', graph)
             emitter(null)
         })
-        // TODO ? 
+        // TODO ?
         graph.on('close', () => {
             emitter(END)
         })
@@ -32,25 +70,29 @@ const graphEventChannel = (graph: fbpGraph.Graph) => {
 function* graphEventsSaga(graph: fbpGraph.Graph) {
     // TODO : terminate on new UI graph (and clean / kill EventChannel)
     const events: EventChannel<null> = yield call(graphEventChannel, graph)
-    try {    
-      while (true) {
-        // take(END) will cause the saga to terminate by jumping to the finally block
-        yield take(events)
-        yield call(graphChanged, graph)
-      }
-    } catch(err) {
+    try {
+        while (true) {
+            // take(END) will cause the saga to terminate by jumping to the finally block
+            yield take(events)
+            yield call(graphChanged, graph)
+        }
+    } catch (err) {
         console.error(err)
     } finally {
-      console.log('ui graph channel terminated')
+        console.log('ui graph channel terminated')
     }
 }
 
-function* graphChanged (graph: fbpGraph.Graph) {
+function* graphChanged(graph: fbpGraph.Graph) {
     const isWebpdInitialized: boolean = yield select(getWebpdIsInitialized)
     const webpdEngine: Engine = yield select(getWebpdEngine)
     yield put(incrementGraphVersion())
     const pdJson = graphToPd(graph)
-    const library: Library = yield call(pdToLibrary, pdJson, webpdEngine.settings)
+    const library: Library = yield call(
+        pdToLibrary,
+        pdJson,
+        webpdEngine.settings
+    )
     yield put(setGraph(graph, library))
     if (isWebpdInitialized) {
         yield call(updateWebpdDsp, pdJson)
@@ -60,8 +102,9 @@ function* graphChanged (graph: fbpGraph.Graph) {
 
 function* updateWebpdDsp(pd: PdJson.Pd) {
     const webpdEngine: Engine = yield select(getWebpdEngine)
+    const arrays: ArraysMap = yield select(getModelArrays)
     const code = pdToJsCode(pd, webpdEngine.settings)
-    yield call(evalEngine.run, webpdEngine, code, {})
+    yield call(evalEngine.run, webpdEngine, code, arrays)
 }
 
 function* createWebpdEngine() {
@@ -105,7 +148,14 @@ function* createGraphNode(action: ModelAddNode) {
     const webpdEngine: Engine = yield select(getWebpdEngine)
     const patch: PdJson.Patch = yield select(getCurrentPdPatch)
     const nodeId = model.generateId(patch)
-    model.addGraphNode(graph, nodeId, action.payload.nodeType, action.payload.nodeArgs, canvasCenterPoint, webpdEngine.settings)
+    model.addGraphNode(
+        graph,
+        nodeId,
+        action.payload.nodeType,
+        action.payload.nodeArgs,
+        canvasCenterPoint,
+        webpdEngine.settings
+    )
     yield call(graphChanged, graph)
 }
 
@@ -118,8 +168,16 @@ function* requestLoadPd(action: ModelRequestLoadPd) {
     const pdJson = action.payload.pd
     const webpdEngine: Engine = yield select(getWebpdEngine)
     const isWebpdInitialized: boolean = yield select(getWebpdIsInitialized)
-    const graph: fbpGraph.Graph = yield call(pdToGraph, pdJson, webpdEngine.settings)
-    const library: Library = yield call(pdToLibrary, pdJson, webpdEngine.settings)
+    const graph: fbpGraph.Graph = yield call(
+        pdToGraph,
+        pdJson,
+        webpdEngine.settings
+    )
+    const library: Library = yield call(
+        pdToLibrary,
+        pdJson,
+        webpdEngine.settings
+    )
     yield put(setGraph(graph, library))
     if (isWebpdInitialized) {
         yield call(updateWebpdDsp, pdJson)
@@ -129,10 +187,18 @@ function* requestLoadPd(action: ModelRequestLoadPd) {
 
 function* requestLoadArray(action: ModelRequestLoadArray) {
     const context = new AudioContext()
-    const arrayBuffer: ArrayBuffer = yield call(readFileAsArrayBuffer, action.payload.arrayFile)
-    const audioBuffer: AudioBuffer = yield call(context.decodeAudioData.bind(context), arrayBuffer)
+    const arrayBuffer: ArrayBuffer = yield call(
+        readFileAsArrayBuffer,
+        action.payload.arrayFile
+    )
+    const audioBuffer: AudioBuffer = yield call(
+        context.decodeAudioData.bind(context),
+        arrayBuffer
+    )
     // !!! Loading only first channel of stereo audio
-    yield put(setArrayLoaded(action.payload.arrayName, audioBuffer.getChannelData(0)))
+    yield put(
+        setArrayLoaded(action.payload.arrayName, audioBuffer.getChannelData(0))
+    )
 }
 
 function* setHelpSeen() {

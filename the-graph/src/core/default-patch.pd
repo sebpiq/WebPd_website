@@ -1,5 +1,9 @@
-#N canvas 608 281 450 300 10;
-#X obj 50 125 dac~;
-#X obj 50 25 osc~ 440;
-#X connect 1 0 0 0;
-#X connect 1 0 0 1;
+#N canvas 67 87 1853 993 10;
+#X obj 72 145 dac~;
+#X obj 71 53 loadbang;
+#X obj 71 81 metro 500;
+#X obj 71 109 tabplay~ SOUND;
+#X connect 1 0 2 0;
+#X connect 2 0 3 0;
+#X connect 3 0 0 0;
+#X connect 3 0 0 1;

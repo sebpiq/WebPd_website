@@ -20,7 +20,7 @@ const Container = styled.div`
     top: 0;
     left: 0;
     width: 0;
-    z-index: ${themeConfig.zIndex.Menu}
+    z-index: ${themeConfig.zIndex.Menu};
 `
 
 const DesktopContainer = styled.div`
@@ -37,15 +37,19 @@ const DesktopContainer = styled.div`
     }
 `
 
-const MobileContainer = themed(styled.div<{expanded: boolean, colors: Colors, theme: UiTheme}>`
+const MobileContainer = themed(styled.div<{
+    expanded: boolean
+    colors: Colors
+    theme: UiTheme
+}>`
     display: flex;
     flex-direction: column;
     justify-content: flex-start;
     transition: background-color 500ms;
     background-color: rgba(0, 0, 0, 0);
-    ${props => `
-        height: ${props.expanded ? '100vh': 'auto'};
-        ${props.expanded ? 'width: 100vw;': ''}
+    ${(props) => `
+        height: ${props.expanded ? '100vh' : 'auto'};
+        ${props.expanded ? 'width: 100vw;' : ''}
         ${props.expanded ? `background-color: ${props.colors.bgPopup};` : ''}
     `}    
     padding: ${themeConfig.spacing.default};
@@ -54,14 +58,12 @@ const MobileContainer = themed(styled.div<{expanded: boolean, colors: Colors, th
     `)}
 `)
 
-const MobileMenuItems = styled.div<{expanded: boolean}>`
+const MobileMenuItems = styled.div<{ expanded: boolean }>`
     transition: height 200ms;
     overflow: hidden;
-    ${props => `
-        height: ${props.expanded ? '400px': '0px'};
-        ${props.expanded ? 
-            `padding-top: 1em;`
-        : ``}
+    ${(props) => `
+        height: ${props.expanded ? '400px' : '0px'};
+        ${props.expanded ? `padding-top: 1em;` : ``}
     `}
     button {
         display: block;
@@ -80,9 +82,8 @@ interface Props {
 }
 
 class Menu extends React.Component<Props> {
-
     render() {
-        const {expanded, setMobileMenuExpanded} = this.props
+        const { expanded, setMobileMenuExpanded } = this.props
 
         const menuItems = [
             <ToggleDsp />,
@@ -103,10 +104,11 @@ class Menu extends React.Component<Props> {
 
         return (
             <Container>
-                <DesktopContainer>
-                    {menuItems}
-                </DesktopContainer>
-                <MobileContainer expanded={expanded} onClick={onClickMobileContainer}>
+                <DesktopContainer>{menuItems}</DesktopContainer>
+                <MobileContainer
+                    expanded={expanded}
+                    onClick={onClickMobileContainer}
+                >
                     <BurgerMenuContainer>
                         <BurgerMenu onClick={onBurgerClick}></BurgerMenu>
                     </BurgerMenuContainer>
@@ -121,5 +123,5 @@ class Menu extends React.Component<Props> {
 
 export default connect(
     (state: AppState) => ({ expanded: getUiMobileMenuExpanded(state) }),
-    {setMobileMenuExpanded}
+    { setMobileMenuExpanded }
 )(Menu)

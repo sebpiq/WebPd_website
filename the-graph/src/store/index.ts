@@ -6,15 +6,15 @@ import { modelReducer } from './model'
 import rootSaga from './sagas'
 
 export type AppState = {
-    webpd: ReturnType<typeof webPdReducer>,
-    ui: ReturnType<typeof uiReducer>,
-    model: ReturnType<typeof modelReducer>,
+    webpd: ReturnType<typeof webPdReducer>
+    ui: ReturnType<typeof uiReducer>
+    model: ReturnType<typeof modelReducer>
 }
 
 const rootReducer = combineReducers<AppState>({
     webpd: webPdReducer,
     ui: uiReducer,
-    model: modelReducer
+    model: modelReducer,
 })
 
 const sagaMiddleware = createSagaMiddleware()

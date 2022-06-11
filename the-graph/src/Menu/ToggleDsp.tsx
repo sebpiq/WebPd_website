@@ -19,12 +19,16 @@ const ToggleDsp = ({ toggleDsp, isDspOn }: Props) => {
     const onClick = () => toggleDsp(!isDspOn)
     return (
         <StyledMenuButton onClick={onClick}>
-            {isDspOn ? <i className="fa fa-volume-up"></i> : <i className="fa fa-volume-off"></i>}
-        </StyledMenuButton> 
+            {isDspOn ? (
+                <i className="fa fa-volume-up"></i>
+            ) : (
+                <i className="fa fa-volume-off"></i>
+            )}
+        </StyledMenuButton>
     )
 }
 
 export default connect(
     (state: AppState) => ({ isDspOn: getWebpdIsDspOn(state) }),
-    {toggleDsp}
+    { toggleDsp }
 )(ToggleDsp)

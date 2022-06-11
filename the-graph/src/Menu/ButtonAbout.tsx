@@ -8,12 +8,10 @@ interface Props {
 }
 
 const ButtonAbout = ({ setPopup }: Props) => {
-    const onClick = () => { setPopup({ type: POPUP_ABOUT }) }
-    return (
-        <MenuButton onClick={onClick}>
-            about
-        </MenuButton>
-    )
+    const onClick = () => {
+        setPopup({ type: POPUP_ABOUT })
+    }
+    return <MenuButton onClick={onClick}>about</MenuButton>
 }
 
 export default connect(null, { setPopup })(ButtonAbout)

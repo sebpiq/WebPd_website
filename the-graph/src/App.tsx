@@ -13,7 +13,7 @@ import { requestLoadPd } from './store/model'
 import { setAppDimensions } from './store/ui'
 
 export interface InnerAppProps {
-    webpdIsCreated : boolean
+    webpdIsCreated: boolean
     setAppDimensions: typeof setAppDimensions
 }
 
@@ -27,7 +27,6 @@ const createWebPdEngine = async () => {
 }
 
 class _InnerApp extends React.Component<InnerAppProps> {
-
     constructor(props: InnerAppProps) {
         super(props)
         this.windowResized = this.windowResized.bind(this)

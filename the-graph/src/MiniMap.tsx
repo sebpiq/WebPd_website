@@ -2,7 +2,11 @@ import React from 'react'
 import * as fbpGraph from 'fbp-graph'
 import TheGraph from 'the-graph'
 import { AppState } from './store'
-import { getModelGraph, getModelGraphVersion, getUiPanScale } from './store/selectors'
+import {
+    getModelGraph,
+    getModelGraphVersion,
+    getUiPanScale,
+} from './store/selectors'
 import { connect } from 'react-redux'
 import styled from 'styled-components'
 import themeConfig from './theme-config'
@@ -15,17 +19,15 @@ const Container = styled.div`
 `
 
 export interface Props {
-    panX: number,
-    panY: number,
-    scale: number,
-    graph: fbpGraph.Graph,
-    graphVersion: number,
+    panX: number
+    panY: number
+    scale: number
+    graph: fbpGraph.Graph
+    graphVersion: number
     setPanScale: typeof setPanScale
 }
 
-const MiniMap = ({ 
-    panX, panY, scale, graph, setPanScale
-}: Props) => {
+const MiniMap = ({ panX, panY, scale, graph, setPanScale }: Props) => {
     // Attach nav
     function fitGraphInView() {
         // const editor = document.getElementById('editor')
@@ -33,15 +35,9 @@ const MiniMap = ({
         // ;(editor as any).triggerFit()
     }
 
-    function panEditorTo(point: Point) {
-    }
+    function panEditorTo(point: Point) {}
 
-    const view = [
-        panX,
-        panY,
-        window.innerWidth,
-        window.innerHeight,
-    ]
+    const view = [panX, panY, window.innerWidth, window.innerHeight]
 
     const width = Math.min(window.innerWidth / 2.5, 216)
     const props = {
@@ -70,8 +66,8 @@ export default connect(
             scale: panScale.scale,
             graph: getModelGraph(state),
             // Force re-rendering of mini-map everytime the graph is modified
-            graphVersion: getModelGraphVersion(state)
+            graphVersion: getModelGraphVersion(state),
         }
-    }, 
+    },
     { setPanScale }
 )(MiniMap)

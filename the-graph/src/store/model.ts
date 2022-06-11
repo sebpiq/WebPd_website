@@ -1,7 +1,7 @@
 import * as fbpGraph from 'fbp-graph'
 import { Library } from '../core/types'
 
-export type ArraysMap = {[arrayName: string]: Float32Array}
+export type ArraysMap = { [arrayName: string]: Float32Array }
 
 // ------------- Action Types ------------ //
 export const MODEL_SET_GRAPH = 'MODEL_SET_GRAPH'
@@ -12,7 +12,6 @@ export const MODEL_REQUEST_LOAD_PD = 'MODEL_REQUEST_LOAD_PD'
 export const MODEL_REQUEST_LOAD_ARRAY = 'MODEL_REQUEST_LOAD_ARRAY'
 export const MODEL_ARRAY_LOADED = 'MODEL_ARRAY_LOADED'
 export const MODEL_DELETE_ARRAY = 'MODEL_DELETE_ARRAY'
-
 
 interface ModelSetGraph {
     type: typeof MODEL_SET_GRAPH
@@ -25,7 +24,7 @@ interface ModelSetGraph {
 export interface ModelAddNode {
     type: typeof MODEL_ADD_NODE
     payload: {
-        nodeType: PdSharedTypes.NodeType,
+        nodeType: PdSharedTypes.NodeType
         nodeArgs: PdJson.ObjectArgs
     }
 }
@@ -33,7 +32,7 @@ export interface ModelAddNode {
 export interface ModelEditNode {
     type: typeof MODEL_EDIT_NODE
     payload: {
-        nodeId: PdJson.ObjectLocalId,
+        nodeId: PdJson.ObjectLocalId
         nodeArgs: PdJson.ObjectArgs
     }
 }
@@ -45,7 +44,7 @@ interface ModelIncrementGraphVersion {
 export interface ModelRequestLoadPd {
     type: typeof MODEL_REQUEST_LOAD_PD
     payload: {
-        pd: PdJson.Pd,
+        pd: PdJson.Pd
     }
 }
 
@@ -72,31 +71,45 @@ interface ModelDeleteArray {
     }
 }
 
-type ModelTypes = ModelSetGraph | ModelIncrementGraphVersion | ModelAddNode 
-    | ModelEditNode | ModelRequestLoadPd | ModelRequestLoadArray | ModelArrayLoaded
+type ModelTypes =
+    | ModelSetGraph
+    | ModelIncrementGraphVersion
+    | ModelAddNode
+    | ModelEditNode
+    | ModelRequestLoadPd
+    | ModelRequestLoadArray
+    | ModelArrayLoaded
     | ModelDeleteArray
-
 
 // ------------ Action Creators ---------- //
 
-export const setGraph = (graph: fbpGraph.Graph, library: Library): ModelTypes => {
+export const setGraph = (
+    graph: fbpGraph.Graph,
+    library: Library
+): ModelTypes => {
     return {
         type: MODEL_SET_GRAPH,
-        payload: {graph, library},
+        payload: { graph, library },
     }
 }
 
-export const addNode = (nodeType: PdSharedTypes.NodeType, nodeArgs: PdJson.ObjectArgs): ModelTypes => {
+export const addNode = (
+    nodeType: PdSharedTypes.NodeType,
+    nodeArgs: PdJson.ObjectArgs
+): ModelTypes => {
     return {
         type: MODEL_ADD_NODE,
-        payload: {nodeType, nodeArgs},
+        payload: { nodeType, nodeArgs },
     }
 }
 
-export const editNode = (nodeId: PdJson.ObjectLocalId, nodeArgs: PdJson.ObjectArgs): ModelTypes => {
+export const editNode = (
+    nodeId: PdJson.ObjectLocalId,
+    nodeArgs: PdJson.ObjectArgs
+): ModelTypes => {
     return {
         type: MODEL_EDIT_NODE,
-        payload: {nodeId, nodeArgs},
+        payload: { nodeId, nodeArgs },
     }
 }
 
@@ -109,7 +122,7 @@ export const incrementGraphVersion = (): ModelTypes => {
 export const requestLoadPd = (pd: PdJson.Pd): ModelTypes => {
     return {
         type: MODEL_REQUEST_LOAD_PD,
-        payload: {pd}
+        payload: { pd },
     }
 }
 
@@ -117,15 +130,19 @@ export const loadArray = (arrayName: string, arrayFile: File): ModelTypes => {
     return {
         type: MODEL_REQUEST_LOAD_ARRAY,
         payload: {
-            arrayName, arrayFile
-        }
+            arrayName,
+            arrayFile,
+        },
     }
 }
 
-export const setArrayLoaded = (arrayName: string, array: Float32Array): ModelTypes => {
+export const setArrayLoaded = (
+    arrayName: string,
+    array: Float32Array
+): ModelTypes => {
     return {
         type: MODEL_ARRAY_LOADED,
-        payload: {array, arrayName}
+        payload: { array, arrayName },
     }
 }
 
@@ -133,17 +150,17 @@ export const deleteArray = (arrayName: string): ModelTypes => {
     return {
         type: MODEL_DELETE_ARRAY,
         payload: {
-            arrayName
-        }
+            arrayName,
+        },
     }
 }
 
 // ----------------- State --------------- //
 export interface ModelState {
     library: Library
-    // `graph` is a complexe object, so when it changes the reference stays the same 
-    // and it won't trigger a re-render. 
-    // To force re-render of a component, we can therefore inject this variable 
+    // `graph` is a complexe object, so when it changes the reference stays the same
+    // and it won't trigger a re-render.
+    // To force re-render of a component, we can therefore inject this variable
     // which will be incremented at each graph change.
     graphVersion: number
     graph: fbpGraph.Graph
@@ -154,7 +171,7 @@ export const initialState: ModelState = {
     library: {},
     graphVersion: 0,
     graph: new fbpGraph.Graph(),
-    arrays: {}
+    arrays: {},
 }
 
 // ---------------- Reducer -------------- //
@@ -180,8 +197,8 @@ export const modelReducer = (
                 ...state,
                 arrays: {
                     ...state.arrays,
-                    [action.payload.arrayName]: action.payload.array
-                }
+                    [action.payload.arrayName]: action.payload.array,
+                },
             }
         case MODEL_DELETE_ARRAY:
             const arraysWithoutDeleted: ArraysMap = {}
@@ -192,7 +209,7 @@ export const modelReducer = (
             })
             return {
                 ...state,
-                arrays: arraysWithoutDeleted
+                arrays: arraysWithoutDeleted,
             }
         default:
             return state

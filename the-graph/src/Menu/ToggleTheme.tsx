@@ -12,7 +12,6 @@ interface Props {
 
 const ToggleTheme = ({ theme, setTheme }: Props) => {
     const onClick = () => {
-        
         setTheme(theme === 'dark' ? 'light' : 'dark')
     }
     return (
@@ -22,7 +21,6 @@ const ToggleTheme = ({ theme, setTheme }: Props) => {
     )
 }
 
-export default connect(
-    (state: AppState) => ({ theme: getUiTheme(state) }),
-    { setTheme }
-)(ToggleTheme)
+export default connect((state: AppState) => ({ theme: getUiTheme(state) }), {
+    setTheme,
+})(ToggleTheme)

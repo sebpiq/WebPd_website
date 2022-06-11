@@ -4,7 +4,16 @@ import styled from 'styled-components'
 import NodeLibraryPopUp from './NodeLibraryPopUp'
 import { AppState } from '../store'
 import { getUiPopup } from '../store/selectors'
-import { POPUP_NODE_LIBRARY, setPopup, Popup, POPUP_NODE_CREATE, POPUP_NODE_EDIT, POPUP_EXPORT, POPUP_ABOUT, POPUP_ARRAYS } from '../store/ui'
+import {
+    POPUP_NODE_LIBRARY,
+    setPopup,
+    Popup,
+    POPUP_NODE_CREATE,
+    POPUP_NODE_EDIT,
+    POPUP_EXPORT,
+    POPUP_ABOUT,
+    POPUP_ARRAYS,
+} from '../store/ui'
 import themeConfig from '../theme-config'
 import NodeCreateEditPopUp from './NodeCreateEditPopUp'
 import { ThemedButton2 } from '../styled-components/Button'
@@ -49,23 +58,22 @@ interface Props {
 }
 
 class PopupComponent extends React.Component<Props> {
-
     constructor(props: Props) {
         super(props)
         this.escapedPressed = this.escapedPressed.bind(this)
     }
 
-    componentDidMount(){
-        document.addEventListener("keydown", this.escapedPressed, false)
+    componentDidMount() {
+        document.addEventListener('keydown', this.escapedPressed, false)
     }
 
-    componentWillUnmount(){
-        document.removeEventListener("keydown", this.escapedPressed, false)
+    componentWillUnmount() {
+        document.removeEventListener('keydown', this.escapedPressed, false)
     }
 
     escapedPressed(event: KeyboardEvent) {
         const { setPopup } = this.props
-        if (event.key === "Escape") {
+        if (event.key === 'Escape') {
             setPopup(null)
         }
     }
@@ -76,22 +84,24 @@ class PopupComponent extends React.Component<Props> {
         if (!popup) {
             return null
         }
-    
+
         const onCloseClick = () => {
             setPopup(null)
         }
-    
+
         let popupElem: JSX.Element = null
         if (popup.type === POPUP_NODE_LIBRARY) {
             popupElem = <NodeLibraryPopUp />
         } else if (popup.type === POPUP_NODE_CREATE) {
             popupElem = <NodeCreateEditPopUp nodeType={popup.data.nodeType} />
         } else if (popup.type === POPUP_NODE_EDIT) {
-            popupElem = <NodeCreateEditPopUp 
-                nodeId={popup.data.nodeId} 
-                nodeType={popup.data.nodeType} 
-                nodeArgs={popup.data.nodeArgs}
-            />
+            popupElem = (
+                <NodeCreateEditPopUp
+                    nodeId={popup.data.nodeId}
+                    nodeType={popup.data.nodeType}
+                    nodeArgs={popup.data.nodeArgs}
+                />
+            )
         } else if (popup.type === POPUP_EXPORT) {
             popupElem = <ExportPopUp />
         } else if (popup.type === POPUP_ABOUT) {
@@ -99,15 +109,11 @@ class PopupComponent extends React.Component<Props> {
         } else if (popup.type === POPUP_ARRAYS) {
             popupElem = <ArraysPopUp />
         }
-    
+
         return (
             <Container>
-                <CloseButton onClick={onCloseClick}>
-                    ×
-                </CloseButton>
-                <InnerContainer>
-                    {popupElem}
-                </InnerContainer>
+                <CloseButton onClick={onCloseClick}>×</CloseButton>
+                <InnerContainer>{popupElem}</InnerContainer>
             </Container>
         )
     }
@@ -116,6 +122,6 @@ class PopupComponent extends React.Component<Props> {
 export default connect(
     (state: AppState) => ({
         popup: getUiPopup(state),
-    }), 
+    }),
     { setPopup }
 )(PopupComponent)

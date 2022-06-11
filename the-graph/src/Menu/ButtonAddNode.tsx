@@ -8,12 +8,10 @@ interface Props {
 }
 
 const ButtonAddNode = ({ setPopup }: Props) => {
-    const onClick = () => { setPopup({type: POPUP_NODE_LIBRARY}) }
-    return (
-        <MenuButton onClick={onClick}>
-            add object
-        </MenuButton>
-    )
+    const onClick = () => {
+        setPopup({ type: POPUP_NODE_LIBRARY })
+    }
+    return <MenuButton onClick={onClick}>add object</MenuButton>
 }
 
 export default connect(null, { setPopup })(ButtonAddNode)

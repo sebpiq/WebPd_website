@@ -1,6 +1,6 @@
 import React from 'react'
 import { connect } from 'react-redux'
-import styled from "styled-components"
+import styled from 'styled-components'
 import { AppState } from '../store'
 import { ArraysMap, deleteArray, loadArray } from '../store/model'
 import { getModelArrays } from '../store/selectors'
@@ -60,7 +60,6 @@ const NewArrayContainer = themed(styled.div<ThemedProps>`
 `)
 
 class ArraysPopUp extends React.Component<Props, State> {
-
     constructor(props: Props) {
         super(props)
         this.state = {
@@ -72,7 +71,7 @@ class ArraysPopUp extends React.Component<Props, State> {
     render() {
         const { arrays, deleteArray, loadArray } = this.props
         const { newArrayName, newArrayFile } = this.state
-        
+
         const arrayElems = Object.entries(arrays).map(([arrayName, array]) => {
             const onDeleteClick = () => deleteArray(arrayName)
             return (
@@ -91,12 +90,16 @@ class ArraysPopUp extends React.Component<Props, State> {
             loadArray(newArrayName, newArrayFile)
         }
 
-        const onNewArrayNameChange = (event: React.FormEvent<HTMLInputElement>) => {
+        const onNewArrayNameChange = (
+            event: React.FormEvent<HTMLInputElement>
+        ) => {
             const input = event.currentTarget
             this.setState({ newArrayName: input.value })
         }
 
-        const onNewArrayFileChange = (event: React.FormEvent<HTMLInputElement>) => {
+        const onNewArrayFileChange = (
+            event: React.FormEvent<HTMLInputElement>
+        ) => {
             const input = event.currentTarget
             const file = input.files.item(0)
             if (file) {
@@ -111,30 +114,31 @@ class ArraysPopUp extends React.Component<Props, State> {
             <Container>
                 <H2>Audio Arrays</H2>
                 <InfoDiv>
-                    Load arrays into the app for use by objects such as [tabplay~], [tabread~], etc ...
+                    Load arrays into the app for use by objects such as
+                    [tabplay~], [tabread~], etc ...
                 </InfoDiv>
 
-                {arrayElems.length === 0 ? 
-                    <div>no array yet</div>
-                : null}
-                <ArraysContainer>
-                    {arrayElems}
-                </ArraysContainer>
+                {arrayElems.length === 0 ? <div>no array yet</div> : null}
+                <ArraysContainer>{arrayElems}</ArraysContainer>
                 <NewArrayContainer>
                     <form onSubmit={onSubmitNewArray}>
-                        <Input2 
-                            type="text" 
-                            name="arrayName" 
-                            placeholder="Array name" 
+                        <Input2
+                            type="text"
+                            name="arrayName"
+                            placeholder="Array name"
                             autoComplete="off"
                             onChange={onNewArrayNameChange}
                         />
-                        <Input2 
-                            type="file" 
-                            onChange={onNewArrayFileChange} 
+                        <Input2
+                            type="file"
+                            onChange={onNewArrayFileChange}
                             placeholder="select audio file"
                         />
-                        <Input type="submit" value="add array" disabled={!newArrayName || !newArrayFile} />
+                        <Input
+                            type="submit"
+                            value="add array"
+                            disabled={!newArrayName || !newArrayFile}
+                        />
                     </form>
                 </NewArrayContainer>
             </Container>
@@ -144,7 +148,7 @@ class ArraysPopUp extends React.Component<Props, State> {
 
 export default connect(
     (state: AppState) => ({
-        arrays: getModelArrays(state)
+        arrays: getModelArrays(state),
     }),
     { loadArray, deleteArray }
 )(ArraysPopUp)

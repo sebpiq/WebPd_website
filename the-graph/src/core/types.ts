@@ -2,7 +2,7 @@ type GraphPortName = string
 
 export interface PortletView {
     type: PdJson.PortletType
-    // must be unique for each portlet 
+    // must be unique for each portlet
     name: GraphPortName
 }
 
@@ -12,13 +12,16 @@ interface NodeView {
 }
 
 interface NodeViewBuilder {
-    build: (args: PdJson.ObjectArgs, engineSettings: PdEngine.Settings) => NodeView
+    build: (
+        args: PdJson.ObjectArgs,
+        engineSettings: PdEngine.Settings
+    ) => NodeView
     icon?: string
 }
 
-export type NodeViewBuilders = {[nodeType: string]: NodeViewBuilder}
+export type NodeViewBuilders = { [nodeType: string]: NodeViewBuilder }
 
-// Types for TheGraph component library 
+// Types for TheGraph component library
 export interface LibraryPortDefinition {
     name: string
     type: PdJson.PortletType
@@ -32,4 +35,4 @@ export interface LibraryNodeDefinition {
     outports: Array<LibraryPortDefinition>
 }
 
-export type Library = {[nodeType: string]: LibraryNodeDefinition}
+export type Library = { [nodeType: string]: LibraryNodeDefinition }

@@ -1,8 +1,8 @@
 import React from 'react'
 import { connect } from 'react-redux'
-import styled from "styled-components"
+import styled from 'styled-components'
 import { isTouchDevice } from '../core/browser'
-import NODE_VIEW_BUILDERS from "../core/node-view-builders"
+import NODE_VIEW_BUILDERS from '../core/node-view-builders'
 import { POPUP_NODE_CREATE, setPopup } from '../store/ui'
 import H2 from '../styled-components/H2'
 import { onMobile } from '../styled-components/media-queries'
@@ -24,9 +24,7 @@ const Container = styled.div`
     padding: ${themeConfig.spacing.default};
 `
 
-const SearchInputContainer = styled.div`
-
-`
+const SearchInputContainer = styled.div``
 
 const NodeTileContainer = styled.div`
     display: grid;
@@ -50,51 +48,53 @@ const NodeTile = styled(ThemedButton2)`
 `
 
 class NodeLibraryPopUp extends React.Component<Props, State> {
-
     constructor(props: Props) {
         super(props)
         this.state = {
-            searchFilter: null
+            searchFilter: null,
         }
     }
 
     componentDidMount() {
-        const input = (this.refs.searchForm as HTMLFormElement).querySelector('input')
+        const input = (this.refs.searchForm as HTMLFormElement).querySelector(
+            'input'
+        )
         input.focus()
     }
 
-    render () {
+    render() {
         const { setPopup } = this.props
         const { searchFilter } = this.state
-        const filteredNodes = Object.keys(NODE_VIEW_BUILDERS)
-            .filter(nodeType => !searchFilter || nodeType.includes(searchFilter))
-        
-        const nodeTiles = filteredNodes.map(nodeType => {
-                // BUG : on mobile when touch on context menu, it triggers
-                // click on the popup that is then shown. We prevent this by using
-                // a different handler here.
-                const onTileClick = () => {
-                    setPopup({ type: POPUP_NODE_CREATE, data: { nodeType } })
-                }
-                const handlers: {
-                    onClick?: () => void
-                    onTouchEnd?: () => void
-                } = {}
+        const filteredNodes = Object.keys(NODE_VIEW_BUILDERS).filter(
+            (nodeType) => !searchFilter || nodeType.includes(searchFilter)
+        )
 
-                if (isTouchDevice()) {
-                    handlers.onTouchEnd = onTileClick
-                } else {
-                    handlers.onClick = onTileClick
-                }
+        const nodeTiles = filteredNodes.map((nodeType) => {
+            // BUG : on mobile when touch on context menu, it triggers
+            // click on the popup that is then shown. We prevent this by using
+            // a different handler here.
+            const onTileClick = () => {
+                setPopup({ type: POPUP_NODE_CREATE, data: { nodeType } })
+            }
+            const handlers: {
+                onClick?: () => void
+                onTouchEnd?: () => void
+            } = {}
 
-                return (
-                    <NodeTile {...handlers}>{nodeType}</NodeTile>
-                )
-            })
+            if (isTouchDevice()) {
+                handlers.onTouchEnd = onTileClick
+            } else {
+                handlers.onClick = onTileClick
+            }
+
+            return <NodeTile {...handlers}>{nodeType}</NodeTile>
+        })
 
         const onSearchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
             const searchFilter = event.currentTarget.value
-            this.setState({ searchFilter: searchFilter.length ? searchFilter : null })
+            this.setState({
+                searchFilter: searchFilter.length ? searchFilter : null,
+            })
         }
 
         const onSearchSubmit = (event: React.FormEvent<HTMLFormElement>) => {
@@ -110,16 +110,17 @@ class NodeLibraryPopUp extends React.Component<Props, State> {
                 <H2>Select Object Type</H2>
                 <SearchInputContainer>
                     <form ref="searchForm" onSubmit={onSearchSubmit}>
-                        <Input onChange={onSearchChange} type="text" placeholder="Search object" />
+                        <Input
+                            onChange={onSearchChange}
+                            type="text"
+                            placeholder="Search object"
+                        />
                     </form>
                 </SearchInputContainer>
-                <NodeTileContainer>
-                    {nodeTiles}
-                </NodeTileContainer>
+                <NodeTileContainer>{nodeTiles}</NodeTileContainer>
             </Container>
         )
     }
-
 }
 
 export default connect(null, { setPopup })(NodeLibraryPopUp)

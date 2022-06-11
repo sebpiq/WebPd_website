@@ -8,12 +8,10 @@ interface Props {
 }
 
 const ButtonArrays = ({ setPopup }: Props) => {
-    const onClick = () => { setPopup({ type: POPUP_ARRAYS }) }
-    return (
-        <MenuButton onClick={onClick}>
-            arrays
-        </MenuButton>
-    )
+    const onClick = () => {
+        setPopup({ type: POPUP_ARRAYS })
+    }
+    return <MenuButton onClick={onClick}>arrays</MenuButton>
 }
 
 export default connect(null, { setPopup })(ButtonArrays)
