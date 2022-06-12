@@ -2,8 +2,13 @@ import * as fbpGraph from 'fbp-graph'
 import NODE_VIEW_BUILDERS, { DEFAULT_ICON } from './node-view-builders'
 import compileToJsCode, { NODE_IMPLEMENTATIONS } from '@webpd/compiler-js'
 import compileToDspGraph from '@webpd/dsp-graph'
-import { Library } from './types'
-import { addGraphNode, getGraphNode, generateComponentName } from './model'
+import { Library, Point } from './types'
+import {
+    addGraphNode,
+    getGraphNode,
+    generateComponentName,
+    GraphNodeWithMetadata,
+} from './model'
 import { ENGINE_ARRAYS_VARIABLE_NAME } from '@webpd/engine-live-eval'
 
 export const graphToPd = (graph: fbpGraph.Graph): PdJson.Pd => {
@@ -22,11 +27,16 @@ export const graphToPd = (graph: fbpGraph.Graph): PdJson.Pd => {
         arrays: {},
     }
 
-    graph.nodes.forEach((node) => {
+    graph.nodes.forEach((node: GraphNodeWithMetadata) => {
         if (!node.metadata || !node.metadata.pdNode) {
             throw new Error(`Missing metadata.pdNode on node "${node.id}"`)
         }
-        const pdNode: PdJson.Node = node.metadata.pdNode
+        const pdNode: PdJson.Node = {
+            ...node.metadata.pdNode,
+            layout: {
+                ...graphPointToPd(node.metadata.x, node.metadata.y),
+            },
+        }
         patch.nodes[pdNode.id] = pdNode
     })
 
@@ -63,9 +73,7 @@ export const pdToGraph = (
     const patch = patches[0]
 
     Object.values(patch.nodes).forEach((pdNode) => {
-        // TODO : layout manage better
-        const x = pdNode.layout.y * 4
-        const y = pdNode.layout.x * 1
+        const { x, y } = pdPointToGraph(pdNode.layout.x, pdNode.layout.y)
         addGraphNode(
             graph,
             pdNode.id,
@@ -146,3 +154,13 @@ export const pdToJsCode = (pd: PdJson.Pd, settings: PdEngine.Settings) => {
         arraysVariableName: ENGINE_ARRAYS_VARIABLE_NAME,
     })
 }
+
+const pdPointToGraph = (x: number, y: number) => ({
+    x: y * 4,
+    y: x,
+})
+
+const graphPointToPd = (x: number, y: number) => ({
+    x: y,
+    y: x / 4,
+})

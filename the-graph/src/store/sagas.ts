@@ -47,9 +47,9 @@ import {
     graphToPd,
     pdToJsCode,
 } from '../core/converters'
-import { Library } from '../core/types'
+import { Library, Point } from '../core/types'
 import { END, EventChannel, eventChannel } from 'redux-saga'
-import { LOCALSTORAGE_HELP_SEEN_KEY, Point, UI_SET_POPUP } from './ui'
+import { LOCALSTORAGE_HELP_SEEN_KEY, UI_SET_POPUP } from './ui'
 import * as model from '../core/model'
 import { readFileAsArrayBuffer } from '../core/browser'
 

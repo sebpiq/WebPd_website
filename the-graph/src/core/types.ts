@@ -1,3 +1,8 @@
+export interface Point {
+    x: number
+    y: number
+}
+
 type GraphPortName = string
 
 export interface PortletView {

@@ -10,7 +10,8 @@ import {
 import { connect } from 'react-redux'
 import styled from 'styled-components'
 import themeConfig from './theme-config'
-import { Point, setPanScale } from './store/ui'
+import { setPanScale } from './store/ui'
+import { Point } from './core/types'
 
 const Container = styled.div`
     position: absolute;

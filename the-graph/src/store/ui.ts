@@ -11,11 +11,6 @@ export interface PanScale {
     scale: number
 }
 
-export interface Point {
-    x: number
-    y: number
-}
-
 export const POPUP_NODE_LIBRARY = 'POPUP_NODE_LIBRARY'
 export const POPUP_NODE_CREATE = 'POPUP_NODE_CREATE'
 export const POPUP_NODE_EDIT = 'POPUP_NODE_EDIT'

@@ -1,7 +1,7 @@
 import * as fbpGraph from 'fbp-graph'
 import NODE_VIEW_BUILDERS from './node-view-builders'
-import { Point } from '../store/ui'
 import { GraphNode } from 'fbp-graph/src/Types'
+import { Point } from './types'
 
 type PortletLookupMap = { [portletGraphName: string]: PdJson.PortletId }
 

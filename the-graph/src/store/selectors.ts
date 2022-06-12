@@ -1,6 +1,7 @@
 import { AppState } from '.'
 import { graphToPd } from '../core/converters'
-import { Point, Popup } from './ui'
+import { Point } from '../core/types'
+import { Popup } from './ui'
 
 export const getUiTheme = (state: AppState) => state.ui.theme
 
