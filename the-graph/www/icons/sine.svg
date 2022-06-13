@@ -6,7 +6,7 @@
    sodipodi:docname="sine.svg"
    width="100"
    height="100"
-   inkscape:version="1.1.2 (08b2f3d93c, 2022-04-05)"
+   inkscape:version="1.2 (56b05e47e7, 2022-06-09, custom)"
    xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
    xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
    xmlns="http://www.w3.org/2000/svg"
@@ -23,24 +23,26 @@
      inkscape:pagecheckerboard="0"
      showgrid="false"
      inkscape:zoom="4.6173246"
-     inkscape:cx="94.968415"
-     inkscape:cy="28.804559"
-     inkscape:window-width="1853"
+     inkscape:cx="47.754927"
+     inkscape:cy="61.50748"
+     inkscape:window-width="927"
      inkscape:window-height="1025"
-     inkscape:window-x="67"
+     inkscape:window-x="993"
      inkscape:window-y="27"
-     inkscape:window-maximized="1"
-     inkscape:current-layer="g8" />
+     inkscape:window-maximized="0"
+     inkscape:current-layer="g8"
+     inkscape:showpageshadow="2"
+     inkscape:deskcolor="#d1d1d1" />
   <g
      fill="none"
      id="g8">
     <path
-       d="m 80.971906,51.197244 c -4.953284,11.735453 -9.907382,23.456895 -15.546501,23.456895 -11.29173,0 -19.836823,-46.998008 -31.128553,-46.998008 -5.645865,0 -10.630503,11.749498 -15.564277,23.499004"
+       d="m 78.971906,49.51253 c -4.479896,10.577118 -8.960529,21.141609 -14.060714,21.141609 -10.212574,0 -17.941009,-42.359124 -28.153583,-42.359124 -5.106287,0 -9.614541,10.589777 -14.076792,21.179562"
        stroke="#0000ff"
        stroke-linecap="round"
        stroke-width="10"
        id="path6"
        sodipodi:nodetypes="cssc"
-       style="stroke:#cccccc;stroke-width:10;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1" />
+       style="stroke:#cccccc;stroke-width:7;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1" />
   </g>
 </svg>

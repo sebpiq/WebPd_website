@@ -7,7 +7,7 @@
    viewBox="0 0 100 100"
    version="1.1"
    id="svg1357"
-   inkscape:version="1.1.2 (08b2f3d93c, 2022-04-05)"
+   inkscape:version="1.2 (56b05e47e7, 2022-06-09, custom)"
    sodipodi:docname="plus.svg"
    xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
    xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
@@ -24,14 +24,16 @@
      inkscape:document-units="mm"
      showgrid="false"
      inkscape:zoom="1.2135119"
-     inkscape:cx="146.68171"
+     inkscape:cx="147.09374"
      inkscape:cy="270.28989"
-     inkscape:window-width="1516"
-     inkscape:window-height="999"
-     inkscape:window-x="502"
-     inkscape:window-y="51"
+     inkscape:window-width="927"
+     inkscape:window-height="1025"
+     inkscape:window-x="67"
+     inkscape:window-y="27"
      inkscape:window-maximized="0"
-     inkscape:current-layer="text2386" />
+     inkscape:current-layer="text2386"
+     inkscape:showpageshadow="2"
+     inkscape:deskcolor="#d1d1d1" />
   <defs
      id="defs1354" />
   <g
@@ -43,9 +45,9 @@
        id="text2386"
        style="font-size:10.5833px;line-height:1.25;stroke-width:0.264583">
       <path
-         d="M 53.247061,22.497922 V 45.9555 h 23.457578 v 7.15941 H 53.247061 V 76.572489 H 46.171886 V 53.11491 H 22.714307 V 45.9555 H 46.171886 V 22.497922 Z"
+         d="M 53.563751,25.943184 V 46.42521 h 20.481696 v 6.251252 H 53.563751 V 73.15849 H 47.386149 V 52.676462 H 26.904452 V 46.42521 H 47.386149 V 25.943184 Z"
          id="path3311"
-         style="fill:#cccccc;fill-opacity:1;stroke:#cccccc;stroke-width:3;stroke-linecap:butt;stroke-linejoin:round;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1" />
+         style="fill:#cccccc;fill-opacity:1;stroke:none;stroke-width:3;stroke-linecap:butt;stroke-linejoin:round;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1" />
     </g>
   </g>
 </svg>

@@ -22,6 +22,7 @@ const NODE_VIEW_BUILDERS: NodeViewBuilders = {
                 outlets: [{ type: 'control', name: 'tick' }],
             }
         },
+        icon: 'icons/metronome.svg',
     },
     'tabplay~': {
         build: () => {
@@ -33,6 +34,7 @@ const NODE_VIEW_BUILDERS: NodeViewBuilders = {
                 ],
             }
         },
+        icon: 'icons/soundwave.svg',
     },
     '*~': {
         build: () => {

@@ -8,7 +8,7 @@
    version="1.1"
    id="svg4147"
    sodipodi:docname="multiply.svg"
-   inkscape:version="1.1.2 (08b2f3d93c, 2022-04-05)"
+   inkscape:version="1.2 (56b05e47e7, 2022-06-09, custom)"
    xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
    xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
    xmlns="http://www.w3.org/2000/svg"
@@ -24,14 +24,16 @@
      inkscape:document-units="mm"
      showgrid="false"
      inkscape:zoom="0.78840178"
-     inkscape:cx="273.97198"
-     inkscape:cy="357.68565"
+     inkscape:cx="57.077497"
+     inkscape:cy="358.95403"
      inkscape:window-width="1370"
      inkscape:window-height="999"
      inkscape:window-x="523"
-     inkscape:window-y="62"
+     inkscape:window-y="51"
      inkscape:window-maximized="0"
-     inkscape:current-layer="text9895" />
+     inkscape:current-layer="text9895"
+     inkscape:showpageshadow="2"
+     inkscape:deskcolor="#d1d1d1" />
   <defs
      id="defs4144" />
   <g
@@ -49,9 +51,9 @@
          style="font-size:1.61749px;stroke-width:0.05781302;fill:#cccccc;fill-opacity:1;stroke:none;stroke-opacity:1;stroke-miterlimit:4;stroke-dasharray:none;stroke-linejoin:round"
          transform="matrix(10.574321,0,0,10.574321,-300.75076,-360.58212)">
         <path
-           d="m 31.913298,37.438517 -0.335163,0.33663 0.335163,0.335162 -0.08727,0.08875 -0.336628,-0.336629 -0.33663,0.336629 -0.08653,-0.08875 0.334429,-0.335162 -0.334429,-0.33663 0.08653,-0.08874 0.33663,0.336629 0.336628,-0.336629 z"
+           d="m 31.819937,37.520536 -0.261165,0.262307 0.261165,0.261164 -0.068,0.06915 -0.262306,-0.262306 -0.262307,0.262306 -0.06743,-0.06915 0.260593,-0.261164 -0.260593,-0.262307 0.06743,-0.06914 0.262307,0.262307 0.262306,-0.262307 z"
            id="path10945"
-           style="fill:#cccccc;fill-opacity:1;stroke:#cccccc;stroke-width:0.0285674;stroke-linejoin:round;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1" />
+           style="fill:#cccccc;fill-opacity:1;stroke:#cccccc;stroke-width:0;stroke-linejoin:round;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1" />
       </g>
     </g>
   </g>
