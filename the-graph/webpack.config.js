@@ -47,6 +47,10 @@ module.exports = {
       {
         test: /\.pd$/,
         type: 'asset/source'
+      },
+      {
+        test: /\.mp3$/,
+        type: 'asset/resource'
       }
     ],
   },

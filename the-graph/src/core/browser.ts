@@ -36,3 +36,8 @@ export const readFileAsString = (file: File): Promise<string> => {
         reader.readAsText(file)
     })
 }
+
+export const httpGetBinary = async (url: string) => {
+    const response = await fetch(url)
+    return response.arrayBuffer()
+}

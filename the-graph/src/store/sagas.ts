@@ -31,13 +31,15 @@ import {
     incrementGraphVersion,
     ModelAddNode,
     ModelEditNode,
-    ModelRequestLoadArray,
+    ModelRequestLoadLocalArray,
     ModelRequestLoadPd,
+    ModelRequestLoadRemoteArray,
     MODEL_ADD_NODE,
     MODEL_ARRAY_LOADED,
     MODEL_EDIT_NODE,
-    MODEL_REQUEST_LOAD_ARRAY,
+    MODEL_REQUEST_LOAD_LOCAL_ARRAY,
     MODEL_REQUEST_LOAD_PD,
+    MODEL_REQUEST_LOAD_REMOTE_ARRAY,
     setArrayLoaded,
     setGraph,
 } from './model'
@@ -51,7 +53,7 @@ import { Library, Point } from '../core/types'
 import { END, EventChannel, eventChannel } from 'redux-saga'
 import { LOCALSTORAGE_HELP_SEEN_KEY, UI_SET_POPUP } from './ui'
 import * as model from '../core/model'
-import { readFileAsArrayBuffer } from '../core/browser'
+import { httpGetBinary, readFileAsArrayBuffer } from '../core/browser'
 
 const graphEventChannel = (graph: fbpGraph.Graph) => {
     return eventChannel((emitter) => {
@@ -195,13 +197,8 @@ function* requestLoadPd(action: ModelRequestLoadPd) {
     yield fork(graphEventsSaga, graph)
 }
 
-function* requestLoadArray(action: ModelRequestLoadArray) {
+function* requestLoadArray(arrayName: string, arrayBuffer: ArrayBuffer) {
     const context = new AudioContext()
-    const arrayBuffer: ArrayBuffer = yield call(
-        readFileAsArrayBuffer,
-        action.payload.arrayFile
-    )
-
     let audioBuffer: AudioBuffer = null
     try {
         audioBuffer = yield call(
@@ -209,14 +206,31 @@ function* requestLoadArray(action: ModelRequestLoadArray) {
             arrayBuffer
         )
     } catch (err) {
-        yield put(arrayLoadError(action.payload.arrayName, err.toString()))
+        yield put(arrayLoadError(arrayName, err.toString()))
         return
     }
 
     // !!! Loading only first channel of stereo audio
     yield put(
-        setArrayLoaded(action.payload.arrayName, audioBuffer.getChannelData(0))
+        setArrayLoaded(arrayName, audioBuffer.getChannelData(0))
     )
+}
+
+function* requestLoadLocalArray(action: ModelRequestLoadLocalArray) {
+    const arrayBuffer: ArrayBuffer = yield call(
+        readFileAsArrayBuffer,
+        action.payload.arrayFile
+    )
+    yield call(requestLoadArray, action.payload.arrayName, arrayBuffer)
+}
+
+function* requestLoadRemoteArray(action: ModelRequestLoadRemoteArray) {
+    console.log('requestLoadRemoteArray', action.payload.arrayName)
+    const arrayBuffer: ArrayBuffer = yield call(
+        httpGetBinary,
+        action.payload.url
+    )
+    yield call(requestLoadArray, action.payload.arrayName, arrayBuffer)
 }
 
 function* arrayLoaded() {
@@ -252,8 +266,12 @@ function* setPopupSaga() {
     yield takeLatest(UI_SET_POPUP, setHelpSeen)
 }
 
-function* loadArraySaga() {
-    yield takeLatest(MODEL_REQUEST_LOAD_ARRAY, requestLoadArray)
+function* loadLocalArraySaga() {
+    yield takeLatest(MODEL_REQUEST_LOAD_LOCAL_ARRAY, requestLoadLocalArray)
+}
+
+function* loadRemoteArraySaga() {
+    yield takeLatest(MODEL_REQUEST_LOAD_REMOTE_ARRAY, requestLoadRemoteArray)
 }
 
 function* arrayLoadedSaga() {
@@ -268,7 +286,8 @@ export default function* rootSaga() {
         createGraphNodeSaga(),
         editGraphNodeSaga(),
         setPopupSaga(),
-        loadArraySaga(),
+        loadLocalArraySaga(),
+        loadRemoteArraySaga(),
         arrayLoadedSaga(),
     ])
 }

@@ -25,7 +25,8 @@ export const MODEL_INCREMENT_GRAPH_VERSION = 'MODEL_INCREMENT_GRAPH_VERSION'
 export const MODEL_ADD_NODE = 'MODEL_ADD_NODE'
 export const MODEL_EDIT_NODE = 'MODEL_EDIT_NODE'
 export const MODEL_REQUEST_LOAD_PD = 'MODEL_REQUEST_LOAD_PD'
-export const MODEL_REQUEST_LOAD_ARRAY = 'MODEL_REQUEST_LOAD_ARRAY'
+export const MODEL_REQUEST_LOAD_LOCAL_ARRAY = 'MODEL_REQUEST_LOAD_LOCAL_ARRAY'
+export const MODEL_REQUEST_LOAD_REMOTE_ARRAY = 'MODEL_REQUEST_LOAD_REMOTE_ARRAY'
 export const MODEL_ARRAY_LOADED = 'MODEL_ARRAY_LOADED'
 export const MODEL_ARRAY_LOAD_ERROR = 'MODEL_ARRAY_LOAD_ERROR'
 export const MODEL_DELETE_ARRAY = 'MODEL_DELETE_ARRAY'
@@ -65,11 +66,19 @@ export interface ModelRequestLoadPd {
     }
 }
 
-export interface ModelRequestLoadArray {
-    type: typeof MODEL_REQUEST_LOAD_ARRAY
+export interface ModelRequestLoadLocalArray {
+    type: typeof MODEL_REQUEST_LOAD_LOCAL_ARRAY
     payload: {
         arrayName: string
         arrayFile: File
+    }
+}
+
+export interface ModelRequestLoadRemoteArray {
+    type: typeof MODEL_REQUEST_LOAD_REMOTE_ARRAY
+    payload: {
+        arrayName: string
+        url: string
     }
 }
 
@@ -102,7 +111,8 @@ type ModelTypes =
     | ModelAddNode
     | ModelEditNode
     | ModelRequestLoadPd
-    | ModelRequestLoadArray
+    | ModelRequestLoadLocalArray
+    | ModelRequestLoadRemoteArray
     | ModelArrayLoaded
     | ModelArrayLoadError
     | ModelDeleteArray
@@ -165,12 +175,22 @@ export const arrayLoadError = (
     }
 }
 
-export const loadArray = (arrayName: string, arrayFile: File): ModelTypes => {
+export const loadLocalArray = (arrayName: string, arrayFile: File): ModelTypes => {
     return {
-        type: MODEL_REQUEST_LOAD_ARRAY,
+        type: MODEL_REQUEST_LOAD_LOCAL_ARRAY,
         payload: {
             arrayName,
             arrayFile,
+        },
+    }
+}
+
+export const loadRemoteArray = (arrayName: string, url: string): ModelTypes => {
+    return {
+        type: MODEL_REQUEST_LOAD_REMOTE_ARRAY,
+        payload: {
+            arrayName,
+            url,
         },
     }
 }
@@ -248,7 +268,7 @@ export const modelReducer = (
                 graphVersion: state.graphVersion + 1,
             }
 
-        case MODEL_REQUEST_LOAD_ARRAY:
+        case MODEL_REQUEST_LOAD_LOCAL_ARRAY:
             return {
                 ...state,
                 arrays: {

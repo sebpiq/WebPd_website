@@ -2,7 +2,7 @@ import React from 'react'
 import { connect } from 'react-redux'
 import styled from 'styled-components'
 import { AppState } from '../store'
-import { Arrays, deleteArray, loadArray } from '../store/model'
+import { Arrays, deleteArray, loadLocalArray } from '../store/model'
 import { getModelArrays } from '../store/selectors'
 import H2 from '../styled-components/H2'
 import InfoDiv from '../styled-components/InfoDiv'
@@ -14,7 +14,7 @@ import themeConfig from '../theme-config'
 
 interface Props {
     arrays: Arrays
-    loadArray: typeof loadArray
+    loadLocalArray: typeof loadLocalArray
     deleteArray: typeof deleteArray
 }
 
@@ -69,7 +69,7 @@ class ArraysPopUp extends React.Component<Props, State> {
     }
 
     render() {
-        const { arrays, deleteArray, loadArray } = this.props
+        const { arrays, deleteArray, loadLocalArray } = this.props
         const { newArrayName, newArrayFile } = this.state
 
         const arrayElems = Object.entries(arrays).map(
@@ -105,7 +105,7 @@ class ArraysPopUp extends React.Component<Props, State> {
 
         const onSubmitNewArray = (event: React.FormEvent<HTMLFormElement>) => {
             event.preventDefault()
-            loadArray(newArrayName, newArrayFile)
+            loadLocalArray(newArrayName, newArrayFile)
         }
 
         const onNewArrayNameChange = (
@@ -168,5 +168,5 @@ export default connect(
     (state: AppState) => ({
         arrays: getModelArrays(state),
     }),
-    { loadArray, deleteArray }
+    { loadLocalArray: loadLocalArray, deleteArray }
 )(ArraysPopUp)

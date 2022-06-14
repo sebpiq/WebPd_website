@@ -1,7 +1,8 @@
 import React from 'react'
 import GraphCanvas from './GraphCanvas'
 import { connect, Provider } from 'react-redux'
-import DEFAULT_PATCH from './core/default-patch.pd'
+import DEFAULT_PATCH from './defaults/patch.pd'
+import DEFAULT_SOUND from './defaults/sound.mp3'
 import parsePd from '@webpd/pd-parser'
 import { AppState, store } from './store'
 import { create as createWebpd } from './store/webpd'
@@ -9,7 +10,7 @@ import MiniMap from './MiniMap'
 import Menu from './Menu'
 import Popup from './Popup'
 import { getWebpdIsCreated } from './store/selectors'
-import { requestLoadPd } from './store/model'
+import { loadRemoteArray, requestLoadPd } from './store/model'
 import { setAppDimensions } from './store/ui'
 
 export interface InnerAppProps {
@@ -17,9 +18,13 @@ export interface InnerAppProps {
     setAppDimensions: typeof setAppDimensions
 }
 
-const loadPatch = async (pdFile: string) => {
-    const pdJson = parsePd(pdFile)
+const loadPatch = async () => {
+    const pdJson = parsePd(DEFAULT_PATCH)
     store.dispatch(requestLoadPd(pdJson))
+}
+
+const loadSound = async () => {
+    store.dispatch(loadRemoteArray('SOUND', DEFAULT_SOUND))
 }
 
 const createWebPdEngine = async () => {
@@ -39,8 +44,9 @@ class _InnerApp extends React.Component<InnerAppProps> {
 
     componentWillReceiveProps(nextProps: InnerAppProps) {
         if (this.props.webpdIsCreated !== nextProps.webpdIsCreated) {
-            loadPatch(DEFAULT_PATCH)
+            loadPatch()
         }
+        loadSound()
     }
 
     componentWillUnmount() {
