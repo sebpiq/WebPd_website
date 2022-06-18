@@ -27,7 +27,7 @@ export default themed(styled.button<{ theme: UiTheme; colors: Colors }>`
     `}
 `)
 
-export const ThemedButton2 = themed(styled.button<{
+export const Button2 = themed(styled.button<{
     theme: UiTheme
     colors: Colors
 }>`

@@ -211,9 +211,7 @@ function* requestLoadArray(arrayName: string, arrayBuffer: ArrayBuffer) {
     }
 
     // !!! Loading only first channel of stereo audio
-    yield put(
-        setArrayLoaded(arrayName, audioBuffer.getChannelData(0))
-    )
+    yield put(setArrayLoaded(arrayName, audioBuffer.getChannelData(0)))
 }
 
 function* requestLoadLocalArray(action: ModelRequestLoadLocalArray) {
@@ -225,7 +223,6 @@ function* requestLoadLocalArray(action: ModelRequestLoadLocalArray) {
 }
 
 function* requestLoadRemoteArray(action: ModelRequestLoadRemoteArray) {
-    console.log('requestLoadRemoteArray', action.payload.arrayName)
     const arrayBuffer: ArrayBuffer = yield call(
         httpGetBinary,
         action.payload.url

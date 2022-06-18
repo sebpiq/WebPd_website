@@ -34,8 +34,8 @@ class AboutPopUp extends React.Component<Props> {
                 <p>
                     <b>To start patching, create / edit / delete objects</b>{' '}
                     right click or long tap on the canvas. A contextual menu
-                    will then open with all available operations.{' '}
-                    Don't forget to press the DSP button to start the sound !
+                    will then open with all available operations. Don't forget
+                    to press the DSP button to start the sound !
                 </p>
                 <p>
                     <b>This is a demo</b> of the new implementation of{' '}

@@ -8,7 +8,7 @@ import H2 from '../styled-components/H2'
 import InfoDiv from '../styled-components/InfoDiv'
 import { onMobile } from '../styled-components/media-queries'
 import themed, { ThemedProps } from '../styled-components/themed'
-import { ThemedButton2 } from '../styled-components/Button'
+import { Button2 } from '../styled-components/Button'
 import Input, { Input2 } from '../styled-components/Input'
 import themeConfig from '../theme-config'
 
@@ -92,9 +92,9 @@ class ArraysPopUp extends React.Component<Props, State> {
                         <span>{arrayName}</span>
                         <span>{label}</span>
                         {hasDeleteButton ? (
-                            <ThemedButton2 onClick={onDeleteClick}>
+                            <Button2 onClick={onDeleteClick}>
                                 <i className="fa fa-trash"></i>
-                            </ThemedButton2>
+                            </Button2>
                         ) : (
                             <span></span>
                         )}

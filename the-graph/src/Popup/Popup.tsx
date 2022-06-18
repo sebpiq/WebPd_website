@@ -17,7 +17,7 @@ import {
 } from '../store/ui'
 import themeConfig from '../theme-config'
 import NodeCreateEditPopUp from './NodeCreateEditPopUp'
-import { ThemedButton2 } from '../styled-components/Button'
+import { Button2 } from '../styled-components/Button'
 import themed, { ThemedProps } from '../styled-components/themed'
 import ExportPopUp from './ExportPopUp'
 import AboutPopUp from './AboutPopUp'
@@ -48,7 +48,9 @@ const InnerContainer = styled.div`
     align-items: center;
 `
 
-const CloseButton = styled(ThemedButton2)`
+const CloseButton = styled(Button2)`
+    font-size: 200%;
+    padding: 0.1em 0.3em;
     position: absolute;
     top: 0;
     right: 0;

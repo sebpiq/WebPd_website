@@ -175,7 +175,10 @@ export const arrayLoadError = (
     }
 }
 
-export const loadLocalArray = (arrayName: string, arrayFile: File): ModelTypes => {
+export const loadLocalArray = (
+    arrayName: string,
+    arrayFile: File
+): ModelTypes => {
     return {
         type: MODEL_REQUEST_LOAD_LOCAL_ARRAY,
         payload: {

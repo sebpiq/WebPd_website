@@ -6,7 +6,7 @@ import NODE_VIEW_BUILDERS from '../core/node-view-builders'
 import { POPUP_NODE_CREATE, setPopup } from '../store/ui'
 import H2 from '../styled-components/H2'
 import { onMobile } from '../styled-components/media-queries'
-import { ThemedButton2 } from '../styled-components/Button'
+import { Button2 } from '../styled-components/Button'
 import Input from '../styled-components/Input'
 import themeConfig from '../theme-config'
 import { addNode } from '../store/model'
@@ -39,7 +39,7 @@ const NodeTilesContainer = styled.div`
     padding-top: ${themeConfig.spacing.default};
 `
 
-const NodeTile = styled(ThemedButton2)`
+const NodeTile = styled(Button2)`
     aspect-ratio: 1;
     font-size: 120%;
     word-wrap: break-word;
