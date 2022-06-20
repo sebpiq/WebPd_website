@@ -2,14 +2,14 @@ import * as fbpGraph from 'fbp-graph'
 import NODE_VIEW_BUILDERS, { DEFAULT_ICON } from './node-view-builders'
 import compileToJsCode, { NODE_IMPLEMENTATIONS } from '@webpd/compiler-js'
 import compileToDspGraph from '@webpd/dsp-graph'
-import { Library, Point } from './types'
+import { Library } from './types'
 import {
     addGraphNode,
     getGraphNode,
     generateComponentName,
     GraphNodeWithMetadata,
 } from './model'
-import { ENGINE_ARRAYS_VARIABLE_NAME } from '@webpd/engine-live-eval'
+import { audioworkletJsEval } from '@webpd/audioworklets'
 
 export const graphToPd = (graph: fbpGraph.Graph): PdJson.Pd => {
     const patch: PdJson.Patch = {
@@ -151,7 +151,7 @@ export const pdToJsCode = (pd: PdJson.Pd, settings: PdEngine.Settings) => {
     const dspGraph = compileToDspGraph(pd)
     return compileToJsCode(dspGraph, NODE_IMPLEMENTATIONS, {
         ...settings,
-        arraysVariableName: ENGINE_ARRAYS_VARIABLE_NAME,
+        arraysVariableName: audioworkletJsEval.constants.GLOBAL_ARRAYS_VARIABLE_NAME,
     })
 }
 

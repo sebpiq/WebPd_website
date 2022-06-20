@@ -1,5 +1,5 @@
 import * as fbpGraph from 'fbp-graph'
-import evalEngine, { Engine } from '@webpd/engine-live-eval'
+import { audioworkletJsEval, addModule } from '@webpd/audioworklets'
 import {
     all,
     takeLatest,
@@ -19,6 +19,7 @@ import {
     getWebpdIsInitialized,
 } from './selectors'
 import {
+    Engine,
     setCreated,
     setInitialized,
     WebPdDspToggled,
@@ -116,15 +117,22 @@ function* updateWebpdDsp(pd: PdJson.Pd) {
     })
 
     const code = pdToJsCode(pd, webpdEngine.settings)
-    yield call(evalEngine.run, webpdEngine, code, arrays)
+    webpdEngine.waaNode.port.postMessage({
+        type: 'CODE',
+        payload: { code, arrays }
+    })
 }
 
 function* createWebpdEngine() {
     const context = new AudioContext()
-    const webpdEngine: Engine = yield call(evalEngine.create, context, {
+    yield addModule(context, audioworkletJsEval.WorkletProcessorCode)
+    const settings: PdEngine.Settings = {
         sampleRate: context.sampleRate,
         channelCount: 2,
-    })
+    }
+    const waaNode = new audioworkletJsEval.WorkletNode(context, settings.channelCount)
+    waaNode.connect(context.destination)
+    const webpdEngine: Engine = {waaNode, context, settings}
     yield put(setCreated(context, webpdEngine))
 }
 
@@ -132,7 +140,10 @@ function* initializeWebpdEngine() {
     const context: AudioContext = yield select(getWebpdContext)
     const graph: fbpGraph.Graph = yield select(getModelGraph)
     let webpdEngine: Engine = yield select(getWebpdEngine)
-    webpdEngine = yield call(evalEngine.init, webpdEngine)
+    // https://github.com/WebAudio/web-audio-api/issues/345
+    if (context.state === 'suspended') {
+        context.resume()
+    }
     yield put(setInitialized(context, webpdEngine))
 
     const pdJson = graphToPd(graph)

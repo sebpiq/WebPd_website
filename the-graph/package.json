@@ -27,9 +27,9 @@
     "webpack-cli": "^4.9.2"
   },
   "dependencies": {
+    "@webpd/audioworklets": "file:../../WebPd_audioworklets",
     "@webpd/compiler-js": "file:../../WebPd_compiler-js",
     "@webpd/dsp-graph": "file:../../WebPd_dsp-graph",
-    "@webpd/engine-live-eval": "file:../../WebPd_engine-live-eval",
     "@webpd/pd-parser": "file:../../WebPd_pd-parser",
     "@webpd/pd-renderer": "file:../../WebPd_pd-renderer",
     "assemblyscript": "^0.9.4",

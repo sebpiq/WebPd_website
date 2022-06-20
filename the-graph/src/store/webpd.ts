@@ -1,4 +1,10 @@
-import { Engine } from '@webpd/engine-live-eval'
+import { jsEvalAudioWorklet } from "@webpd/audioworklets"
+
+export interface Engine {
+    settings: PdEngine.Settings
+    waaNode: jsEvalAudioWorklet.WorkletNode
+    context: AudioContext    
+}
 
 // ------------- Action Types ------------ //
 export const WEBPD_CREATE = 'WEBPD_CREATE'
