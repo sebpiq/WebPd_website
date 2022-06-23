@@ -14,6 +14,7 @@ import ButtonArrays from './ButtonArrays'
 import ButtonExport from './ButtonExport'
 import ButtonImport from './ButtonImport'
 import ToggleDsp from './ToggleDsp'
+import ToggleEngineMode from './ToggleEngineMode'
 
 const Container = styled.div`
     position: absolute;
@@ -68,13 +69,24 @@ const MobileMenuItems = styled.div<{ expanded: boolean }>`
     transition: height 200ms;
     overflow: hidden;
     ${(props) => `
-        height: ${props.expanded ? '400px' : '0px'};
+        height: ${props.expanded ? '100vh' : '0px'};
         ${props.expanded ? `padding-top: 1em;` : ``}
     `}
     button {
         display: block;
         width: 100%;
         margin-bottom: calc(${themeConfig.spacing.default} / 2);
+    }
+`
+
+const MobileMenuItemsLeft = styled.div`
+    display: flex;
+    flex-direction: row;
+    & > * {
+        margin-right: calc(${themeConfig.spacing.default} / 2);
+        &:last-child {
+            margin-right: 0;
+        }
     }
 `
 
@@ -91,7 +103,10 @@ class Menu extends React.Component<Props> {
     render() {
         const { expanded, setMobileMenuExpanded } = this.props
 
-        const menuItemsLeft = [<ToggleDsp />]
+        const menuItemsLeft = [
+            <ToggleDsp />,
+            <ToggleEngineMode />,
+        ]
 
         const menuItemsRight = [
             <ButtonAddNode />,
@@ -125,7 +140,9 @@ class Menu extends React.Component<Props> {
                         <BurgerMenu onClick={onBurgerClick}></BurgerMenu>
                     </BurgerMenuContainer>
                     <MobileMenuItems expanded={expanded}>
-                        {menuItemsLeft}
+                        <MobileMenuItemsLeft>
+                            {menuItemsLeft}
+                        </MobileMenuItemsLeft>
                         {menuItemsRight}
                     </MobileMenuItems>
                 </MobileContainer>

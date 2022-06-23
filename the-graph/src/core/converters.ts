@@ -1,6 +1,6 @@
 import * as fbpGraph from 'fbp-graph'
 import NODE_VIEW_BUILDERS, { DEFAULT_ICON } from './node-view-builders'
-import compileToJsCode, { NODE_IMPLEMENTATIONS } from '@webpd/compiler-js'
+import compileToCode, { NODE_IMPLEMENTATIONS } from '@webpd/compiler-js'
 import compileToDspGraph from '@webpd/dsp-graph'
 import { Library } from './types'
 import {
@@ -10,6 +10,8 @@ import {
     GraphNodeWithMetadata,
 } from './model'
 import { audioworkletJsEval } from '@webpd/audioworklets'
+import { compileAs } from './assemblyscript'
+import { GLOBS_VARIABLE_NAME } from './constants'
 
 export const graphToPd = (graph: fbpGraph.Graph): PdJson.Pd => {
     const patch: PdJson.Patch = {
@@ -149,10 +151,22 @@ export const pdToLibrary = (
 
 export const pdToJsCode = (pd: PdJson.Pd, settings: PdEngine.Settings) => {
     const dspGraph = compileToDspGraph(pd)
-    return compileToJsCode(dspGraph, NODE_IMPLEMENTATIONS, {
+    return compileToCode(dspGraph, NODE_IMPLEMENTATIONS, {
         ...settings,
-        arraysVariableName: audioworkletJsEval.constants.GLOBAL_ARRAYS_VARIABLE_NAME,
+        target: 'javascript',
+        arraysVariableName: GLOBS_VARIABLE_NAME,
     })
+}
+
+export const pdToWasm = async (pd: PdJson.Pd, settings: PdEngine.Settings): Promise<ArrayBuffer> => {
+    const dspGraph = compileToDspGraph(pd)
+    const code = compileToCode(dspGraph, NODE_IMPLEMENTATIONS, {
+        ...settings,
+        bitDepth: 64,
+        target: 'assemblyscript',
+        arraysVariableName: GLOBS_VARIABLE_NAME,
+    })
+    return compileAs(code)
 }
 
 const pdPointToGraph = (x: number, y: number) => ({

@@ -1,16 +1,25 @@
-import { jsEvalAudioWorklet } from "@webpd/audioworklets"
+import { audioworkletJsEval, audioworkletWasm } from "@webpd/audioworklets"
 
-export interface Engine {
-    settings: PdEngine.Settings
-    waaNode: jsEvalAudioWorklet.WorkletNode
-    context: AudioContext    
+interface EngineJs {
+    waaNode: audioworkletJsEval.WorkletNode
+    mode: 'js'
 }
+
+interface EngineWasm {
+    waaNode: audioworkletWasm.WorkletNode
+    mode: 'wasm'
+}
+
+export type Engine = EngineJs | EngineWasm
+export type EngineMode = Engine["mode"]
 
 // ------------- Action Types ------------ //
 export const WEBPD_CREATE = 'WEBPD_CREATE'
 export const WEBPD_CREATED = 'WEBPD_CREATED'
 export const WEBPD_INITIALIZED = 'WEBPD_INITIALIZED'
 export const WEBPD_DSP_TOGGLE = 'WEBPD_DSP_TOGGLE'
+export const WEBPD_SET_ENGINE_MODE = 'WEBPD_SET_ENGINE_MODE'
+export const WEBPD_SET_ENGINE = 'WEBPD_SET_ENGINE'
 
 export interface WebPdCreate {
     type: typeof WEBPD_CREATE
@@ -19,8 +28,8 @@ export interface WebPdCreate {
 export interface WebPdCreated {
     type: typeof WEBPD_CREATED
     payload: {
+        settings: PdEngine.Settings
         context: AudioContext
-        engine: Engine
     }
 }
 
@@ -39,11 +48,27 @@ export interface WebPdDspToggled {
     }
 }
 
+export interface WebPdSetEngine {
+    type: typeof WEBPD_SET_ENGINE
+    payload: {
+        engine: Engine
+    }
+}
+
+export interface WebPdSetEngineMode {
+    type: typeof WEBPD_SET_ENGINE_MODE
+    payload: {
+        engineMode: EngineMode
+    }
+}
+
 type WebPdTypes =
     | WebPdDspToggled
     | WebPdInitialized
     | WebPdCreate
     | WebPdCreated
+    | WebPdSetEngineMode
+    | WebPdSetEngine
 
 // ------------ Action Creators ---------- //
 export const toggleDsp = (isDspOn: boolean): WebPdTypes => {
@@ -60,12 +85,12 @@ export const create = (): WebPdTypes => {
 }
 
 export const setCreated = (
+    settings: PdEngine.Settings,
     context: AudioContext,
-    engine: Engine
 ): WebPdTypes => {
     return {
         type: WEBPD_CREATED,
-        payload: { context, engine },
+        payload: { context, settings },
     }
 }
 
@@ -79,13 +104,29 @@ export const setInitialized = (
     }
 }
 
+export const setEngine = (engine: Engine): WebPdTypes => {
+    return {
+        type: WEBPD_SET_ENGINE,
+        payload: { engine },
+    }
+}
+
+export const setEngineMode = (engineMode: EngineMode): WebPdTypes => {
+    return {
+        type: WEBPD_SET_ENGINE_MODE,
+        payload: { engineMode },
+    }
+}
+
 // ----------------- State --------------- //
 interface WebPdState {
     isCreated: boolean
     isInitialized: boolean
     isDspOn: boolean
     context: AudioContext | null
+    settings: PdEngine.Settings
     engine: Engine | null
+    engineMode: EngineMode
 }
 
 export const initialState: WebPdState = {
@@ -93,7 +134,9 @@ export const initialState: WebPdState = {
     isInitialized: false,
     isDspOn: false,
     context: null,
+    settings: null,
     engine: null,
+    engineMode: 'js'
 }
 
 // ---------------- Reducer -------------- //
@@ -106,8 +149,8 @@ export const webPdReducer = (
             return {
                 ...state,
                 isCreated: true,
+                settings: action.payload.settings,
                 context: action.payload.context,
-                engine: action.payload.engine,
             }
         case WEBPD_INITIALIZED:
             return {
@@ -120,6 +163,16 @@ export const webPdReducer = (
             return {
                 ...state,
                 isDspOn: action.payload.isDspOn,
+            }
+        case WEBPD_SET_ENGINE:
+            return {
+                ...state,
+                engine: action.payload.engine,
+            }
+        case WEBPD_SET_ENGINE_MODE:
+            return {
+                ...state,
+                engineMode: action.payload.engineMode,
             }
         default:
             return state

@@ -1,5 +1,5 @@
 import * as fbpGraph from 'fbp-graph'
-import { audioworkletJsEval, addModule } from '@webpd/audioworklets'
+import { audioworkletJsEval, audioworkletWasm, addModule } from '@webpd/audioworklets'
 import {
     all,
     takeLatest,
@@ -16,15 +16,20 @@ import {
     getUiCanvasCenterPoint,
     getWebpdContext,
     getWebpdEngine,
+    getWebpdEngineMode,
     getWebpdIsInitialized,
+    getWebpdSettings,
 } from './selectors'
 import {
     Engine,
+    EngineMode,
     setCreated,
+    setEngine,
     setInitialized,
     WebPdDspToggled,
     WEBPD_CREATE,
     WEBPD_DSP_TOGGLE,
+    WEBPD_SET_ENGINE_MODE,
 } from './webpd'
 import {
     arrayLoadError,
@@ -49,12 +54,14 @@ import {
     pdToGraph,
     graphToPd,
     pdToJsCode,
+    pdToWasm,
 } from '../core/converters'
 import { Library, Point } from '../core/types'
 import { END, EventChannel, eventChannel } from 'redux-saga'
 import { LOCALSTORAGE_HELP_SEEN_KEY, UI_SET_POPUP } from './ui'
 import * as model from '../core/model'
 import { httpGetBinary, readFileAsArrayBuffer } from '../core/browser'
+import { GLOBS_VARIABLE_NAME } from '../core/constants'
 
 const graphEventChannel = (graph: fbpGraph.Graph) => {
     return eventChannel((emitter) => {
@@ -90,13 +97,13 @@ function* graphEventsSaga(graph: fbpGraph.Graph) {
 
 function* graphChanged(graph: fbpGraph.Graph) {
     const isWebpdInitialized: boolean = yield select(getWebpdIsInitialized)
-    const webpdEngine: Engine = yield select(getWebpdEngine)
+    const settings: PdEngine.Settings = yield select(getWebpdSettings)
     yield put(incrementGraphVersion())
     const pdJson = graphToPd(graph)
     const library: Library = yield call(
         pdToLibrary,
         pdJson,
-        webpdEngine.settings
+        settings
     )
     yield put(setGraph(graph, library))
     if (isWebpdInitialized) {
@@ -107,6 +114,7 @@ function* graphChanged(graph: fbpGraph.Graph) {
 
 function* updateWebpdDsp(pd: PdJson.Pd) {
     const webpdEngine: Engine = yield select(getWebpdEngine)
+    const settings: PdEngine.Settings = yield select(getWebpdSettings)
     const arraysData: Arrays = yield select(getModelArrays)
     const arrays: { [arrayName: string]: Float32Array } = {}
     Object.entries(arraysData).forEach(([arrayName, arrayDatum]) => {
@@ -116,36 +124,87 @@ function* updateWebpdDsp(pd: PdJson.Pd) {
         arrays[arrayName] = arrayDatum.array
     })
 
-    const code = pdToJsCode(pd, webpdEngine.settings)
-    webpdEngine.waaNode.port.postMessage({
-        type: 'CODE',
-        payload: { code, arrays }
-    })
+    if (webpdEngine.mode === 'js') {
+        const code = pdToJsCode(pd, settings)
+        webpdEngine.waaNode.port.postMessage({
+            type: 'CODE',
+            payload: { code, arrays }
+        })
+
+    } else if (webpdEngine.mode === 'wasm') {
+        let wasmBuffer: ArrayBuffer
+        try {
+            wasmBuffer = yield call(pdToWasm, pd, settings)
+        } catch(err) {
+            console.log(err)
+            return
+        }
+        webpdEngine.waaNode.port.postMessage({
+            type: 'WASM',
+            payload: { wasmBuffer, arrays }
+        })
+    }
 }
 
-function* createWebpdEngine() {
+function* updateWebpdEngine() {
+    const engineMode: EngineMode = yield select(getWebpdEngineMode)
+    const context: AudioContext = yield select(getWebpdContext)
+    const settings: PdEngine.Settings = yield select(getWebpdSettings)
+    let webpdEngine: Engine = yield select(getWebpdEngine)
+
+    if (webpdEngine && webpdEngine.waaNode) {
+        webpdEngine.waaNode.disconnect()
+    }
+
+    if (engineMode === 'js') {
+        const waaNode = new audioworkletJsEval.WorkletNode(context, settings.channelCount, GLOBS_VARIABLE_NAME)
+        webpdEngine = {waaNode, mode: engineMode}
+    
+    } else if(engineMode === 'wasm') {
+        const waaNode = new audioworkletWasm.WorkletNode(context, settings.channelCount, Float64Array)
+        webpdEngine = {waaNode, mode: engineMode}
+    }
+
+    webpdEngine.waaNode.connect(context.destination)
+    return webpdEngine
+}
+
+function* createWebpd() {
     const context = new AudioContext()
-    yield addModule(context, audioworkletJsEval.WorkletProcessorCode)
     const settings: PdEngine.Settings = {
         sampleRate: context.sampleRate,
         channelCount: 2,
     }
-    const waaNode = new audioworkletJsEval.WorkletNode(context, settings.channelCount)
-    waaNode.connect(context.destination)
-    const webpdEngine: Engine = {waaNode, context, settings}
-    yield put(setCreated(context, webpdEngine))
+    yield addModule(context, audioworkletJsEval.WorkletProcessorCode)
+    yield addModule(context, audioworkletWasm.WorkletProcessorCode)
+    yield put(setCreated(settings, context))
 }
 
 function* initializeWebpdEngine() {
     const context: AudioContext = yield select(getWebpdContext)
     const graph: fbpGraph.Graph = yield select(getModelGraph)
-    let webpdEngine: Engine = yield select(getWebpdEngine)
+    const webpdEngine: Engine = yield call(updateWebpdEngine)
     // https://github.com/WebAudio/web-audio-api/issues/345
     if (context.state === 'suspended') {
         context.resume()
     }
     yield put(setInitialized(context, webpdEngine))
 
+    const pdJson = graphToPd(graph)
+    if (pdJson) {
+        yield call(updateWebpdDsp, pdJson)
+    }
+}
+
+function* changeWebpdEngineMode() {
+    const isWebpdInitialized: boolean = yield select(getWebpdIsInitialized)
+    if (!isWebpdInitialized) {
+        return
+    }
+
+    const webpdEngine: Engine = yield call(updateWebpdEngine)
+    yield put(setEngine(webpdEngine))
+    const graph: fbpGraph.Graph = yield select(getModelGraph)
     const pdJson = graphToPd(graph)
     if (pdJson) {
         yield call(updateWebpdDsp, pdJson)
@@ -168,7 +227,7 @@ function* toggleWebpdDsp(action: WebPdDspToggled) {
 function* createGraphNode(action: ModelAddNode) {
     const graph: fbpGraph.Graph = yield select(getModelGraph)
     const canvasCenterPoint: Point = yield select(getUiCanvasCenterPoint)
-    const webpdEngine: Engine = yield select(getWebpdEngine)
+    const settings: PdEngine.Settings = yield select(getWebpdSettings)
     const patch: PdJson.Patch = yield select(getCurrentPdPatch)
     const nodeId = model.generateId(patch)
     model.addGraphNode(
@@ -177,7 +236,7 @@ function* createGraphNode(action: ModelAddNode) {
         action.payload.nodeType,
         action.payload.nodeArgs,
         canvasCenterPoint,
-        webpdEngine.settings
+        settings
     )
     yield call(graphChanged, graph)
 }
@@ -189,17 +248,17 @@ function* editGraphNode(action: ModelEditNode) {
 
 function* requestLoadPd(action: ModelRequestLoadPd) {
     const pdJson = action.payload.pd
-    const webpdEngine: Engine = yield select(getWebpdEngine)
+    const settings: PdEngine.Settings = yield select(getWebpdSettings)
     const isWebpdInitialized: boolean = yield select(getWebpdIsInitialized)
     const graph: fbpGraph.Graph = yield call(
         pdToGraph,
         pdJson,
-        webpdEngine.settings
+        settings
     )
     const library: Library = yield call(
         pdToLibrary,
         pdJson,
-        webpdEngine.settings
+        settings
     )
     yield put(setGraph(graph, library))
     if (isWebpdInitialized) {
@@ -254,8 +313,8 @@ function* requestLoadPdSaga() {
     yield takeLatest(MODEL_REQUEST_LOAD_PD, requestLoadPd)
 }
 
-function* createWebpdEngineSaga() {
-    yield takeLatest(WEBPD_CREATE, createWebpdEngine)
+function* createWebpdSaga() {
+    yield takeLatest(WEBPD_CREATE, createWebpd)
 }
 
 function* toggleWebpdDspSaga() {
@@ -286,9 +345,13 @@ function* arrayLoadedSaga() {
     yield takeLatest(MODEL_ARRAY_LOADED, arrayLoaded)
 }
 
+function* setEngineModeSaga() {
+    yield takeLatest(WEBPD_SET_ENGINE_MODE, changeWebpdEngineMode)
+}
+
 export default function* rootSaga() {
     yield all([
-        createWebpdEngineSaga(),
+        createWebpdSaga(),
         toggleWebpdDspSaga(),
         requestLoadPdSaga(),
         createGraphNodeSaga(),
@@ -297,5 +360,6 @@ export default function* rootSaga() {
         loadLocalArraySaga(),
         loadRemoteArraySaga(),
         arrayLoadedSaga(),
+        setEngineModeSaga(),
     ])
 }

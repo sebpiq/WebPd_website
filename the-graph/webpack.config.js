@@ -2,6 +2,9 @@ const path = require('path');
 const HtmlWebpackPlugin = require('html-webpack-plugin');
 
 module.exports = {
+  externals: {
+    'assemblyscript/asc': 'asc',
+  },
   entry: {
     'index': './src/index.ts',
   },

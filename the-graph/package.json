@@ -32,7 +32,6 @@
     "@webpd/dsp-graph": "file:../../WebPd_dsp-graph",
     "@webpd/pd-parser": "file:../../WebPd_pd-parser",
     "@webpd/pd-renderer": "file:../../WebPd_pd-renderer",
-    "assemblyscript": "^0.9.4",
     "fbp-graph": "^0.7.0",
     "font-awesome": "^4.7.0",
     "p-event": "^5.0.1",

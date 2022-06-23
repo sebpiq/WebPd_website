@@ -1,0 +1,1 @@
+export const GLOBS_VARIABLE_NAME = 'GLOBS'

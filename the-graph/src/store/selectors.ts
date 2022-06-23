@@ -47,5 +47,10 @@ export const getWebpdContext = (state: AppState) => state.webpd.context
 
 export const getWebpdEngine = (state: AppState) => state.webpd.engine
 
+export const getWebpdSettings = (state: AppState) => state.webpd.settings
+
 export const getWebpdIsInitialized = (state: AppState) =>
     state.webpd.isInitialized
+
+export const getWebpdEngineMode = (state: AppState) => 
+    state.webpd.engineMode
