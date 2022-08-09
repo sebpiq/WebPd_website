@@ -4,10 +4,10 @@ const BIT_DEPTH = 64
 const CHANNEL_COUNT = 1
 const WASM_PATCHES: {[name: string]: ArrayBuffer | null} = {
     'osc': null,
-    'play-array': null
+    'play-array': null,
 }
 const SAMPLES: {[name: string]: Float64Array | null} = {
-    'audio1': null
+    'audio1': null,
 }
 
 const startButton = document.querySelector('button#start') as HTMLButtonElement

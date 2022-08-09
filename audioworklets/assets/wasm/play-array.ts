@@ -36,5 +36,3 @@ export function setArray(_: string, buffer: ArrayBuffer): void {
     }
     SAMPLE = array
 }
-
-export function getBitDepth(): i32 { return 64 }
