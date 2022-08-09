@@ -1,16 +1,15 @@
 import React from 'react'
 import { connect } from 'react-redux'
 import styled from 'styled-components'
-import { graphToPd, pdToJsCode } from '../core/converters'
+import { graphToPd, pdToJsCode, pdToWasm } from '../core/converters'
 import Button from '../styled-components/Button'
 import * as fbpGraph from 'fbp-graph'
 import { AppState } from '../store'
-import { Engine } from '@webpd/engine-live-eval'
 import renderPdFile from '@webpd/pd-renderer'
 import {
     getCurrentPdPatch,
     getModelGraph,
-    getWebpdEngine,
+    getWebpdSettings,
 } from '../store/selectors'
 import themeConfig, { Colors } from '../theme-config'
 import Input, { Input2 } from '../styled-components/Input'
@@ -19,9 +18,10 @@ import themed from '../styled-components/themed'
 import { UiTheme } from '../store/ui'
 import { onDesktop, onMobile } from '../styled-components/media-queries'
 import H2 from '../styled-components/H2'
+import { Settings } from '../core/types'
 
 interface Props {
-    webpdEngine: Engine
+    settings: Settings
     graph: fbpGraph.Graph
     patch: PdJson.Patch
 }
@@ -29,7 +29,7 @@ interface Props {
 interface State {
     js: string | null
     pd: string | null
-    wasm: string | null
+    wasm: ArrayBuffer | null
     currentTab: 'js' | 'pd' | 'wasm' | null
     filename: string | null
 }
@@ -144,7 +144,7 @@ class ExportPopUp extends React.Component<Props, State> {
     }
 
     render() {
-        const { graph, webpdEngine, patch } = this.props
+        const { graph, settings, patch } = this.props
         const { currentTab, js, pd, wasm, filename } = this.state
 
         const code = { pd, js, wasm }[currentTab]
@@ -152,7 +152,7 @@ class ExportPopUp extends React.Component<Props, State> {
 
         const onJsClick = () => {
             const pd = graphToPd(graph)
-            const js = pdToJsCode(pd, webpdEngine.settings)
+            const js = pdToJsCode(pd, settings)
             this.setState({ js, currentTab: 'js' })
         }
 
@@ -163,7 +163,10 @@ class ExportPopUp extends React.Component<Props, State> {
         }
 
         const onWasmClick = () => {
-            this.setState({ wasm: 'COMING SOON ...', currentTab: 'wasm' })
+            const pd = graphToPd(graph)
+            pdToWasm(pd, settings).then((wasmBuffer) => {
+                this.setState({ wasm: wasmBuffer, currentTab: 'wasm' })
+            })
         }
 
         const onFilenameChange = (
@@ -198,30 +201,28 @@ class ExportPopUp extends React.Component<Props, State> {
                 </TabsContainer>
                 {currentTab ? (
                     <CodeAreaContainer>
-                        <pre>{code}</pre>
+                        <pre>{typeof code === 'string' ? code : `Wasm binary, byte length = ${code.byteLength}`}</pre>
                     </CodeAreaContainer>
                 ) : null}
-                {currentTab && currentTab !== 'wasm' ? (
-                    <DownloadContainer>
-                        <form onSubmit={onDownloadClick} ref="downloadForm">
-                            <FilenameContainer>
-                                <Input2
-                                    type="text"
-                                    name="filename"
-                                    onChange={onFilenameChange}
-                                    placeholder="filename"
-                                    autoComplete="off"
-                                />
-                                <span>.{extension}</span>
-                            </FilenameContainer>
-                            <Input
-                                type="submit"
-                                value="download"
-                                disabled={!filename || filename.length === 0}
+                <DownloadContainer>
+                    <form onSubmit={onDownloadClick} ref="downloadForm">
+                        <FilenameContainer>
+                            <Input2
+                                type="text"
+                                name="filename"
+                                onChange={onFilenameChange}
+                                placeholder="filename"
+                                autoComplete="off"
                             />
-                        </form>
-                    </DownloadContainer>
-                ) : null}
+                            <span>.{extension}</span>
+                        </FilenameContainer>
+                        <Input
+                            type="submit"
+                            value="download"
+                            disabled={!filename || filename.length === 0}
+                        />
+                    </form>
+                </DownloadContainer>
             </Container>
         )
     }
@@ -229,6 +230,6 @@ class ExportPopUp extends React.Component<Props, State> {
 
 export default connect((state: AppState) => ({
     graph: getModelGraph(state),
-    webpdEngine: getWebpdEngine(state),
+    settings: getWebpdSettings(state),
     patch: getCurrentPdPatch(state),
 }))(ExportPopUp)

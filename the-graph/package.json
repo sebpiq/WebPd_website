@@ -4,7 +4,9 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "prettier": "npm explore @webpd/shared -- npm run prettier $(pwd)/src"
+    "prettier": "npm explore @webpd/shared -- npm run prettier $(pwd)/src",
+    "build": "npx webpack-cli --watch",
+    "serve": "npx http-server www/"
   },
   "author": "",
   "license": "ISC",

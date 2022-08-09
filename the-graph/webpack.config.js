@@ -13,7 +13,7 @@ module.exports = {
     filename: '[name].js',
     sourceMapFilename: '[name].js.map',
   },
-  mode: 'production',
+  mode: 'development',
   devtool: 'source-map',
   module: {
     rules: [

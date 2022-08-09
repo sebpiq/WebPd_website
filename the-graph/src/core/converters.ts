@@ -2,16 +2,14 @@ import * as fbpGraph from 'fbp-graph'
 import NODE_VIEW_BUILDERS, { DEFAULT_ICON } from './node-view-builders'
 import compileToCode, { NODE_IMPLEMENTATIONS } from '@webpd/compiler-js'
 import compileToDspGraph from '@webpd/dsp-graph'
-import { Library } from './types'
+import { Library, Settings } from './types'
 import {
     addGraphNode,
     getGraphNode,
     generateComponentName,
     GraphNodeWithMetadata,
 } from './model'
-import { audioworkletJsEval } from '@webpd/audioworklets'
 import { compileAs } from './assemblyscript'
-import { GLOBS_VARIABLE_NAME } from './constants'
 
 export const graphToPd = (graph: fbpGraph.Graph): PdJson.Pd => {
     const patch: PdJson.Patch = {
@@ -65,7 +63,7 @@ export const graphToPd = (graph: fbpGraph.Graph): PdJson.Pd => {
 
 export const pdToGraph = (
     pd: PdJson.Pd,
-    engineSettings: PdEngine.Settings
+    engineSettings: Settings
 ): fbpGraph.Graph => {
     const graph = new fbpGraph.Graph('patch')
     const patches = Object.values(pd.patches)
@@ -113,7 +111,7 @@ export const pdToGraph = (
 
 export const pdToLibrary = (
     pd: PdJson.Pd,
-    engineSettings: PdEngine.Settings
+    engineSettings: Settings
 ): Library => {
     const library: Library = {}
     Object.values(pd.patches).forEach((patch) => {
@@ -149,22 +147,19 @@ export const pdToLibrary = (
     return library
 }
 
-export const pdToJsCode = (pd: PdJson.Pd, settings: PdEngine.Settings) => {
+export const pdToJsCode = (pd: PdJson.Pd, settings: Settings) => {
     const dspGraph = compileToDspGraph(pd)
     return compileToCode(dspGraph, NODE_IMPLEMENTATIONS, {
         ...settings,
         target: 'javascript',
-        arraysVariableName: GLOBS_VARIABLE_NAME,
     })
 }
 
-export const pdToWasm = async (pd: PdJson.Pd, settings: PdEngine.Settings): Promise<ArrayBuffer> => {
+export const pdToWasm = async (pd: PdJson.Pd, settings: Settings): Promise<ArrayBuffer> => {
     const dspGraph = compileToDspGraph(pd)
     const code = compileToCode(dspGraph, NODE_IMPLEMENTATIONS, {
         ...settings,
-        bitDepth: 64,
         target: 'assemblyscript',
-        arraysVariableName: GLOBS_VARIABLE_NAME,
     })
     return compileAs(code)
 }

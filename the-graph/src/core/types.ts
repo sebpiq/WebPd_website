@@ -19,7 +19,7 @@ interface NodeView {
 interface NodeViewBuilder {
     build: (
         args: PdJson.ObjectArgs,
-        engineSettings: PdEngine.Settings
+        engineSettings: Settings
     ) => NodeView
     icon?: string
     noArguments?: true
@@ -42,3 +42,8 @@ export interface LibraryNodeDefinition {
 }
 
 export type Library = { [nodeType: string]: LibraryNodeDefinition }
+
+export interface Settings {
+    channelCount: number
+    bitDepth: 64
+}

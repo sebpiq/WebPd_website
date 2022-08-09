@@ -1,7 +1,7 @@
 import * as fbpGraph from 'fbp-graph'
 import NODE_VIEW_BUILDERS from './node-view-builders'
 import { GraphNode } from 'fbp-graph/src/Types'
-import { Point } from './types'
+import { Point, Settings } from './types'
 
 type PortletLookupMap = { [portletGraphName: string]: PdJson.PortletId }
 
@@ -40,7 +40,7 @@ export const addGraphNode = (
     nodeType: PdSharedTypes.NodeType,
     nodeArgs: PdJson.ObjectArgs,
     position: Point,
-    engineSettings: PdEngine.Settings
+    engineSettings: Settings
 ) => {
     // Building the lookup map to find pd portlet ids from graph portlet name
     const nodeViewBuilder = NODE_VIEW_BUILDERS[nodeType]
@@ -111,7 +111,7 @@ export const generateSublabel = (nodeArgs: PdJson.ObjectArgs) =>
 export const generateComponentName = (
     nodeType: PdSharedTypes.NodeType,
     nodeArgs: PdJson.ObjectArgs,
-    engineSettings: PdEngine.Settings
+    engineSettings: Settings
 ) => {
     const nodeViewBuilder = NODE_VIEW_BUILDERS[nodeType]
     const { inlets, outlets } = nodeViewBuilder.build(nodeArgs, engineSettings)

@@ -104,16 +104,16 @@ class Menu extends React.Component<Props> {
         const { expanded, setMobileMenuExpanded } = this.props
 
         const menuItemsLeft = [
-            <ToggleDsp />,
-            <ToggleEngineMode />,
+            <ToggleDsp key="ToggleDsp" />,
+            <ToggleEngineMode key="ToggleEngineMode" />,
         ]
 
         const menuItemsRight = [
-            <ButtonAddNode />,
-            <ButtonArrays />,
-            <ButtonImport />,
-            <ButtonExport />,
-            <ButtonAbout />,
+            <ButtonAddNode key="ButtonAddNode" />,
+            <ButtonArrays key="ButtonArrays" />,
+            <ButtonImport key="ButtonImport" />,
+            <ButtonExport key="ButtonExport" />,
+            <ButtonAbout key="ButtonAbout" />,
         ]
 
         const onBurgerClick = () => {

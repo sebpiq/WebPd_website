@@ -56,12 +56,11 @@ import {
     pdToJsCode,
     pdToWasm,
 } from '../core/converters'
-import { Library, Point } from '../core/types'
+import { Library, Point, Settings } from '../core/types'
 import { END, EventChannel, eventChannel } from 'redux-saga'
 import { LOCALSTORAGE_HELP_SEEN_KEY, UI_SET_POPUP } from './ui'
 import * as model from '../core/model'
 import { httpGetBinary, readFileAsArrayBuffer } from '../core/browser'
-import { GLOBS_VARIABLE_NAME } from '../core/constants'
 
 const graphEventChannel = (graph: fbpGraph.Graph) => {
     return eventChannel((emitter) => {
@@ -97,7 +96,7 @@ function* graphEventsSaga(graph: fbpGraph.Graph) {
 
 function* graphChanged(graph: fbpGraph.Graph) {
     const isWebpdInitialized: boolean = yield select(getWebpdIsInitialized)
-    const settings: PdEngine.Settings = yield select(getWebpdSettings)
+    const settings: Settings = yield select(getWebpdSettings)
     yield put(incrementGraphVersion())
     const pdJson = graphToPd(graph)
     const library: Library = yield call(
@@ -114,14 +113,16 @@ function* graphChanged(graph: fbpGraph.Graph) {
 
 function* updateWebpdDsp(pd: PdJson.Pd) {
     const webpdEngine: Engine = yield select(getWebpdEngine)
-    const settings: PdEngine.Settings = yield select(getWebpdSettings)
+    const settings: Settings = yield select(getWebpdSettings)
     const arraysData: Arrays = yield select(getModelArrays)
     const arrays: { [arrayName: string]: Float32Array } = {}
+    const arrays64: { [arrayName: string]: Float64Array } = {}
     Object.entries(arraysData).forEach(([arrayName, arrayDatum]) => {
         if (arrayDatum.code !== 'loaded') {
             return
         }
         arrays[arrayName] = arrayDatum.array
+        arrays64[arrayName] = arrayDatum.array64
     })
 
     if (webpdEngine.mode === 'js') {
@@ -141,7 +142,7 @@ function* updateWebpdDsp(pd: PdJson.Pd) {
         }
         webpdEngine.waaNode.port.postMessage({
             type: 'WASM',
-            payload: { wasmBuffer, arrays }
+            payload: { wasmBuffer, arrays: arrays64 }
         })
     }
 }
@@ -149,7 +150,7 @@ function* updateWebpdDsp(pd: PdJson.Pd) {
 function* updateWebpdEngine() {
     const engineMode: EngineMode = yield select(getWebpdEngineMode)
     const context: AudioContext = yield select(getWebpdContext)
-    const settings: PdEngine.Settings = yield select(getWebpdSettings)
+    const settings: Settings = yield select(getWebpdSettings)
     let webpdEngine: Engine = yield select(getWebpdEngine)
 
     if (webpdEngine && webpdEngine.waaNode) {
@@ -157,11 +158,11 @@ function* updateWebpdEngine() {
     }
 
     if (engineMode === 'js') {
-        const waaNode = new audioworkletJsEval.WorkletNode(context, settings.channelCount, GLOBS_VARIABLE_NAME)
+        const waaNode = new audioworkletJsEval.WorkletNode(context, settings.channelCount)
         webpdEngine = {waaNode, mode: engineMode}
     
     } else if(engineMode === 'wasm') {
-        const waaNode = new audioworkletWasm.WorkletNode(context, settings.channelCount, Float64Array)
+        const waaNode = new audioworkletWasm.WorkletNode(context, settings.channelCount, settings.bitDepth)
         webpdEngine = {waaNode, mode: engineMode}
     }
 
@@ -171,9 +172,9 @@ function* updateWebpdEngine() {
 
 function* createWebpd() {
     const context = new AudioContext()
-    const settings: PdEngine.Settings = {
-        sampleRate: context.sampleRate,
+    const settings: Settings = {
         channelCount: 2,
+        bitDepth: 64,
     }
     yield addModule(context, audioworkletJsEval.WorkletProcessorCode)
     yield addModule(context, audioworkletWasm.WorkletProcessorCode)
@@ -227,7 +228,7 @@ function* toggleWebpdDsp(action: WebPdDspToggled) {
 function* createGraphNode(action: ModelAddNode) {
     const graph: fbpGraph.Graph = yield select(getModelGraph)
     const canvasCenterPoint: Point = yield select(getUiCanvasCenterPoint)
-    const settings: PdEngine.Settings = yield select(getWebpdSettings)
+    const settings: Settings = yield select(getWebpdSettings)
     const patch: PdJson.Patch = yield select(getCurrentPdPatch)
     const nodeId = model.generateId(patch)
     model.addGraphNode(
@@ -248,7 +249,7 @@ function* editGraphNode(action: ModelEditNode) {
 
 function* requestLoadPd(action: ModelRequestLoadPd) {
     const pdJson = action.payload.pd
-    const settings: PdEngine.Settings = yield select(getWebpdSettings)
+    const settings: Settings = yield select(getWebpdSettings)
     const isWebpdInitialized: boolean = yield select(getWebpdIsInitialized)
     const graph: fbpGraph.Graph = yield call(
         pdToGraph,

@@ -56,7 +56,7 @@ const _NodeArgsViewer = ({
         }
         liElems = Object.entries(args).map(([argName, argValue]) => {
             return (
-                <li>
+                <li key={argName}>
                     {argName} : {argValue}
                 </li>
             )

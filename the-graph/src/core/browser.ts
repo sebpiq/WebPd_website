@@ -1,4 +1,4 @@
-export const download = (filename: string, data: string, mimetype: string) => {
+export const download = (filename: string, data: string | ArrayBuffer, mimetype: string) => {
     const blob = new Blob([data], { type: mimetype })
     if ((window.navigator as any).msSaveOrOpenBlob) {
         ;(window.navigator as any).msSaveBlob(blob, filename)

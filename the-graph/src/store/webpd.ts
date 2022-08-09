@@ -1,4 +1,5 @@
 import { audioworkletJsEval, audioworkletWasm } from "@webpd/audioworklets"
+import { Settings } from "../core/types"
 
 interface EngineJs {
     waaNode: audioworkletJsEval.WorkletNode
@@ -28,7 +29,7 @@ export interface WebPdCreate {
 export interface WebPdCreated {
     type: typeof WEBPD_CREATED
     payload: {
-        settings: PdEngine.Settings
+        settings: Settings
         context: AudioContext
     }
 }
@@ -85,7 +86,7 @@ export const create = (): WebPdTypes => {
 }
 
 export const setCreated = (
-    settings: PdEngine.Settings,
+    settings: Settings,
     context: AudioContext,
 ): WebPdTypes => {
     return {
@@ -124,7 +125,7 @@ interface WebPdState {
     isInitialized: boolean
     isDspOn: boolean
     context: AudioContext | null
-    settings: PdEngine.Settings
+    settings: Settings
     engine: Engine | null
     engineMode: EngineMode
 }

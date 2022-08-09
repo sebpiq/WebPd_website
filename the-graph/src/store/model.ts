@@ -4,6 +4,7 @@ import { Library } from '../core/types'
 interface ArrayLoadedDatum {
     code: 'loaded'
     array: Float32Array
+    array64: Float64Array
 }
 
 interface ArrayErrorDatum {
@@ -296,6 +297,7 @@ export const modelReducer = (
                     [action.payload.arrayName]: {
                         code: 'loaded',
                         array: action.payload.array,
+                        array64: Float64Array.from(action.payload.array),
                     },
                 },
             }
