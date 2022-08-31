@@ -161,7 +161,12 @@ export const pdToWasm = async (pd: PdJson.Pd, settings: Settings): Promise<Array
         ...settings,
         target: 'assemblyscript',
     })
-    return compileAs(code)
+    try {
+        return await compileAs(code)
+    } catch(err) {
+        console.log('CODE : \n' + code)
+        throw new Error(err)
+    }   
 }
 
 const pdPointToGraph = (x: number, y: number) => ({

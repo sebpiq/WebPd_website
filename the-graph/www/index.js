@@ -5101,6 +5101,40 @@ var ArraysPopUp = /*#__PURE__*/function (_React$Component) {
 
 /***/ }),
 
+/***/ "./src/Popup/CompilationErrorPopUp.tsx":
+/*!*********************************************!*\
+  !*** ./src/Popup/CompilationErrorPopUp.tsx ***!
+  \*********************************************/
+/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
+
+"use strict";
+__webpack_require__.r(__webpack_exports__);
+/* harmony export */ __webpack_require__.d(__webpack_exports__, {
+/* harmony export */   "default": () => (__WEBPACK_DEFAULT_EXPORT__)
+/* harmony export */ });
+/* harmony import */ var react__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! react */ "./node_modules/react/react.js");
+/* harmony import */ var react__WEBPACK_IMPORTED_MODULE_0___default = /*#__PURE__*/__webpack_require__.n(react__WEBPACK_IMPORTED_MODULE_0__);
+/* harmony import */ var styled_components__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! styled-components */ "./node_modules/styled-components/dist/styled-components.browser.esm.js");
+/* harmony import */ var _styled_components_H2__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! ../styled-components/H2 */ "./src/styled-components/H2.tsx");
+/* harmony import */ var _theme_config__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(/*! ../theme-config */ "./src/theme-config.ts");
+var _templateObject;
+
+function _taggedTemplateLiteral(strings, raw) { if (!raw) { raw = strings.slice(0); } return Object.freeze(Object.defineProperties(strings, { raw: { value: Object.freeze(raw) } })); }
+
+
+
+
+
+var Container = styled_components__WEBPACK_IMPORTED_MODULE_1__["default"].div(_templateObject || (_templateObject = _taggedTemplateLiteral(["\n    height: 100%;\n    width: 100%;\n    padding: ", ";\n    display: flex;\n    flex-direction: column;\n    justify-content: center;\n    >* {\n        text-align: center;\n    }\n"])), _theme_config__WEBPACK_IMPORTED_MODULE_3__["default"].spacing["default"]);
+
+var CompilationErrorPopUp = function CompilationErrorPopUp() {
+  return /*#__PURE__*/react__WEBPACK_IMPORTED_MODULE_0___default().createElement(Container, null, /*#__PURE__*/react__WEBPACK_IMPORTED_MODULE_0___default().createElement(_styled_components_H2__WEBPACK_IMPORTED_MODULE_2__["default"], null, "Compilation Error !!!"), /*#__PURE__*/react__WEBPACK_IMPORTED_MODULE_0___default().createElement("p", null, "Open browser console for details."));
+};
+
+/* harmony default export */ const __WEBPACK_DEFAULT_EXPORT__ = (CompilationErrorPopUp);
+
+/***/ }),
+
 /***/ "./src/Popup/ExportPopUp.tsx":
 /*!***********************************!*\
   !*** ./src/Popup/ExportPopUp.tsx ***!
@@ -5719,6 +5753,8 @@ function _typeof(obj) { "@babel/helpers - typeof"; return _typeof = "function" =
 
 var _templateObject, _templateObject2, _templateObject3, _templateObject4;
 
+function _extends() { _extends = Object.assign || function (target) { for (var i = 1; i < arguments.length; i++) { var source = arguments[i]; for (var key in source) { if (Object.prototype.hasOwnProperty.call(source, key)) { target[key] = source[key]; } } } return target; }; return _extends.apply(this, arguments); }
+
 function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
 
 function _defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } }
@@ -5820,7 +5856,9 @@ var NodeLibraryPopUp = /*#__PURE__*/function (_React$Component) {
           handlers.onClick = onTileClick;
         }
 
-        return /*#__PURE__*/react__WEBPACK_IMPORTED_MODULE_0___default().createElement(NodeTile, handlers, nodeType);
+        return /*#__PURE__*/react__WEBPACK_IMPORTED_MODULE_0___default().createElement(NodeTile, _extends({
+          key: nodeType
+        }, handlers), nodeType);
       });
 
       var onSearchChange = function onSearchChange(event) {
@@ -5892,6 +5930,7 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony import */ var _AboutPopUp__WEBPACK_IMPORTED_MODULE_11__ = __webpack_require__(/*! ./AboutPopUp */ "./src/Popup/AboutPopUp.tsx");
 /* harmony import */ var _ArraysPopUp__WEBPACK_IMPORTED_MODULE_12__ = __webpack_require__(/*! ./ArraysPopUp */ "./src/Popup/ArraysPopUp.tsx");
 /* harmony import */ var _ImportPopUp__WEBPACK_IMPORTED_MODULE_13__ = __webpack_require__(/*! ./ImportPopUp */ "./src/Popup/ImportPopUp.tsx");
+/* harmony import */ var _CompilationErrorPopUp__WEBPACK_IMPORTED_MODULE_14__ = __webpack_require__(/*! ./CompilationErrorPopUp */ "./src/Popup/CompilationErrorPopUp.tsx");
 function _typeof(obj) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (obj) { return typeof obj; } : function (obj) { return obj && "function" == typeof Symbol && obj.constructor === Symbol && obj !== Symbol.prototype ? "symbol" : typeof obj; }, _typeof(obj); }
 
 var _templateObject, _templateObject2, _templateObject3;
@@ -5917,6 +5956,7 @@ function _isNativeReflectConstruct() { if (typeof Reflect === "undefined" || !Re
 function _getPrototypeOf(o) { _getPrototypeOf = Object.setPrototypeOf ? Object.getPrototypeOf : function _getPrototypeOf(o) { return o.__proto__ || Object.getPrototypeOf(o); }; return _getPrototypeOf(o); }
 
 function _taggedTemplateLiteral(strings, raw) { if (!raw) { raw = strings.slice(0); } return Object.freeze(Object.defineProperties(strings, { raw: { value: Object.freeze(raw) } })); }
+
 
 
 
@@ -6010,6 +6050,8 @@ var PopupComponent = /*#__PURE__*/function (_React$Component) {
         popupElem = /*#__PURE__*/react__WEBPACK_IMPORTED_MODULE_0___default().createElement(_ArraysPopUp__WEBPACK_IMPORTED_MODULE_12__["default"], null);
       } else if (popup.type === _store_ui__WEBPACK_IMPORTED_MODULE_5__.POPUP_IMPORT) {
         popupElem = /*#__PURE__*/react__WEBPACK_IMPORTED_MODULE_0___default().createElement(_ImportPopUp__WEBPACK_IMPORTED_MODULE_13__["default"], null);
+      } else if (popup.type === _store_ui__WEBPACK_IMPORTED_MODULE_5__.POPUP_COMPILATION_ERROR) {
+        popupElem = /*#__PURE__*/react__WEBPACK_IMPORTED_MODULE_0___default().createElement(_CompilationErrorPopUp__WEBPACK_IMPORTED_MODULE_14__["default"], null);
       }
 
       return /*#__PURE__*/react__WEBPACK_IMPORTED_MODULE_0___default().createElement(Container, null, /*#__PURE__*/react__WEBPACK_IMPORTED_MODULE_0___default().createElement(CloseButton, {
@@ -6378,14 +6420,25 @@ var pdToWasm = /*#__PURE__*/function () {
             code = (0,_webpd_compiler_js__WEBPACK_IMPORTED_MODULE_2__["default"])(dspGraph, _webpd_compiler_js__WEBPACK_IMPORTED_MODULE_2__.NODE_IMPLEMENTATIONS, _objectSpread(_objectSpread({}, settings), {}, {
               target: 'assemblyscript'
             }));
-            return _context.abrupt("return", (0,_assemblyscript__WEBPACK_IMPORTED_MODULE_5__.compileAs)(code));
+            _context.prev = 2;
+            _context.next = 5;
+            return (0,_assemblyscript__WEBPACK_IMPORTED_MODULE_5__.compileAs)(code);
 
-          case 3:
+          case 5:
+            return _context.abrupt("return", _context.sent);
+
+          case 8:
+            _context.prev = 8;
+            _context.t0 = _context["catch"](2);
+            console.log('CODE : \n' + code);
+            throw new Error(_context.t0);
+
+          case 12:
           case "end":
             return _context.stop();
         }
       }
-    }, _callee);
+    }, _callee, null, [[2, 8]]);
   }));
 
   return function pdToWasm(_x, _x2) {
@@ -7203,12 +7256,12 @@ function updateWebpdDsp(pd) {
               arrays: arrays
             }
           });
-          _context3.next = 33;
+          _context3.next = 37;
           break;
 
         case 21:
           if (!(webpdEngine.mode === 'wasm')) {
-            _context3.next = 33;
+            _context3.next = 37;
             break;
           }
 
@@ -7218,16 +7271,26 @@ function updateWebpdDsp(pd) {
 
         case 25:
           wasmBuffer = _context3.sent;
-          _context3.next = 32;
+          _context3.next = 36;
           break;
 
         case 28:
           _context3.prev = 28;
           _context3.t0 = _context3["catch"](22);
           console.log(_context3.t0);
+          _context3.next = 33;
+          return (0,redux_saga_effects__WEBPACK_IMPORTED_MODULE_1__.put)((0,_webpd__WEBPACK_IMPORTED_MODULE_3__.setIsCompiling)(false));
+
+        case 33:
+          _context3.next = 35;
+          return (0,redux_saga_effects__WEBPACK_IMPORTED_MODULE_1__.put)((0,_ui__WEBPACK_IMPORTED_MODULE_7__.setPopup)({
+            type: _ui__WEBPACK_IMPORTED_MODULE_7__.POPUP_COMPILATION_ERROR
+          }));
+
+        case 35:
           return _context3.abrupt("return");
 
-        case 32:
+        case 36:
           webpdEngine.waaNode.port.postMessage({
             type: 'WASM',
             payload: {
@@ -7236,11 +7299,11 @@ function updateWebpdDsp(pd) {
             }
           });
 
-        case 33:
-          _context3.next = 35;
+        case 37:
+          _context3.next = 39;
           return (0,redux_saga_effects__WEBPACK_IMPORTED_MODULE_1__.put)((0,_webpd__WEBPACK_IMPORTED_MODULE_3__.setIsCompiling)(false));
 
-        case 35:
+        case 39:
         case "end":
           return _context3.stop();
       }
@@ -8016,6 +8079,7 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony export */   "LOCALSTORAGE_HELP_SEEN_KEY": () => (/* binding */ LOCALSTORAGE_HELP_SEEN_KEY),
 /* harmony export */   "POPUP_ABOUT": () => (/* binding */ POPUP_ABOUT),
 /* harmony export */   "POPUP_ARRAYS": () => (/* binding */ POPUP_ARRAYS),
+/* harmony export */   "POPUP_COMPILATION_ERROR": () => (/* binding */ POPUP_COMPILATION_ERROR),
 /* harmony export */   "POPUP_EXPORT": () => (/* binding */ POPUP_EXPORT),
 /* harmony export */   "POPUP_IMPORT": () => (/* binding */ POPUP_IMPORT),
 /* harmony export */   "POPUP_NODE_CREATE": () => (/* binding */ POPUP_NODE_CREATE),
@@ -8048,6 +8112,7 @@ var POPUP_EXPORT = 'POPUP_EXPORT';
 var POPUP_ABOUT = 'POPUP_ABOUT';
 var POPUP_ARRAYS = 'POPUP_ARRAYS';
 var POPUP_IMPORT = 'POPUP_IMPORT';
+var POPUP_COMPILATION_ERROR = 'POPUP_COMPILATION_ERROR';
 var UI_SET_THEME = 'UI_SET_THEME';
 var UI_SET_PAN_SCALE = 'UI_SET_PAN_SCALE';
 var UI_SET_POPUP = 'UI_SET_POPUP';
@@ -63452,14 +63517,14 @@ const declareControl$1 = (_, { state, globs, MACROS }) => `
 `;
 const initialize$3 = (...args) => {
     const [node] = args;
-    return _hasSignalInput$1(node) ? initializeSignal$1(...args) : initializeControl$1(...args);
+    return _hasSignalInput$1(node) ? initializeSignal(...args) : initializeControl(...args);
 };
-const initializeSignal$1 = (node, { ins, state, globs }) => `
+const initializeSignal = (node, { ins, state, globs }) => `
     ${state.phase} = 0
     ${state.J} = 2 * Math.PI / ${globs.sampleRate}
     ${ins.$0_signal} = ${node.args.frequency || 0}
 `;
-const initializeControl$1 = (node, { state }) => `
+const initializeControl = (node, { state }) => `
     ${state.phase} = 0
     ${state.currentFrequency} = ${node.args.frequency || 0}
     ${state.K} = 0
@@ -63710,12 +63775,14 @@ const makeDeclare = () => (...args) => {
 };
 const declareSignal = () => ``;
 const declareControl = (_, { state, MACROS }) => `let ${MACROS.typedVarFloat(state.rightOp)}`;
-const makeInitialize = () => (...args) => {
+const makeInitialize = (defaultValue) => (...args) => {
     const [node] = args;
+    const initializeSignal = makeInitializeSignal(defaultValue);
+    const initializeControl = makeInitializeControl(defaultValue);
     return _hasSignalInput(node) ? initializeSignal(...args) : initializeControl(...args);
 };
-const initializeSignal = (node, { ins }) => `${ins.$1_signal} = ${node.args.value} || 0`;
-const initializeControl = (node, { state }) => `${state.rightOp} = ${node.args.value || 0}`;
+const makeInitializeSignal = (defaultValue) => (node, { ins }) => `${ins.$1_signal} = ${node.args.value || defaultValue}`;
+const makeInitializeControl = (defaultValue) => (node, { state }) => `${state.rightOp} = ${node.args.value || defaultValue}`;
 const makeLoop = (operator) => {
     const loopSignal = makeLoopSignal(operator);
     const loopControl = makeLoopControl(operator);
@@ -63737,13 +63804,13 @@ const stateVariables = ['rightOp'];
 const _hasSignalInput = (node) => node.sources['1_signal'] && node.sources['1_signal'].length;
 const binopTilde = {
     '+~': {
-        initialize: makeInitialize(),
+        initialize: makeInitialize(0),
         declare: makeDeclare(),
         loop: makeLoop('+'),
         stateVariables,
     },
     '*~': {
-        initialize: makeInitialize(),
+        initialize: makeInitialize(1),
         declare: makeDeclare(),
         loop: makeLoop('*'),
         stateVariables,
