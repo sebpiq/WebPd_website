@@ -65,11 +65,13 @@ import { httpGetBinary, readFileAsArrayBuffer } from '../core/browser'
 const graphEventChannel = (graph: fbpGraph.Graph) => {
     return eventChannel((emitter) => {
         graph.on('endTransaction', () => {
-            console.log('endTransaction', graph)
-            emitter(null)
+            console.log('graphEventChannel:endTransaction', graph)
+            // We don't need to pass any data, but it's mandatory to pass something not null or undefined
+            emitter({})
         })
         // TODO ?
         graph.on('close', () => {
+            console.log('graphEventChannel:close')
             emitter(END)
         })
         return () => {
@@ -80,7 +82,7 @@ const graphEventChannel = (graph: fbpGraph.Graph) => {
 
 function* graphEventsSaga(graph: fbpGraph.Graph) {
     // TODO : terminate on new UI graph (and clean / kill EventChannel)
-    const events: EventChannel<null> = yield call(graphEventChannel, graph)
+    const events: EventChannel<any> = yield call(graphEventChannel, graph)
     try {
         while (true) {
             // take(END) will cause the saga to terminate by jumping to the finally block
@@ -88,9 +90,9 @@ function* graphEventsSaga(graph: fbpGraph.Graph) {
             yield call(graphChanged, graph)
         }
     } catch (err) {
-        console.error(err)
+        console.error('graphEventsSaga:ERROR:' + err)
     } finally {
-        console.log('ui graph channel terminated')
+        console.log('graphEventsSaga:terminated')
     }
 }
 

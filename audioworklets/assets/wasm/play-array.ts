@@ -5,6 +5,10 @@ let FRAME: i32
 let OUTPUT: Float64Array
 let SAMPLE: Float64Array
 
+declare function logBla(): void;
+
+logBla()
+
 export function configure(sampleRate: f64, blockSize: i32): Float64Array {
     BLOCK_SIZE = blockSize
     SAMPLE_RATE = sampleRate

@@ -7026,11 +7026,13 @@ var _marked = /*#__PURE__*/_regeneratorRuntime().mark(graphEventsSaga),
 var graphEventChannel = function graphEventChannel(graph) {
   return (0,redux_saga__WEBPACK_IMPORTED_MODULE_6__.eventChannel)(function (emitter) {
     graph.on('endTransaction', function () {
-      console.log('endTransaction', graph);
-      emitter(null);
+      console.log('graphEventChannel:endTransaction', graph); // We don't need to pass any data, but it's mandatory to pass something not null or undefined
+
+      emitter({});
     }); // TODO ?
 
     graph.on('close', function () {
+      console.log('graphEventChannel:close');
       emitter(redux_saga__WEBPACK_IMPORTED_MODULE_6__.END);
     });
     return function () {
@@ -7073,11 +7075,11 @@ function graphEventsSaga(graph) {
         case 13:
           _context.prev = 13;
           _context.t0 = _context["catch"](3);
-          console.error(_context.t0);
+          console.error('graphEventsSaga:ERROR:' + _context.t0);
 
         case 16:
           _context.prev = 16;
-          console.log('ui graph channel terminated');
+          console.log('graphEventsSaga:terminated');
           return _context.finish(16);
 
         case 19:
