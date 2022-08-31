@@ -3876,9 +3876,8 @@ var _InnerApp = /*#__PURE__*/function (_React$Component) {
     value: function componentWillReceiveProps(nextProps) {
       if (this.props.webpdIsCreated !== nextProps.webpdIsCreated) {
         loadPatch();
+        loadSound();
       }
-
-      loadSound();
     }
   }, {
     key: "componentWillUnmount",
@@ -3894,7 +3893,12 @@ var _InnerApp = /*#__PURE__*/function (_React$Component) {
     key: "render",
     value: function render() {
       var isInitialized = this.state.isInitialized;
-      return /*#__PURE__*/react__WEBPACK_IMPORTED_MODULE_0___default().createElement("div", null, isInitialized ? null : /*#__PURE__*/react__WEBPACK_IMPORTED_MODULE_0___default().createElement(_AppLoading__WEBPACK_IMPORTED_MODULE_14__["default"], null), /*#__PURE__*/react__WEBPACK_IMPORTED_MODULE_0___default().createElement(_Menu__WEBPACK_IMPORTED_MODULE_9__["default"], null), /*#__PURE__*/react__WEBPACK_IMPORTED_MODULE_0___default().createElement(_GraphCanvas__WEBPACK_IMPORTED_MODULE_1__["default"], null), /*#__PURE__*/react__WEBPACK_IMPORTED_MODULE_0___default().createElement(_MiniMap__WEBPACK_IMPORTED_MODULE_8__["default"], null), /*#__PURE__*/react__WEBPACK_IMPORTED_MODULE_0___default().createElement(_Popup__WEBPACK_IMPORTED_MODULE_10__["default"], null));
+      var webpdIsCompiling = this.props.webpdIsCompiling;
+      return /*#__PURE__*/react__WEBPACK_IMPORTED_MODULE_0___default().createElement("div", null, isInitialized ? null : /*#__PURE__*/react__WEBPACK_IMPORTED_MODULE_0___default().createElement(_AppLoading__WEBPACK_IMPORTED_MODULE_14__["default"], {
+        text: "loading ..."
+      }), webpdIsCompiling ? /*#__PURE__*/react__WEBPACK_IMPORTED_MODULE_0___default().createElement(_AppLoading__WEBPACK_IMPORTED_MODULE_14__["default"], {
+        text: "compiling ..."
+      }) : null, /*#__PURE__*/react__WEBPACK_IMPORTED_MODULE_0___default().createElement(_Menu__WEBPACK_IMPORTED_MODULE_9__["default"], null), /*#__PURE__*/react__WEBPACK_IMPORTED_MODULE_0___default().createElement(_GraphCanvas__WEBPACK_IMPORTED_MODULE_1__["default"], null), /*#__PURE__*/react__WEBPACK_IMPORTED_MODULE_0___default().createElement(_MiniMap__WEBPACK_IMPORTED_MODULE_8__["default"], null), /*#__PURE__*/react__WEBPACK_IMPORTED_MODULE_0___default().createElement(_Popup__WEBPACK_IMPORTED_MODULE_10__["default"], null));
     }
   }]);
 
@@ -3903,7 +3907,8 @@ var _InnerApp = /*#__PURE__*/function (_React$Component) {
 
 var InnerApp = (0,react_redux__WEBPACK_IMPORTED_MODULE_2__.connect)(function (state) {
   return {
-    webpdIsCreated: (0,_store_selectors__WEBPACK_IMPORTED_MODULE_11__.getWebpdIsCreated)(state)
+    webpdIsCreated: (0,_store_selectors__WEBPACK_IMPORTED_MODULE_11__.getWebpdIsCreated)(state),
+    webpdIsCompiling: (0,_store_selectors__WEBPACK_IMPORTED_MODULE_11__.getWebpdIsCompiling)(state)
   };
 }, {
   setAppDimensions: _store_ui__WEBPACK_IMPORTED_MODULE_13__.setAppDimensions
@@ -3952,8 +3957,9 @@ var Container = (0,_styled_components_themed__WEBPACK_IMPORTED_MODULE_2__["defau
   var colors = _ref2.colors;
   return colors.bgPopup;
 }));
-/* harmony default export */ const __WEBPACK_DEFAULT_EXPORT__ = (function () {
-  return /*#__PURE__*/react__WEBPACK_IMPORTED_MODULE_0___default().createElement(Container, null, "loading ...");
+/* harmony default export */ const __WEBPACK_DEFAULT_EXPORT__ = (function (_ref3) {
+  var text = _ref3.text;
+  return /*#__PURE__*/react__WEBPACK_IMPORTED_MODULE_0___default().createElement(Container, null, text);
 });
 
 /***/ }),
@@ -5025,7 +5031,9 @@ var ArraysPopUp = /*#__PURE__*/function (_React$Component) {
           return deleteArray(arrayName);
         };
 
-        return /*#__PURE__*/react__WEBPACK_IMPORTED_MODULE_0___default().createElement("li", null, /*#__PURE__*/react__WEBPACK_IMPORTED_MODULE_0___default().createElement("span", null, arrayName), /*#__PURE__*/react__WEBPACK_IMPORTED_MODULE_0___default().createElement("span", null, label), hasDeleteButton ? /*#__PURE__*/react__WEBPACK_IMPORTED_MODULE_0___default().createElement(_styled_components_Button__WEBPACK_IMPORTED_MODULE_9__.Button2, {
+        return /*#__PURE__*/react__WEBPACK_IMPORTED_MODULE_0___default().createElement("li", {
+          key: arrayName
+        }, /*#__PURE__*/react__WEBPACK_IMPORTED_MODULE_0___default().createElement("span", null, arrayName), /*#__PURE__*/react__WEBPACK_IMPORTED_MODULE_0___default().createElement("span", null, label), hasDeleteButton ? /*#__PURE__*/react__WEBPACK_IMPORTED_MODULE_0___default().createElement(_styled_components_Button__WEBPACK_IMPORTED_MODULE_9__.Button2, {
           onClick: onDeleteClick
         }, /*#__PURE__*/react__WEBPACK_IMPORTED_MODULE_0___default().createElement("i", {
           className: "fa fa-trash"
@@ -7129,7 +7137,7 @@ function graphChanged(graph) {
           return (0,redux_saga_effects__WEBPACK_IMPORTED_MODULE_1__.call)(updateWebpdDsp, pdJson);
 
         case 17:
-          console.log('ui GRAPH CHANGED');
+          console.log('UI GRAPH CHANGED');
 
         case 18:
         case "end":
@@ -7174,9 +7182,16 @@ function updateWebpdDsp(pd) {
             arrays[arrayName] = arrayDatum.array;
             arrays64[arrayName] = arrayDatum.array64;
           });
+          _context3.next = 14;
+          return (0,redux_saga_effects__WEBPACK_IMPORTED_MODULE_1__.put)((0,_webpd__WEBPACK_IMPORTED_MODULE_3__.setIsCompiling)(true));
 
+        case 14:
+          _context3.next = 16;
+          return (0,redux_saga_effects__WEBPACK_IMPORTED_MODULE_1__.delay)(1);
+
+        case 16:
           if (!(webpdEngine.mode === 'js')) {
-            _context3.next = 17;
+            _context3.next = 21;
             break;
           }
 
@@ -7188,31 +7203,31 @@ function updateWebpdDsp(pd) {
               arrays: arrays
             }
           });
-          _context3.next = 29;
+          _context3.next = 33;
           break;
 
-        case 17:
+        case 21:
           if (!(webpdEngine.mode === 'wasm')) {
-            _context3.next = 29;
+            _context3.next = 33;
             break;
           }
 
-          _context3.prev = 18;
-          _context3.next = 21;
+          _context3.prev = 22;
+          _context3.next = 25;
           return (0,redux_saga_effects__WEBPACK_IMPORTED_MODULE_1__.call)(_core_converters__WEBPACK_IMPORTED_MODULE_5__.pdToWasm, pd, settings);
 
-        case 21:
+        case 25:
           wasmBuffer = _context3.sent;
-          _context3.next = 28;
+          _context3.next = 32;
           break;
 
-        case 24:
-          _context3.prev = 24;
-          _context3.t0 = _context3["catch"](18);
+        case 28:
+          _context3.prev = 28;
+          _context3.t0 = _context3["catch"](22);
           console.log(_context3.t0);
           return _context3.abrupt("return");
 
-        case 28:
+        case 32:
           webpdEngine.waaNode.port.postMessage({
             type: 'WASM',
             payload: {
@@ -7221,12 +7236,16 @@ function updateWebpdDsp(pd) {
             }
           });
 
-        case 29:
+        case 33:
+          _context3.next = 35;
+          return (0,redux_saga_effects__WEBPACK_IMPORTED_MODULE_1__.put)((0,_webpd__WEBPACK_IMPORTED_MODULE_3__.setIsCompiling)(false));
+
+        case 35:
         case "end":
           return _context3.stop();
       }
     }
-  }, _marked3, null, [[18, 24]]);
+  }, _marked3, null, [[22, 28]]);
 }
 
 function updateWebpdEngine() {
@@ -7902,6 +7921,7 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony export */   "getWebpdContext": () => (/* binding */ getWebpdContext),
 /* harmony export */   "getWebpdEngine": () => (/* binding */ getWebpdEngine),
 /* harmony export */   "getWebpdEngineMode": () => (/* binding */ getWebpdEngineMode),
+/* harmony export */   "getWebpdIsCompiling": () => (/* binding */ getWebpdIsCompiling),
 /* harmony export */   "getWebpdIsCreated": () => (/* binding */ getWebpdIsCreated),
 /* harmony export */   "getWebpdIsDspOn": () => (/* binding */ getWebpdIsDspOn),
 /* harmony export */   "getWebpdIsInitialized": () => (/* binding */ getWebpdIsInitialized),
@@ -7974,6 +7994,9 @@ var getWebpdSettings = function getWebpdSettings(state) {
 };
 var getWebpdIsInitialized = function getWebpdIsInitialized(state) {
   return state.webpd.isInitialized;
+};
+var getWebpdIsCompiling = function getWebpdIsCompiling(state) {
+  return state.webpd.isCompiling;
 };
 var getWebpdEngineMode = function getWebpdEngineMode(state) {
   return state.webpd.engineMode;
@@ -8145,12 +8168,14 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony export */   "WEBPD_INITIALIZED": () => (/* binding */ WEBPD_INITIALIZED),
 /* harmony export */   "WEBPD_SET_ENGINE": () => (/* binding */ WEBPD_SET_ENGINE),
 /* harmony export */   "WEBPD_SET_ENGINE_MODE": () => (/* binding */ WEBPD_SET_ENGINE_MODE),
+/* harmony export */   "WEBPD_SET_IS_COMPILING": () => (/* binding */ WEBPD_SET_IS_COMPILING),
 /* harmony export */   "create": () => (/* binding */ create),
 /* harmony export */   "initialState": () => (/* binding */ initialState),
 /* harmony export */   "setCreated": () => (/* binding */ setCreated),
 /* harmony export */   "setEngine": () => (/* binding */ setEngine),
 /* harmony export */   "setEngineMode": () => (/* binding */ setEngineMode),
 /* harmony export */   "setInitialized": () => (/* binding */ setInitialized),
+/* harmony export */   "setIsCompiling": () => (/* binding */ setIsCompiling),
 /* harmony export */   "toggleDsp": () => (/* binding */ toggleDsp),
 /* harmony export */   "webPdReducer": () => (/* binding */ webPdReducer)
 /* harmony export */ });
@@ -8167,6 +8192,7 @@ var WEBPD_INITIALIZED = 'WEBPD_INITIALIZED';
 var WEBPD_DSP_TOGGLE = 'WEBPD_DSP_TOGGLE';
 var WEBPD_SET_ENGINE_MODE = 'WEBPD_SET_ENGINE_MODE';
 var WEBPD_SET_ENGINE = 'WEBPD_SET_ENGINE';
+var WEBPD_SET_IS_COMPILING = 'WEBPD_SET_IS_COMPILING';
 // ------------ Action Creators ---------- //
 var toggleDsp = function toggleDsp(isDspOn) {
   return {
@@ -8214,12 +8240,21 @@ var setEngineMode = function setEngineMode(engineMode) {
       engineMode: engineMode
     }
   };
+};
+var setIsCompiling = function setIsCompiling(isCompiling) {
+  return {
+    type: WEBPD_SET_IS_COMPILING,
+    payload: {
+      isCompiling: isCompiling
+    }
+  };
 }; // ----------------- State --------------- //
 
 var initialState = {
   isCreated: false,
   isInitialized: false,
   isDspOn: false,
+  isCompiling: false,
   context: null,
   settings: null,
   engine: null,
@@ -8258,6 +8293,11 @@ var webPdReducer = function webPdReducer() {
     case WEBPD_SET_ENGINE_MODE:
       return _objectSpread(_objectSpread({}, state), {}, {
         engineMode: action.payload.engineMode
+      });
+
+    case WEBPD_SET_IS_COMPILING:
+      return _objectSpread(_objectSpread({}, state), {}, {
+        isCompiling: action.payload.isCompiling
       });
 
     default:

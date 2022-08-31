@@ -9,13 +9,14 @@ import { create as createWebpdAction } from './store/webpd'
 import MiniMap from './MiniMap'
 import Menu from './Menu'
 import Popup from './Popup'
-import { getWebpdIsCreated } from './store/selectors'
+import { getWebpdIsCompiling, getWebpdIsCreated } from './store/selectors'
 import { loadRemoteArray, requestLoadPd } from './store/model'
 import { setAppDimensions } from './store/ui'
 import AppLoading from './AppLoading'
 
 export interface InnerAppProps {
     webpdIsCreated: boolean
+    webpdIsCompiling: boolean
     setAppDimensions: typeof setAppDimensions
 }
 
@@ -57,8 +58,8 @@ class _InnerApp extends React.Component<InnerAppProps, State> {
     componentWillReceiveProps(nextProps: InnerAppProps) {
         if (this.props.webpdIsCreated !== nextProps.webpdIsCreated) {
             loadPatch()
+            loadSound()
         }
-        loadSound()
     }
 
     componentWillUnmount() {
@@ -71,9 +72,11 @@ class _InnerApp extends React.Component<InnerAppProps, State> {
 
     render() {
         const {isInitialized} = this.state
+        const {webpdIsCompiling} = this.props
         return (
             <div>
-                {isInitialized ? null : <AppLoading />}
+                {isInitialized ? null : <AppLoading text="loading ..." />}
+                {webpdIsCompiling ? <AppLoading text="compiling ..." />: null}
                 <Menu />
                 <GraphCanvas />
                 <MiniMap />
@@ -84,7 +87,10 @@ class _InnerApp extends React.Component<InnerAppProps, State> {
 }
 
 const InnerApp = connect(
-    (state: AppState) => ({ webpdIsCreated: getWebpdIsCreated(state) }),
+    (state: AppState) => ({ 
+        webpdIsCreated: getWebpdIsCreated(state), 
+        webpdIsCompiling: getWebpdIsCompiling(state) 
+    }),
     { setAppDimensions }
 )(_InnerApp)
 

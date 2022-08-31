@@ -88,7 +88,7 @@ class ArraysPopUp extends React.Component<Props, State> {
                 const onDeleteClick = () => deleteArray(arrayName)
 
                 return (
-                    <li>
+                    <li key={arrayName}>
                         <span>{arrayName}</span>
                         <span>{label}</span>
                         {hasDeleteButton ? (

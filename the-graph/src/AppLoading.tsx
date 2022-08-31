@@ -3,6 +3,10 @@ import styled from 'styled-components'
 import themed, { ThemedProps } from './styled-components/themed'
 import themeConfig from './theme-config'
 
+interface Props {
+    text: string
+}
+
 const Container = themed(styled.div<ThemedProps>`
     z-index: ${themeConfig.zIndex.Popup};
     font-size: 200%;
@@ -17,10 +21,10 @@ const Container = themed(styled.div<ThemedProps>`
     align-items: center;
 `)
 
-export default () => {
+export default ({text}: Props) => {
     return (
         <Container>
-            loading ...
+            {text}
         </Container>
     )
 }

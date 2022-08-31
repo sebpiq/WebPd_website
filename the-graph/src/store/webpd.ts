@@ -21,6 +21,7 @@ export const WEBPD_INITIALIZED = 'WEBPD_INITIALIZED'
 export const WEBPD_DSP_TOGGLE = 'WEBPD_DSP_TOGGLE'
 export const WEBPD_SET_ENGINE_MODE = 'WEBPD_SET_ENGINE_MODE'
 export const WEBPD_SET_ENGINE = 'WEBPD_SET_ENGINE'
+export const WEBPD_SET_IS_COMPILING = 'WEBPD_SET_IS_COMPILING'
 
 export interface WebPdCreate {
     type: typeof WEBPD_CREATE
@@ -63,6 +64,13 @@ export interface WebPdSetEngineMode {
     }
 }
 
+export interface WebPdSetIsCompiling {
+    type: typeof WEBPD_SET_IS_COMPILING
+    payload: {
+        isCompiling: boolean
+    }
+}
+
 type WebPdTypes =
     | WebPdDspToggled
     | WebPdInitialized
@@ -70,6 +78,7 @@ type WebPdTypes =
     | WebPdCreated
     | WebPdSetEngineMode
     | WebPdSetEngine
+    | WebPdSetIsCompiling
 
 // ------------ Action Creators ---------- //
 export const toggleDsp = (isDspOn: boolean): WebPdTypes => {
@@ -119,11 +128,19 @@ export const setEngineMode = (engineMode: EngineMode): WebPdTypes => {
     }
 }
 
+export const setIsCompiling = (isCompiling: boolean): WebPdTypes => {
+    return {
+        type: WEBPD_SET_IS_COMPILING,
+        payload: { isCompiling },
+    }
+}
+
 // ----------------- State --------------- //
 interface WebPdState {
     isCreated: boolean
     isInitialized: boolean
     isDspOn: boolean
+    isCompiling: boolean
     context: AudioContext | null
     settings: Settings
     engine: Engine | null
@@ -134,6 +151,7 @@ export const initialState: WebPdState = {
     isCreated: false,
     isInitialized: false,
     isDspOn: false,
+    isCompiling: false,
     context: null,
     settings: null,
     engine: null,
@@ -174,6 +192,11 @@ export const webPdReducer = (
             return {
                 ...state,
                 engineMode: action.payload.engineMode,
+            }
+        case WEBPD_SET_IS_COMPILING:
+            return {
+                ...state,
+                isCompiling: action.payload.isCompiling,
             }
         default:
             return state

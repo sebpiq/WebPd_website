@@ -8,6 +8,7 @@ import {
     call,
     take,
     fork,
+    delay,
 } from 'redux-saga/effects'
 import {
     getCurrentPdPatch,
@@ -26,6 +27,7 @@ import {
     setCreated,
     setEngine,
     setInitialized,
+    setIsCompiling,
     WebPdDspToggled,
     WEBPD_CREATE,
     WEBPD_DSP_TOGGLE,
@@ -110,7 +112,7 @@ function* graphChanged(graph: fbpGraph.Graph) {
     if (isWebpdInitialized) {
         yield call(updateWebpdDsp, pdJson)
     }
-    console.log('ui GRAPH CHANGED')
+    console.log('UI GRAPH CHANGED')
 }
 
 function* updateWebpdDsp(pd: PdJson.Pd) {
@@ -127,6 +129,8 @@ function* updateWebpdDsp(pd: PdJson.Pd) {
         arrays64[arrayName] = arrayDatum.array64
     })
 
+    yield put(setIsCompiling(true))
+    yield delay(1)
     if (webpdEngine.mode === 'js') {
         const code = pdToJsCode(pd, settings)
         webpdEngine.waaNode.port.postMessage({
@@ -147,6 +151,7 @@ function* updateWebpdDsp(pd: PdJson.Pd) {
             payload: { wasmBuffer, arrays: arrays64 }
         })
     }
+    yield put(setIsCompiling(false))
 }
 
 function* updateWebpdEngine() {
