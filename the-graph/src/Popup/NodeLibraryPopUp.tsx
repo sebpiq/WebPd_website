@@ -95,7 +95,7 @@ class NodeLibraryPopUp extends React.Component<Props, State> {
                 handlers.onClick = onTileClick
             }
 
-            return <NodeTile {...handlers}>{nodeType}</NodeTile>
+            return <NodeTile key={nodeType} {...handlers}>{nodeType}</NodeTile>
         })
 
         const onSearchChange = (event: React.ChangeEvent<HTMLInputElement>) => {

@@ -18,6 +18,7 @@ export const POPUP_EXPORT = 'POPUP_EXPORT'
 export const POPUP_ABOUT = 'POPUP_ABOUT'
 export const POPUP_ARRAYS = 'POPUP_ARRAYS'
 export const POPUP_IMPORT = 'POPUP_IMPORT'
+export const POPUP_COMPILATION_ERROR = 'POPUP_COMPILATION_ERROR'
 
 interface NodeCreatePopupData {
     type: typeof POPUP_NODE_CREATE
@@ -55,6 +56,10 @@ interface ImportPopupData {
     type: typeof POPUP_IMPORT
 }
 
+interface CompilationErrorPopupData {
+    type: typeof POPUP_COMPILATION_ERROR
+}
+
 export type Popup =
     | NodeCreatePopupData
     | NodeLibraryPopupData
@@ -63,6 +68,7 @@ export type Popup =
     | ImportPopupData
     | AboutPopupData
     | ArraysPopupData
+    | CompilationErrorPopupData
 
 // ------------- Action Types ------------ //
 export type UiTheme = 'dark' | 'light'

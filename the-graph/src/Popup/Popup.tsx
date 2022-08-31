@@ -14,6 +14,7 @@ import {
     POPUP_ABOUT,
     POPUP_ARRAYS,
     POPUP_IMPORT,
+    POPUP_COMPILATION_ERROR,
 } from '../store/ui'
 import themeConfig from '../theme-config'
 import NodeCreateEditPopUp from './NodeCreateEditPopUp'
@@ -23,6 +24,7 @@ import ExportPopUp from './ExportPopUp'
 import AboutPopUp from './AboutPopUp'
 import ArraysPopUp from './ArraysPopUp'
 import ImportPopUp from './ImportPopUp'
+import CompilationErrorPopUp from './CompilationErrorPopUp'
 
 const Container = themed(styled.div<ThemedProps>`
     position: fixed;
@@ -114,6 +116,8 @@ class PopupComponent extends React.Component<Props> {
             popupElem = <ArraysPopUp />
         } else if (popup.type === POPUP_IMPORT) {
             popupElem = <ImportPopUp />
+        } else if (popup.type === POPUP_COMPILATION_ERROR) {
+            popupElem = <CompilationErrorPopUp />
         }
 
         return (

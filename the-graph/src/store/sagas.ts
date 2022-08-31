@@ -60,7 +60,7 @@ import {
 } from '../core/converters'
 import { Library, Point, Settings } from '../core/types'
 import { END, EventChannel, eventChannel } from 'redux-saga'
-import { LOCALSTORAGE_HELP_SEEN_KEY, UI_SET_POPUP } from './ui'
+import { LOCALSTORAGE_HELP_SEEN_KEY, POPUP_COMPILATION_ERROR, setPopup, UI_SET_POPUP } from './ui'
 import * as model from '../core/model'
 import { httpGetBinary, readFileAsArrayBuffer } from '../core/browser'
 
@@ -130,6 +130,8 @@ function* updateWebpdDsp(pd: PdJson.Pd) {
     })
 
     yield put(setIsCompiling(true))
+    // Add delay so that we don't start immediatelly the compilation operation which is blocking.
+    // This allows UI to update before compilation starts
     yield delay(1)
     if (webpdEngine.mode === 'js') {
         const code = pdToJsCode(pd, settings)
@@ -144,6 +146,8 @@ function* updateWebpdDsp(pd: PdJson.Pd) {
             wasmBuffer = yield call(pdToWasm, pd, settings)
         } catch(err) {
             console.log(err)
+            yield put(setIsCompiling(false))
+            yield put(setPopup({type: POPUP_COMPILATION_ERROR}))
             return
         }
         webpdEngine.waaNode.port.postMessage({
