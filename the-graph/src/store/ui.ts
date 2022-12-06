@@ -23,14 +23,14 @@ export const POPUP_COMPILATION_ERROR = 'POPUP_COMPILATION_ERROR'
 interface NodeCreatePopupData {
     type: typeof POPUP_NODE_CREATE
     data: {
-        nodeType: PdSharedTypes.NodeType
+        nodeType: PdJson.ObjectType
     }
 }
 
 interface NodeEditPopupData {
     type: typeof POPUP_NODE_EDIT
     data: {
-        nodeType: PdSharedTypes.NodeType
+        nodeType: PdJson.ObjectType
         nodeArgs: PdJson.ObjectArgs
         nodeId: PdJson.ObjectLocalId
     }

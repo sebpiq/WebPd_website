@@ -43,7 +43,7 @@ interface ModelSetGraph {
 export interface ModelAddNode {
     type: typeof MODEL_ADD_NODE
     payload: {
-        nodeType: PdSharedTypes.NodeType
+        nodeType: PdJson.ObjectType
         nodeArgs: PdJson.ObjectArgs
     }
 }
@@ -131,7 +131,7 @@ export const setGraph = (
 }
 
 export const addNode = (
-    nodeType: PdSharedTypes.NodeType,
+    nodeType: PdJson.ObjectType,
     nodeArgs: PdJson.ObjectArgs
 ): ModelTypes => {
     return {

@@ -4,7 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "prettier": "npm explore @webpd/shared -- npm run prettier $(pwd)/src",
+    "prettier": "npm explore @webpd/dev -- npm run prettier $(pwd)/src",
     "build": "npx webpack-cli --watch",
     "serve": "npx http-server www/"
   },
@@ -17,7 +17,7 @@
     "@types/react": "^15",
     "@types/react-dom": "^15",
     "@types/react-redux": "^5.0.24",
-    "@webpd/shared": "file:../../WebPd_shared",
+    "@webpd/dev": "file:../../WebPd_dev",
     "babel-loader": "^8.2.5",
     "css-loader": "^5.2.7",
     "file-loader": "^6.2.0",
@@ -32,8 +32,10 @@
     "@webpd/audioworklets": "file:../../WebPd_audioworklets",
     "@webpd/compiler-js": "file:../../WebPd_compiler-js",
     "@webpd/dsp-graph": "file:../../WebPd_dsp-graph",
+    "@webpd/pd-json": "file:../../WebPd_pd-json",
     "@webpd/pd-parser": "file:../../WebPd_pd-parser",
     "@webpd/pd-renderer": "file:../../WebPd_pd-renderer",
+    "@webpd/pd-to-dsp-graph": "file:../../WebPd_pd-to-dsp-graph",
     "fbp-graph": "^0.7.0",
     "font-awesome": "^4.7.0",
     "p-event": "^5.0.1",

@@ -9,6 +9,7 @@ import themeConfig from '../theme-config'
 import { requestLoadPd } from '../store/model'
 import { setPopup } from '../store/ui'
 import NODE_VIEW_BUILDERS from '../core/node-view-builders'
+import { PdJson } from '@webpd/pd-json'
 
 interface Props {
     requestLoadPd: typeof requestLoadPd

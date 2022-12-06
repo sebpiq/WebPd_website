@@ -1,7 +1,7 @@
 import * as fbpGraph from 'fbp-graph'
 import NODE_VIEW_BUILDERS, { DEFAULT_ICON } from './node-view-builders'
 import compileToCode, { NODE_IMPLEMENTATIONS } from '@webpd/compiler-js'
-import compileToDspGraph from '@webpd/dsp-graph'
+import compileToDspGraph from '@webpd/pd-to-dsp-graph'
 import { Library, Settings } from './types'
 import {
     addGraphNode,
@@ -10,6 +10,7 @@ import {
     GraphNodeWithMetadata,
 } from './model'
 import { compileAs } from './assemblyscript'
+import { PdJson } from '@webpd/pd-json'
 
 export const graphToPd = (graph: fbpGraph.Graph): PdJson.Pd => {
     const patch: PdJson.Patch = {
@@ -150,7 +151,7 @@ export const pdToLibrary = (
 export const pdToJsCode = (pd: PdJson.Pd, settings: Settings) => {
     const dspGraph = compileToDspGraph(pd)
     return compileToCode(dspGraph, NODE_IMPLEMENTATIONS, {
-        ...settings,
+        audioSettings: settings,
         target: 'javascript',
     })
 }
@@ -158,7 +159,7 @@ export const pdToJsCode = (pd: PdJson.Pd, settings: Settings) => {
 export const pdToWasm = async (pd: PdJson.Pd, settings: Settings): Promise<ArrayBuffer> => {
     const dspGraph = compileToDspGraph(pd)
     const code = compileToCode(dspGraph, NODE_IMPLEMENTATIONS, {
-        ...settings,
+        audioSettings: settings,
         target: 'assemblyscript',
     })
     try {

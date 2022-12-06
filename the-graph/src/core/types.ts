@@ -1,3 +1,5 @@
+import { PdJson } from "@webpd/pd-json"
+
 export interface Point {
     x: number
     y: number
@@ -34,7 +36,7 @@ export interface LibraryPortDefinition {
 }
 
 export interface LibraryNodeDefinition {
-    name: PdSharedTypes.NodeType
+    name: PdJson.ObjectType
     description: string
     iconsvg: string
     inports: Array<LibraryPortDefinition>

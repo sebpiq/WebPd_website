@@ -7,13 +7,15 @@ import { addNode, editNode } from '../store/model'
 import { getCurrentPdPatch } from '../store/selectors'
 import { setPopup, UiTheme } from '../store/ui'
 import Input, { Input2 } from '../styled-components/Input'
-import { NODE_BUILDERS } from '@webpd/dsp-graph'
 import themeConfig, { Colors } from '../theme-config'
 import themed from '../styled-components/themed'
 import H2 from '../styled-components/H2'
+import { PdJson } from '@webpd/pd-json'
+import { NODE_BUILDERS } from '@webpd/pd-to-dsp-graph'
+import { DspGraph } from '@webpd/dsp-graph'
 
 interface NodeArgsViewerProps {
-    nodeType: PdSharedTypes.NodeType
+    nodeType: PdJson.ObjectType
     nodeArgs: PdJson.ObjectArgs | null
     patch: PdJson.Patch
 }
@@ -47,7 +49,7 @@ const _NodeArgsViewer = ({
     if (!nodeBuilder || !nodeArgs) {
         liElems = null
     } else {
-        let args: PdDspGraph.NodeArguments
+        let args: DspGraph.NodeArguments
         try {
             args = nodeBuilder.translateArgs(nodeArgs, patch)
         } catch (err) {
@@ -77,7 +79,7 @@ interface Props {
     setPopup: typeof setPopup
     addNode: typeof addNode
     editNode: typeof addNode
-    nodeType: PdSharedTypes.NodeType
+    nodeType: PdJson.ObjectType
     nodeId?: PdJson.ObjectLocalId
     nodeArgs?: PdJson.ObjectArgs
 }

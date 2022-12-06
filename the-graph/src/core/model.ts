@@ -2,6 +2,7 @@ import * as fbpGraph from 'fbp-graph'
 import NODE_VIEW_BUILDERS from './node-view-builders'
 import { GraphNode } from 'fbp-graph/src/Types'
 import { Point, Settings } from './types'
+import { PdJson } from '@webpd/pd-json'
 
 type PortletLookupMap = { [portletGraphName: string]: PdJson.PortletId }
 
@@ -37,7 +38,7 @@ export const getGraphNode = (
 export const addGraphNode = (
     graph: fbpGraph.Graph,
     nodeId: PdJson.ObjectLocalId,
-    nodeType: PdSharedTypes.NodeType,
+    nodeType: PdJson.ObjectType,
     nodeArgs: PdJson.ObjectArgs,
     position: Point,
     engineSettings: Settings
@@ -109,7 +110,7 @@ export const generateSublabel = (nodeArgs: PdJson.ObjectArgs) =>
 // This is the case, for example, of trigger.
 // The-graph takes only a static definition of inports / outports for one component.
 export const generateComponentName = (
-    nodeType: PdSharedTypes.NodeType,
+    nodeType: PdJson.ObjectType,
     nodeArgs: PdJson.ObjectArgs,
     engineSettings: Settings
 ) => {

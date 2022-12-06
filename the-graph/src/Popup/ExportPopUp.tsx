@@ -19,6 +19,7 @@ import { UiTheme } from '../store/ui'
 import { onDesktop, onMobile } from '../styled-components/media-queries'
 import H2 from '../styled-components/H2'
 import { Settings } from '../core/types'
+import { PdJson } from '@webpd/pd-json'
 
 interface Props {
     settings: Settings

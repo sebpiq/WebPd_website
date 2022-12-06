@@ -7,7 +7,7 @@ const NODE_VIEW_BUILDERS: NodeViewBuilders = {
         build: () => {
             return {
                 inlets: [],
-                outlets: [{ type: 'control', name: 'bang' }],
+                outlets: [{ type: 'message', name: 'bang' }],
             }
         },
         noArguments: true,
@@ -16,10 +16,10 @@ const NODE_VIEW_BUILDERS: NodeViewBuilders = {
         build: () => {
             return {
                 inlets: [
-                    { type: 'control', name: 'start/stop' },
-                    { type: 'control', name: 'rate' },
+                    { type: 'message', name: 'start/stop' },
+                    { type: 'message', name: 'rate' },
                 ],
-                outlets: [{ type: 'control', name: 'tick' }],
+                outlets: [{ type: 'message', name: 'tick' }],
             }
         },
         icon: 'icons/metronome.svg',
@@ -27,10 +27,10 @@ const NODE_VIEW_BUILDERS: NodeViewBuilders = {
     'tabplay~': {
         build: () => {
             return {
-                inlets: [{ type: 'signal', name: 'control' }],
+                inlets: [{ type: 'signal', name: 'message' }],
                 outlets: [
                     { type: 'signal', name: 'output' },
-                    { type: 'control', name: 'end reached' },
+                    { type: 'message', name: 'end reached' },
                 ],
             }
         },
@@ -65,7 +65,7 @@ const NODE_VIEW_BUILDERS: NodeViewBuilders = {
             return {
                 inlets: [
                     { type: 'mixed', name: 'frequency' },
-                    { type: 'control', name: 'reset phase' },
+                    { type: 'message', name: 'reset phase' },
                 ],
                 outlets: [{ type: 'signal', name: 'output' }],
             }
