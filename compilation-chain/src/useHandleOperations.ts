@@ -1,16 +1,16 @@
-import { audioworkletJsEval } from "@webpd/audioworklets"
+import { audioworkletJsEval, audioworkletWasm } from "@webpd/audioworklets"
 import { useEffect } from "react"
-import { AppDispatcher, AppState, TextStepId } from "./appState"
-import { buildStepList, toDspGraph, toJs, toPdJson } from "./operations"
+import { AppDispatcher, AppState, StepId, TextStepId } from "./appState"
+import { CHANNEL_COUNT, compileAsc, toAsc, toDspGraph, toJs, toPdJson } from "./operations"
 
 
 const useHandleOperations = (state: AppState, dispatch: AppDispatcher) => {
     useEffect(() => {
         const {operations} = state
-        if (operations.target === null || operations.currentStep === null) {
+        console.log('useHandleOperations', operations.nextStep)
+        if (operations.nextStep === null) {
             return
         }
-        const queue = operations.queue || buildStepList(operations.target, operations.currentStep)
         
         const dispatchTextOperationError = () => {
             dispatch({ 
@@ -18,20 +18,29 @@ const useHandleOperations = (state: AppState, dispatch: AppDispatcher) => {
             })
         }
 
-        const dispatchTextOperationSuccess = (result: string) => {
+        const dispatchTextOperationSuccess = (result: string, nextStep: StepId) => {
             dispatch({ 
                 type: 'TEXT_OPERATION_DONE',
                 payload: {
-                    currentStep: queue[1] as TextStepId,
-                    queue: queue.slice(1), 
+                    currentStep: operations.nextStep as TextStepId,
+                    nextStep,
                     result
                 }
             })
         }
-        console.log('useHandleOperations', queue[0])
 
-        switch(queue[0]) {
-            case 'pd':
+        const dispatchWasmBufferSuccess = (buffer: ArrayBuffer) => {
+            dispatch({ 
+                type: 'WASM_OPERATION_DONE',
+                payload: {
+                    nextStep: 'audio',
+                    buffer,
+                }
+            })
+        }
+
+        switch(operations.nextStep) {
+            case 'pdJson':
                 let pdJson: string = ''
                 try {
                     pdJson = toPdJson(state.textSteps.pd.text)
@@ -39,10 +48,10 @@ const useHandleOperations = (state: AppState, dispatch: AppDispatcher) => {
                     dispatchTextOperationError()
                     break
                 }
-                dispatchTextOperationSuccess(pdJson)
+                dispatchTextOperationSuccess(pdJson, 'dspGraph')
                 break
 
-            case 'pdJson':
+            case 'dspGraph':
                 let dspGraph: string = ''
                 try {
                     dspGraph = toDspGraph(state.textSteps.pdJson.text)
@@ -50,10 +59,10 @@ const useHandleOperations = (state: AppState, dispatch: AppDispatcher) => {
                     dispatchTextOperationError()
                     break
                 }
-                dispatchTextOperationSuccess(dspGraph)
+                dispatchTextOperationSuccess(dspGraph, state.target === 'js-eval' ? 'jsCode' : 'ascCode')
                 break
 
-            case 'dspGraph':
+            case 'jsCode':
                 let jsCode: string = ''
                 try {
                     jsCode = toJs(state.textSteps.dspGraph.text)
@@ -61,20 +70,53 @@ const useHandleOperations = (state: AppState, dispatch: AppDispatcher) => {
                     dispatchTextOperationError()
                     break
                 }
-                dispatchTextOperationSuccess(jsCode)
+                dispatchTextOperationSuccess(jsCode, 'audio')
                 break
 
-            case 'jsCode':
+            case 'ascCode':
+                let ascCode: string = ''
+                try {
+                    ascCode = toAsc(state.textSteps.dspGraph.text)
+                } catch (err) {
+                    dispatchTextOperationError()
+                    break
+                }
+                dispatchTextOperationSuccess(ascCode, 'wasm')
+                break
+
+            case 'wasm':
+                compileAsc(state.textSteps.ascCode.text)
+                    .then((buffer) => {
+                        dispatchWasmBufferSuccess(buffer)
+                    })
+                break
+            
+            case 'audio':
                 if (state.audioStep.waaNode) {
                     state.audioStep.waaNode.disconnect()
                 }
-                const waaNode = new audioworkletJsEval.WorkletNode(state.audioStep.context, 2)
+                let waaNode: AudioWorkletNode
+                if (state.target === 'js-eval') {
+                    waaNode = new audioworkletJsEval.WorkletNode(state.audioStep.context, CHANNEL_COUNT)
+                    waaNode.port.postMessage({
+                        type: 'CODE',
+                        payload: { code: state.textSteps.jsCode.text, arrays: {} }
+                    })
+                } else if (state.target === 'wasm') {
+                    waaNode = new audioworkletWasm.WorkletNode(state.audioStep.context, CHANNEL_COUNT)
+                    waaNode.port.postMessage({
+                        type: 'WASM',
+                        payload: {
+                            wasmBuffer: state.wasmStep.buffer!,
+                            arrays: {}
+                        }
+                    })
+                } else {
+                    throw new Error(`Invalid target ${state.target}`)
+                }
                 waaNode.connect(state.audioStep.context.destination)
-                waaNode.port.postMessage({
-                    type: 'CODE',
-                    payload: { code: state.textSteps.jsCode.text, arrays: {} }//, arrays }
-                })
                 dispatch({ type: 'AUDIO_OPERATION_DONE', payload: {waaNode} })
+                break
         }
     })
 }

@@ -3,6 +3,7 @@ import './App.css';
 import { initialAppState, reducer } from './appState';
 import StepAudio from './StepAudio';
 import StepText from './StepText';
+import StepWasm from './StepWasm';
 import useHandleOperations from './useHandleOperations';
 import useInitialize from './useInitialize';
 
@@ -35,13 +36,30 @@ function App() {
         dispatch={dispatch}
         step="dspGraph"
       />
-      <StepText 
-        key={`jsCode-${appState.textSteps.jsCode.version}`}
-        state={appState.textSteps.jsCode}
-        isBeingModified={appState.stepBeingModified === 'jsCode'}
-        dispatch={dispatch}
-        step="jsCode"
-      />
+      {appState.target === 'js-eval' ? 
+        <StepText 
+          key={`jsCode-${appState.textSteps.jsCode.version}`}
+          state={appState.textSteps.jsCode}
+          isBeingModified={appState.stepBeingModified === 'jsCode'}
+          dispatch={dispatch}
+          step="jsCode"
+        /> : null
+      }
+      {appState.target === 'wasm' ? 
+        <StepText 
+          key={`ascCode-${appState.textSteps.ascCode.version}`}
+          state={appState.textSteps.ascCode}
+          isBeingModified={appState.stepBeingModified === 'ascCode'}
+          dispatch={dispatch}
+          step="ascCode"
+        />: null
+      }
+      {appState.target === 'wasm' ? 
+        <StepWasm 
+          key={`wasm-${appState.textSteps.ascCode.version}`}
+          state={appState.wasmStep}
+        />: null
+      }
       <StepAudio 
         state={appState.audioStep}
       />

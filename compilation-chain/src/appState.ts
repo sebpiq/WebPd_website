@@ -1,11 +1,11 @@
 import { audioworkletJsEval, audioworkletWasm } from "@webpd/audioworklets"
+import { buildStepList } from "./operations"
 
 export type TextStepId = keyof AppState['textSteps']
-export type StepId = TextStepId | 'audio'
+export type StepId = TextStepId | 'wasm' | 'audio'
 
 export type OperationStatus = 'waiting' | 'started' | 'ended'
 export type OperationType = 'compile'
-type OperationQueue = Array<StepId>
 
 export type CompileTarget = 'wasm' | 'js-eval'
 
@@ -38,6 +38,14 @@ interface TextStepCommitAction {
   }
 }
 
+interface WasmOperationDoneAction {
+  type: 'WASM_OPERATION_DONE'
+  payload: { 
+    buffer: ArrayBuffer
+    nextStep: StepId
+  }
+}
+
 interface AudioOperationDoneAction {
   type: 'AUDIO_OPERATION_DONE'
   payload: { waaNode: AudioWorkletNode }
@@ -47,7 +55,7 @@ interface TextOperationDoneAction {
   type: 'TEXT_OPERATION_DONE'
   payload: {
     currentStep: TextStepId
-    queue: OperationQueue
+    nextStep: StepId
     result: string
   }
 }
@@ -60,12 +68,11 @@ interface TextOperationErrorAction {
 export type AppAction = TextStepModifiedAction 
   | TextStepCommitAction | TextOperationDoneAction | TextOperationErrorAction 
   | AppInitializedAction | AudioOperationDoneAction | TextStepExpandCollapseAction
+  | WasmOperationDoneAction
 
 // ------------------------------------ STATES ------------------------------------ //
 export interface OperationState {
-  target: CompileTarget | null
-  queue: OperationQueue | null
-  currentStep: StepId | null
+  nextStep: StepId | null
 }
 
 export interface TextStepState {
@@ -80,21 +87,31 @@ export interface AudioStepState {
   version: number
 }
 
+export interface WasmStepState {
+  buffer: ArrayBuffer | null
+  version: number
+}
+
 export interface AppState {
   isInitialized: boolean
+  target: CompileTarget
   textSteps: {
     pd: TextStepState
     pdJson: TextStepState
     dspGraph: TextStepState
     jsCode: TextStepState
+    ascCode: TextStepState
   }
   audioStep: AudioStepState
+  wasmStep: WasmStepState
   stepBeingModified: TextStepId | null
   operations: OperationState
 }
 
+// ------------------------------------ REDUCER ------------------------------------ //
 export const initialAppState: AppState = {
   isInitialized: false,
+  target: 'wasm',
   textSteps: {
     pd: {
       text: `#N canvas 306 267 645 457 10;
@@ -119,23 +136,29 @@ export const initialAppState: AppState = {
       isExpanded: false,
       version: 0,
     },
+    ascCode: {
+      text: '',
+      isExpanded: false,
+      version: 0,
+    },
   },
   audioStep: {
     context: new AudioContext(),
     waaNode: null,
     version: 0,
   },
+  wasmStep: {
+    buffer: null,
+    version: 0,
+  },
   stepBeingModified: 'pd',
   operations: {
-    target: null,
-    queue: [], 
-    currentStep: null
+    nextStep: null
   }
 }
 
-// ------------------------------------ REDUCER ------------------------------------ //
 export const reducer = (state: AppState, action: AppAction): AppState => {
-  // console.log('ACTION', action.type, action)
+  console.log('ACTION', action.type, action)
   switch(action.type) {
 
     case 'APP_INITIALIZED':
@@ -163,6 +186,8 @@ export const reducer = (state: AppState, action: AppAction): AppState => {
       }
     
     case 'TEXT_STEP_COMMIT':
+      const buildSteps = buildStepList(state.target, action.payload.step)
+      console.log('buildStepList', state.target, buildSteps)
       return {
         ...state,
         textSteps: {
@@ -174,9 +199,7 @@ export const reducer = (state: AppState, action: AppAction): AppState => {
         },
         stepBeingModified: null,
         operations: {
-          target: 'js-eval',
-          queue: null,
-          currentStep: action.payload.step,
+          nextStep: buildSteps[1] || null,
         }
       }
 
@@ -193,9 +216,22 @@ export const reducer = (state: AppState, action: AppAction): AppState => {
         },
         operations: {
           ...state.operations,
-          queue: action.payload.queue,
-          currentStep: action.payload.currentStep,
+          nextStep: action.payload.nextStep,
         }
+      }
+
+    case 'WASM_OPERATION_DONE':
+      return {
+        ...state,
+        wasmStep: {
+          ...state.wasmStep,
+          buffer: action.payload.buffer,
+          version: state.wasmStep.version + 1,
+        },
+        operations: {
+          ...state.operations,
+          nextStep: action.payload.nextStep,
+        }        
       }
     
     case 'AUDIO_OPERATION_DONE':
@@ -208,8 +244,7 @@ export const reducer = (state: AppState, action: AppAction): AppState => {
         },
         operations: {
           ...state.operations,
-          queue: null,
-          currentStep: null,
+          nextStep: null,
         }
       }
 

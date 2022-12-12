@@ -41,3 +41,7 @@ button, input[type="submit"] {
   border: none;
   cursor: pointer;
 }
+
+button:disabled {
+  background-color: var(--feldgrau);
+}

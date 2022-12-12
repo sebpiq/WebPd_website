@@ -45,10 +45,6 @@
   background-color: var(--jet);
 }
 
-.StepText._modifying textarea {
-  /* background-color: #333; */
-}
-
 .StepText textarea:focus {
   outline: none !important;
 }
