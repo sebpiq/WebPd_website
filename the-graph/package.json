@@ -35,7 +35,7 @@
     "@webpd/pd-json": "file:../../WebPd_pd-json",
     "@webpd/pd-parser": "file:../../WebPd_pd-parser",
     "@webpd/pd-renderer": "file:../../WebPd_pd-renderer",
-    "@webpd/pd-to-dsp-graph": "file:../../WebPd_pd-to-dsp-graph",
+    "@webpd/pd-registry": "file:../../WebPd_pd-registry",
     "fbp-graph": "^0.7.0",
     "font-awesome": "^4.7.0",
     "p-event": "^5.0.1",

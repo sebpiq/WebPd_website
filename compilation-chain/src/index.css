@@ -1,0 +1,43 @@
+@font-face {
+  font-family: "Source Code Pro";
+  src: url("./fonts/Source_Code_Pro/SourceCodePro-VariableFont_wght.ttf") format("opentype");
+}
+
+
+* {
+  box-sizing: border-box;
+
+  /* https://coolors.co/2d2d2a-353831-38423b-3f5e5a-20fc8f */
+  --jet: #2d2d2aff;
+  --black-olive: #353831ff;
+  --black-olive-2: #38423bff;
+  --feldgrau: #3f5e5aff;
+  --medium-spring-green: #20fc8fff;
+}
+
+body {
+  color: white;
+  margin: 0;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background-color: var(--black-olive-2);
+}
+
+h2 {
+  font-weight: normal;
+  text-transform: uppercase;
+  font-size: 175%;
+  padding: 0;
+  margin: 0;
+}
+
+button, input, * {
+  font-family: "Source Code Pro", sans-serif;
+}
+
+button, input[type="submit"] {
+  background-color: var(--medium-spring-green);
+  color: var(--black-olive);
+  border: none;
+  cursor: pointer;
+}

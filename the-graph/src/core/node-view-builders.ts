@@ -94,7 +94,6 @@ const NODE_VIEW_BUILDERS: NodeViewBuilders = {
             }
         },
         icon: 'icons/speaker.svg',
-        noArguments: true,
     },
 }
 

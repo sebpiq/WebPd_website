@@ -11,8 +11,8 @@ import themeConfig, { Colors } from '../theme-config'
 import themed from '../styled-components/themed'
 import H2 from '../styled-components/H2'
 import { PdJson } from '@webpd/pd-json'
-import { NODE_BUILDERS } from '@webpd/pd-to-dsp-graph'
 import { DspGraph } from '@webpd/dsp-graph'
+import { NODE_BUILDERS } from '@webpd/pd-registry'
 
 interface NodeArgsViewerProps {
     nodeType: PdJson.ObjectType

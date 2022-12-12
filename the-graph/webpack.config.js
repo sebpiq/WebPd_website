@@ -1,9 +1,11 @@
 const path = require('path');
 const HtmlWebpackPlugin = require('html-webpack-plugin');
+const webpack = require('webpack')
 
 module.exports = {
   externals: {
     'assemblyscript/asc': 'asc',
+    // './src/test-helpers-node-implementations.js': ''
   },
   entry: {
     'index': './src/index.ts',
@@ -14,6 +16,10 @@ module.exports = {
     sourceMapFilename: '[name].js.map',
   },
   mode: 'development',
+  // TODO : tree-shaking, not working
+  optimization: {
+    usedExports: true,
+  },
   devtool: 'source-map',
   module: {
     rules: [
@@ -58,6 +64,15 @@ module.exports = {
     ],
   },
   plugins: [
+    // new webpack.IgnorePlugin({ 
+    //   // resourceRegExp, contextRegExp 
+    //   checkResource(resource) {
+    //     if (resource.includes('test')) {
+    //       return true
+    //     }
+    //     return false
+    //   },
+    // }),
     new HtmlWebpackPlugin({
       filename: 'index.html',
       template: 'src/index.html',

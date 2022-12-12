@@ -9,7 +9,7 @@
   "license": "ISC",
   "dependencies": {
     "@webpd/audioworklets": "file:../../WebPd_audioworklets",
-    "@webpd/shared": "file:../../WebPd_shared"
+    "@webpd/dev": "file:../../WebPd_dev"
   },
   "devDependencies": {
     "assemblyscript": "^0.20.16",

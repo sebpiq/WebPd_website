@@ -63,6 +63,7 @@ import { END, EventChannel, eventChannel } from 'redux-saga'
 import { LOCALSTORAGE_HELP_SEEN_KEY, POPUP_COMPILATION_ERROR, setPopup, UI_SET_POPUP } from './ui'
 import * as model from '../core/model'
 import { httpGetBinary, readFileAsArrayBuffer } from '../core/browser'
+import { PdJson } from '@webpd/pd-json'
 
 const graphEventChannel = (graph: fbpGraph.Graph) => {
     return eventChannel((emitter) => {

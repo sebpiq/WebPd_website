@@ -1,7 +1,7 @@
 import * as fbpGraph from 'fbp-graph'
 import NODE_VIEW_BUILDERS, { DEFAULT_ICON } from './node-view-builders'
-import compileToCode, { NODE_IMPLEMENTATIONS } from '@webpd/compiler-js'
-import compileToDspGraph from '@webpd/pd-to-dsp-graph'
+import compileToCode from '@webpd/compiler-js'
+import { toDspGraph } from '@webpd/pd-json'
 import { Library, Settings } from './types'
 import {
     addGraphNode,
@@ -11,6 +11,7 @@ import {
 } from './model'
 import { compileAs } from './assemblyscript'
 import { PdJson } from '@webpd/pd-json'
+import { NODE_BUILDERS, NODE_IMPLEMENTATIONS } from '@webpd/pd-registry'
 
 export const graphToPd = (graph: fbpGraph.Graph): PdJson.Pd => {
     const patch: PdJson.Patch = {
@@ -149,7 +150,7 @@ export const pdToLibrary = (
 }
 
 export const pdToJsCode = (pd: PdJson.Pd, settings: Settings) => {
-    const dspGraph = compileToDspGraph(pd)
+    const dspGraph = toDspGraph(pd, NODE_BUILDERS)
     return compileToCode(dspGraph, NODE_IMPLEMENTATIONS, {
         audioSettings: settings,
         target: 'javascript',
@@ -157,7 +158,7 @@ export const pdToJsCode = (pd: PdJson.Pd, settings: Settings) => {
 }
 
 export const pdToWasm = async (pd: PdJson.Pd, settings: Settings): Promise<ArrayBuffer> => {
-    const dspGraph = compileToDspGraph(pd)
+    const dspGraph = toDspGraph(pd, NODE_BUILDERS)
     const code = compileToCode(dspGraph, NODE_IMPLEMENTATIONS, {
         audioSettings: settings,
         target: 'assemblyscript',
