@@ -12,7 +12,9 @@ export type CompileTarget = 'wasm' | 'js-eval'
 // ------------------------------------ ACTIONS ------------------------------------ //
 interface AppInitializedAction {
   type: 'APP_INITIALIZED'
-  payload: {}
+  payload: {
+    sourceNode: AudioNode
+  }
 }
 
 interface TextStepModifiedAction {
@@ -48,7 +50,7 @@ interface WasmOperationDoneAction {
 
 interface AudioOperationDoneAction {
   type: 'AUDIO_OPERATION_DONE'
-  payload: { waaNode: AudioWorkletNode }
+  payload: { webpdNode: AudioWorkletNode }
 }
 
 interface TextOperationDoneAction {
@@ -83,7 +85,8 @@ export interface TextStepState {
 
 export interface AudioStepState {
   context: AudioContext
-  waaNode: audioworkletJsEval.WorkletNode | audioworkletWasm.WorkletNode | null
+  sourceNode: AudioNode | null
+  webpdNode: audioworkletJsEval.WorkletNode | audioworkletWasm.WorkletNode | null
   version: number
 }
 
@@ -114,10 +117,11 @@ export const initialAppState: AppState = {
   target: 'wasm',
   textSteps: {
     pd: {
-      text: `#N canvas 306 267 645 457 10;
-#X obj 41 27 osc~ 220;
-#X obj 41 50 dac~;
-#X connect 0 0 1 0;`,
+      text: `#N canvas 620 382 450 300 12;
+#X obj 86 210 dac~;
+#X obj 163 38 adc~;
+#X connect 1 0 0 0;
+#X connect 1 1 0 1;`,
       isExpanded: true,
       version: 0,
     },
@@ -133,18 +137,19 @@ export const initialAppState: AppState = {
     },
     jsCode: {
       text: '',
-      isExpanded: false,
+      isExpanded: true,
       version: 0,
     },
     ascCode: {
       text: '',
-      isExpanded: false,
+      isExpanded: true,
       version: 0,
     },
   },
   audioStep: {
     context: new AudioContext(),
-    waaNode: null,
+    sourceNode: null,
+    webpdNode: null,
     version: 0,
   },
   wasmStep: {
@@ -158,12 +163,15 @@ export const initialAppState: AppState = {
 }
 
 export const reducer = (state: AppState, action: AppAction): AppState => {
-  console.log('ACTION', action.type, action)
   switch(action.type) {
 
     case 'APP_INITIALIZED':
       return {
         ...state,
+        audioStep: {
+          ...state.audioStep,
+          sourceNode: action.payload.sourceNode
+        },
         isInitialized: true
       }
 
@@ -187,7 +195,6 @@ export const reducer = (state: AppState, action: AppAction): AppState => {
     
     case 'TEXT_STEP_COMMIT':
       const buildSteps = buildStepList(state.target, action.payload.step)
-      console.log('buildStepList', state.target, buildSteps)
       return {
         ...state,
         textSteps: {
@@ -239,7 +246,7 @@ export const reducer = (state: AppState, action: AppAction): AppState => {
         ...state,
         audioStep: {
           ...state.audioStep,
-          waaNode: action.payload.waaNode,
+          webpdNode: action.payload.webpdNode,
           version: state.audioStep.version + 1,
         },
         operations: {

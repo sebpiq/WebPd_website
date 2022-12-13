@@ -1,13 +1,12 @@
 import { audioworkletJsEval, audioworkletWasm } from "@webpd/audioworklets"
 import { useEffect } from "react"
 import { AppDispatcher, AppState, StepId, TextStepId } from "./appState"
-import { CHANNEL_COUNT, compileAsc, toAsc, toDspGraph, toJs, toPdJson } from "./operations"
+import { compileAsc, toAsc, toDspGraph, toJs, toPdJson } from "./operations"
 
 
 const useHandleOperations = (state: AppState, dispatch: AppDispatcher) => {
     useEffect(() => {
         const {operations} = state
-        console.log('useHandleOperations', operations.nextStep)
         if (operations.nextStep === null) {
             return
         }
@@ -92,19 +91,19 @@ const useHandleOperations = (state: AppState, dispatch: AppDispatcher) => {
                 break
             
             case 'audio':
-                if (state.audioStep.waaNode) {
-                    state.audioStep.waaNode.disconnect()
+                if (state.audioStep.webpdNode) {
+                    state.audioStep.webpdNode.disconnect()
                 }
-                let waaNode: AudioWorkletNode
+                let webpdNode: AudioWorkletNode
                 if (state.target === 'js-eval') {
-                    waaNode = new audioworkletJsEval.WorkletNode(state.audioStep.context, CHANNEL_COUNT)
-                    waaNode.port.postMessage({
+                    webpdNode = new audioworkletJsEval.WorkletNode(state.audioStep.context)
+                    webpdNode.port.postMessage({
                         type: 'CODE',
                         payload: { code: state.textSteps.jsCode.text, arrays: {} }
                     })
                 } else if (state.target === 'wasm') {
-                    waaNode = new audioworkletWasm.WorkletNode(state.audioStep.context, CHANNEL_COUNT)
-                    waaNode.port.postMessage({
+                    webpdNode = new audioworkletWasm.WorkletNode(state.audioStep.context)
+                    webpdNode.port.postMessage({
                         type: 'WASM',
                         payload: {
                             wasmBuffer: state.wasmStep.buffer!,
@@ -114,8 +113,9 @@ const useHandleOperations = (state: AppState, dispatch: AppDispatcher) => {
                 } else {
                     throw new Error(`Invalid target ${state.target}`)
                 }
-                waaNode.connect(state.audioStep.context.destination)
-                dispatch({ type: 'AUDIO_OPERATION_DONE', payload: {waaNode} })
+                state.audioStep.sourceNode!.connect(webpdNode)
+                webpdNode.connect(state.audioStep.context.destination)
+                dispatch({ type: 'AUDIO_OPERATION_DONE', payload: {webpdNode} })
                 break
         }
     })

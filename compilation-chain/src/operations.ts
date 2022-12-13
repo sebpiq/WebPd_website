@@ -4,7 +4,7 @@ import compile from '@webpd/compiler-js'
 import { NODE_BUILDERS, NODE_IMPLEMENTATIONS } from '@webpd/pd-registry'
 import { CompileTarget, StepId } from './appState'
 
-export const CHANNEL_COUNT = 2
+export const CHANNEL_COUNT = {in: 2, out: 2}
 
 export const JS_EVAL_STEPS: Array<StepId> = ['pd', 'pdJson', 'dspGraph', 'jsCode', 'audio']
 export const WASM_STEPS: Array<StepId> = ['pd', 'pdJson', 'dspGraph', 'ascCode', 'wasm', 'audio']

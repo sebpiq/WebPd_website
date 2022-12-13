@@ -36,7 +36,7 @@ const StepText: React.FunctionComponent<Props> = ({
     }
 
     const onKeyPress: React.KeyboardEventHandler = (event) => {
-        if (event.ctrlKey && event.key === 'Enter') {
+        if (isBeingModified && event.ctrlKey && event.key === 'Enter') {
             onSubmit(event)
         }
     }

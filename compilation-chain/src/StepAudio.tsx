@@ -9,6 +9,7 @@ interface Props {
 const StepAudio: React.FunctionComponent<Props> = ({ 
     state,
 }) => {
+    console.log('Audio STATE', state.context.state)
     const [_, setIsPlaying] = useState(state.context.state !== 'suspended')
     const onPlay: React.MouseEventHandler = () => {
         // https://github.com/WebAudio/web-audio-api/issues/345
@@ -19,7 +20,6 @@ const StepAudio: React.FunctionComponent<Props> = ({
             promise = state.context.suspend()
         }
         promise.then(() => {
-            console.log(state.context.state)
             setIsPlaying(state.context.state !== 'suspended')
         })
     }
