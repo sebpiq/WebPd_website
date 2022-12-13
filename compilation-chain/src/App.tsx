@@ -1,6 +1,7 @@
 import React, { useReducer } from 'react';
 import './App.css';
 import { initialAppState, reducer } from './appState';
+import CompilationOptions from './CompilationOptions';
 import StepAudio from './StepAudio';
 import StepText from './StepText';
 import StepWasm from './StepWasm';
@@ -36,7 +37,7 @@ function App() {
         dispatch={dispatch}
         step="dspGraph"
       />
-      {appState.target === 'js-eval' ? 
+      {appState.compilationOptions.target === 'js-eval' ? 
         <StepText 
           key={`jsCode-${appState.textSteps.jsCode.version}`}
           state={appState.textSteps.jsCode}
@@ -45,7 +46,7 @@ function App() {
           step="jsCode"
         /> : null
       }
-      {appState.target === 'wasm' ? 
+      {appState.compilationOptions.target === 'wasm' ? 
         <StepText 
           key={`ascCode-${appState.textSteps.ascCode.version}`}
           state={appState.textSteps.ascCode}
@@ -54,15 +55,18 @@ function App() {
           step="ascCode"
         />: null
       }
-      {appState.target === 'wasm' ? 
+      {appState.compilationOptions.target === 'wasm' ? 
         <StepWasm 
           key={`wasm-${appState.textSteps.ascCode.version}`}
           state={appState.wasmStep}
         />: null
       }
-      <StepAudio 
-        state={appState.audioStep}
-      />
+      <div className='_target'>
+        <StepAudio 
+          state={appState.audioStep}
+        />
+        <CompilationOptions dispatch={dispatch} />
+      </div>
     </div>
   );
 }

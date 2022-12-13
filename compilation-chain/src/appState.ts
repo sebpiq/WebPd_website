@@ -1,5 +1,5 @@
 import { audioworkletJsEval, audioworkletWasm } from "@webpd/audioworklets"
-import { buildStepList } from "./operations"
+import { buildStepList } from "./utils"
 
 export type TextStepId = keyof AppState['textSteps']
 export type StepId = TextStepId | 'wasm' | 'audio'
@@ -15,6 +15,11 @@ interface AppInitializedAction {
   payload: {
     sourceNode: AudioNode
   }
+}
+
+interface CompilationOptionsSetAction {
+  type: 'COMPILATION_OPTIONS_SET'
+  payload: Partial<AppState['compilationOptions']>
 }
 
 interface TextStepModifiedAction {
@@ -40,19 +45,6 @@ interface TextStepCommitAction {
   }
 }
 
-interface WasmOperationDoneAction {
-  type: 'WASM_OPERATION_DONE'
-  payload: { 
-    buffer: ArrayBuffer
-    nextStep: StepId
-  }
-}
-
-interface AudioOperationDoneAction {
-  type: 'AUDIO_OPERATION_DONE'
-  payload: { webpdNode: AudioWorkletNode }
-}
-
 interface TextOperationDoneAction {
   type: 'TEXT_OPERATION_DONE'
   payload: {
@@ -67,26 +59,28 @@ interface TextOperationErrorAction {
   payload: {}
 }
 
+interface WasmOperationDoneAction {
+  type: 'WASM_OPERATION_DONE'
+  payload: { 
+    buffer: ArrayBuffer
+    nextStep: StepId
+  }
+}
+
+interface AudioOperationDoneAction {
+  type: 'AUDIO_OPERATION_DONE'
+  payload: { webpdNode: AudioWorkletNode }
+}
+
 export type AppAction = TextStepModifiedAction 
   | TextStepCommitAction | TextOperationDoneAction | TextOperationErrorAction 
   | AppInitializedAction | AudioOperationDoneAction | TextStepExpandCollapseAction
-  | WasmOperationDoneAction
+  | WasmOperationDoneAction | CompilationOptionsSetAction
 
 // ------------------------------------ STATES ------------------------------------ //
-export interface OperationState {
-  nextStep: StepId | null
-}
-
 export interface TextStepState {
   text: string 
   isExpanded: boolean
-  version: number
-}
-
-export interface AudioStepState {
-  context: AudioContext
-  sourceNode: AudioNode | null
-  webpdNode: audioworkletJsEval.WorkletNode | audioworkletWasm.WorkletNode | null
   version: number
 }
 
@@ -97,7 +91,10 @@ export interface WasmStepState {
 
 export interface AppState {
   isInitialized: boolean
-  target: CompileTarget
+  compilationOptions: {
+    target: CompileTarget
+    bitDepth: 32 | 64
+  }
   textSteps: {
     pd: TextStepState
     pdJson: TextStepState
@@ -105,16 +102,26 @@ export interface AppState {
     jsCode: TextStepState
     ascCode: TextStepState
   }
-  audioStep: AudioStepState
+  audioStep: {
+    context: AudioContext
+    sourceNode: AudioNode | null
+    webpdNode: audioworkletJsEval.WorkletNode | audioworkletWasm.WorkletNode | null
+    version: number
+  }
   wasmStep: WasmStepState
   stepBeingModified: TextStepId | null
-  operations: OperationState
+  operations: {
+    nextStep: StepId | null
+  }
 }
 
 // ------------------------------------ REDUCER ------------------------------------ //
 export const initialAppState: AppState = {
   isInitialized: false,
-  target: 'wasm',
+  compilationOptions: {
+    target: 'js-eval',
+    bitDepth: 64,
+  },
   textSteps: {
     pd: {
       text: `#N canvas 620 382 450 300 12;
@@ -163,6 +170,7 @@ export const initialAppState: AppState = {
 }
 
 export const reducer = (state: AppState, action: AppAction): AppState => {
+  let buildSteps: Array<StepId>
   switch(action.type) {
 
     case 'APP_INITIALIZED':
@@ -173,6 +181,19 @@ export const reducer = (state: AppState, action: AppAction): AppState => {
           sourceNode: action.payload.sourceNode
         },
         isInitialized: true
+      }
+
+    case 'COMPILATION_OPTIONS_SET':
+      buildSteps = buildStepList(state.compilationOptions.target, 'pd')
+      return {
+        ...state,
+        compilationOptions: {
+          ...state.compilationOptions,
+          ...action.payload,
+        },
+        operations: {
+          nextStep: buildSteps[1] || null
+        }
       }
 
     case 'TEXT_STEP_EXPAND_COLLAPSE':
@@ -194,7 +215,7 @@ export const reducer = (state: AppState, action: AppAction): AppState => {
       }
     
     case 'TEXT_STEP_COMMIT':
-      const buildSteps = buildStepList(state.target, action.payload.step)
+      buildSteps = buildStepList(state.compilationOptions.target, action.payload.step)
       return {
         ...state,
         textSteps: {

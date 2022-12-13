@@ -1,15 +1,14 @@
 import React, { useState } from "react";
-import { AudioStepState } from "./appState";
+import { AppState } from "./appState";
 import './StepAudio.css'
 
 interface Props {
-    state: AudioStepState
+    state: AppState['audioStep']
 }
 
 const StepAudio: React.FunctionComponent<Props> = ({ 
     state,
 }) => {
-    console.log('Audio STATE', state.context.state)
     const [_, setIsPlaying] = useState(state.context.state !== 'suspended')
     const onPlay: React.MouseEventHandler = () => {
         // https://github.com/WebAudio/web-audio-api/issues/345

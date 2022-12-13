@@ -1,7 +1,7 @@
 import React from "react";
 import { WasmStepState } from "./appState";
-import { download } from "./browser";
 import './StepWasm.css'
+import { download } from "./utils";
 
 interface Props {
     state: WasmStepState

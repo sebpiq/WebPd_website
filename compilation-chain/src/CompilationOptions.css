@@ -1,0 +1,10 @@
+.CompilationOptions {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1em;
+}
+
+.CompilationOptions label {
+    text-align: right;
+    font-size: 130%;
+}

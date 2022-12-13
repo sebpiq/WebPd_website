@@ -1,121 +1,155 @@
-import { audioworkletJsEval, audioworkletWasm } from "@webpd/audioworklets"
-import { useEffect } from "react"
-import { AppDispatcher, AppState, StepId, TextStepId } from "./appState"
-import { compileAsc, toAsc, toDspGraph, toJs, toPdJson } from "./operations"
+import parse from '@webpd/pd-parser'
+import compile from '@webpd/compiler-js'
+import { toDspGraph } from '@webpd/pd-json'
+import { audioworkletJsEval, audioworkletWasm } from '@webpd/audioworklets'
+import { useEffect } from 'react'
+import { AppDispatcher, AppState, StepId, TextStepId } from './appState'
+import { NODE_BUILDERS, NODE_IMPLEMENTATIONS } from '@webpd/pd-registry'
+import { DspGraph } from '@webpd/dsp-graph'
+import { compileAsc } from './utils'
 
+export const CHANNEL_COUNT = { in: 2, out: 2 }
 
 const useHandleOperations = (state: AppState, dispatch: AppDispatcher) => {
     useEffect(() => {
-        const {operations} = state
+        const { operations, compilationOptions } = state
         if (operations.nextStep === null) {
             return
         }
-        
-        const dispatchTextOperationError = () => {
-            dispatch({ 
-                type: 'TEXT_OPERATION_ERROR', payload: {}
-            })
-        }
 
-        const dispatchTextOperationSuccess = (result: string, nextStep: StepId) => {
-            dispatch({ 
+        const runTextOperation = (
+            operation: () => string,
+            nextStep: StepId
+        ) => {
+            let result: string
+            try {
+                result = operation()
+            } catch (err) {
+                dispatchTextOperationError()
+                return
+            }
+            dispatch({
                 type: 'TEXT_OPERATION_DONE',
                 payload: {
                     currentStep: operations.nextStep as TextStepId,
                     nextStep,
-                    result
-                }
+                    result,
+                },
+            })
+        }
+
+        const dispatchTextOperationError = () => {
+            dispatch({
+                type: 'TEXT_OPERATION_ERROR',
+                payload: {},
             })
         }
 
         const dispatchWasmBufferSuccess = (buffer: ArrayBuffer) => {
-            dispatch({ 
+            dispatch({
                 type: 'WASM_OPERATION_DONE',
                 payload: {
                     nextStep: 'audio',
                     buffer,
-                }
+                },
             })
         }
 
-        switch(operations.nextStep) {
+        switch (operations.nextStep) {
             case 'pdJson':
-                let pdJson: string = ''
-                try {
-                    pdJson = toPdJson(state.textSteps.pd.text)
-                } catch (err) {
-                    dispatchTextOperationError()
-                    break
-                }
-                dispatchTextOperationSuccess(pdJson, 'dspGraph')
+                runTextOperation(() => {
+                    return JSON.stringify(
+                        parse(state.textSteps.pd.text),
+                        undefined,
+                        2
+                    )
+                }, 'dspGraph')
                 break
 
             case 'dspGraph':
-                let dspGraph: string = ''
-                try {
-                    dspGraph = toDspGraph(state.textSteps.pdJson.text)
-                } catch (err) {
-                    dispatchTextOperationError()
-                    break
-                }
-                dispatchTextOperationSuccess(dspGraph, state.target === 'js-eval' ? 'jsCode' : 'ascCode')
+                runTextOperation(
+                    () => {
+                        const pdJson = JSON.parse(state.textSteps.pdJson.text)
+                        const dspGraph = toDspGraph(pdJson, NODE_BUILDERS)
+                        return JSON.stringify(dspGraph, undefined, 2)
+                    },
+                    compilationOptions.target === 'js-eval'
+                        ? 'jsCode'
+                        : 'ascCode'
+                )
                 break
 
             case 'jsCode':
-                let jsCode: string = ''
-                try {
-                    jsCode = toJs(state.textSteps.dspGraph.text)
-                } catch (err) {
-                    dispatchTextOperationError()
-                    break
-                }
-                dispatchTextOperationSuccess(jsCode, 'audio')
+                runTextOperation(() => {
+                    const dspGraph = JSON.parse(state.textSteps.dspGraph.text)
+                    return compile(dspGraph, NODE_IMPLEMENTATIONS as any, {
+                        audioSettings: {
+                            channelCount: CHANNEL_COUNT,
+                            bitDepth: compilationOptions.bitDepth,
+                        },
+                        target: 'javascript',
+                    })
+                }, 'audio')
                 break
 
             case 'ascCode':
-                let ascCode: string = ''
-                try {
-                    ascCode = toAsc(state.textSteps.dspGraph.text)
-                } catch (err) {
-                    dispatchTextOperationError()
-                    break
-                }
-                dispatchTextOperationSuccess(ascCode, 'wasm')
+                runTextOperation(() => {
+                    const dspGraph = JSON.parse(
+                        state.textSteps.dspGraph.text
+                    ) as DspGraph.Graph
+                    return compile(dspGraph, NODE_IMPLEMENTATIONS as any, {
+                        audioSettings: {
+                            channelCount: CHANNEL_COUNT,
+                            bitDepth: compilationOptions.bitDepth,
+                        },
+                        target: 'assemblyscript',
+                    })
+                }, 'wasm')
                 break
 
             case 'wasm':
-                compileAsc(state.textSteps.ascCode.text)
-                    .then((buffer) => {
-                        dispatchWasmBufferSuccess(buffer)
-                    })
+                compileAsc(state.textSteps.ascCode.text).then((buffer) => {
+                    dispatchWasmBufferSuccess(buffer)
+                })
                 break
-            
+
             case 'audio':
+                const { target } = compilationOptions
                 if (state.audioStep.webpdNode) {
                     state.audioStep.webpdNode.disconnect()
                 }
                 let webpdNode: AudioWorkletNode
-                if (state.target === 'js-eval') {
-                    webpdNode = new audioworkletJsEval.WorkletNode(state.audioStep.context)
+                if (target === 'js-eval') {
+                    webpdNode = new audioworkletJsEval.WorkletNode(
+                        state.audioStep.context
+                    )
                     webpdNode.port.postMessage({
                         type: 'CODE',
-                        payload: { code: state.textSteps.jsCode.text, arrays: {} }
+                        payload: {
+                            code: state.textSteps.jsCode.text,
+                            arrays: {},
+                        },
                     })
-                } else if (state.target === 'wasm') {
-                    webpdNode = new audioworkletWasm.WorkletNode(state.audioStep.context)
+                } else if (target === 'wasm') {
+                    webpdNode = new audioworkletWasm.WorkletNode(
+                        state.audioStep.context
+                    )
                     webpdNode.port.postMessage({
                         type: 'WASM',
                         payload: {
                             wasmBuffer: state.wasmStep.buffer!,
-                            arrays: {}
-                        }
+                            arrays: {},
+                        },
                     })
                 } else {
-                    throw new Error(`Invalid target ${state.target}`)
+                    throw new Error(`Invalid target ${target}`)
                 }
                 state.audioStep.sourceNode!.connect(webpdNode)
                 webpdNode.connect(state.audioStep.context.destination)
-                dispatch({ type: 'AUDIO_OPERATION_DONE', payload: {webpdNode} })
+                dispatch({
+                    type: 'AUDIO_OPERATION_DONE',
+                    payload: { webpdNode },
+                })
                 break
         }
     })

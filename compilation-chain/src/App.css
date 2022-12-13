@@ -3,3 +3,10 @@
   max-width: 1200px;
   margin: auto;
 }
+
+.App ._target {
+  display: flex;
+  flex-direction: row;
+  justify-content: center;
+  align-items: center;
+}
