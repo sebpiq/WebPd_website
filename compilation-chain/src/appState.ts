@@ -9,17 +9,27 @@ export type OperationType = 'compile'
 
 export type CompileTarget = 'wasm' | 'js-eval'
 
+export enum SoundSource {
+  sample,
+  microphone
+}
+
 // ------------------------------------ ACTIONS ------------------------------------ //
 interface AppInitializedAction {
   type: 'APP_INITIALIZED'
   payload: {
-    sourceNode: AudioNode
+    stream: MediaStream
   }
 }
 
 interface CompilationOptionsSetAction {
   type: 'COMPILATION_OPTIONS_SET'
   payload: Partial<AppState['compilationOptions']>
+}
+
+interface SoundSourceOptionsSetAction {
+  type: 'SOUND_SOURCE_OPTIONS_SET'
+  payload: Partial<AppState['soundSourceOptions']>
 }
 
 interface TextStepModifiedAction {
@@ -75,7 +85,7 @@ interface AudioOperationDoneAction {
 export type AppAction = TextStepModifiedAction 
   | TextStepCommitAction | TextOperationDoneAction | TextOperationErrorAction 
   | AppInitializedAction | AudioOperationDoneAction | TextStepExpandCollapseAction
-  | WasmOperationDoneAction | CompilationOptionsSetAction
+  | WasmOperationDoneAction | CompilationOptionsSetAction | SoundSourceOptionsSetAction
 
 // ------------------------------------ STATES ------------------------------------ //
 export interface TextStepState {
@@ -91,6 +101,9 @@ export interface WasmStepState {
 
 export interface AppState {
   isInitialized: boolean
+  soundSourceOptions: {
+    source: SoundSource
+  },
   compilationOptions: {
     target: CompileTarget
     bitDepth: 32 | 64
@@ -104,7 +117,7 @@ export interface AppState {
   }
   audioStep: {
     context: AudioContext
-    sourceNode: AudioNode | null
+    stream: MediaStream | null
     webpdNode: audioworkletJsEval.WorkletNode | audioworkletWasm.WorkletNode | null
     version: number
   }
@@ -118,9 +131,12 @@ export interface AppState {
 // ------------------------------------ REDUCER ------------------------------------ //
 export const initialAppState: AppState = {
   isInitialized: false,
+  soundSourceOptions: {
+    source: SoundSource.microphone
+  },
   compilationOptions: {
-    target: 'js-eval',
-    bitDepth: 64,
+    target: 'wasm',
+    bitDepth: 32,
   },
   textSteps: {
     pd: {
@@ -155,7 +171,7 @@ export const initialAppState: AppState = {
   },
   audioStep: {
     context: new AudioContext(),
-    sourceNode: null,
+    stream: null,
     webpdNode: null,
     version: 0,
   },
@@ -178,7 +194,7 @@ export const reducer = (state: AppState, action: AppAction): AppState => {
         ...state,
         audioStep: {
           ...state.audioStep,
-          sourceNode: action.payload.sourceNode
+          stream: action.payload.stream
         },
         isInitialized: true
       }
@@ -193,6 +209,18 @@ export const reducer = (state: AppState, action: AppAction): AppState => {
         },
         operations: {
           nextStep: buildSteps[1] || null
+        }
+      }
+
+    case 'SOUND_SOURCE_OPTIONS_SET':
+      return {
+        ...state,
+        soundSourceOptions: {
+          ...state.soundSourceOptions,
+          ...action.payload,
+        },
+        operations: {
+          nextStep: 'audio'
         }
       }
 

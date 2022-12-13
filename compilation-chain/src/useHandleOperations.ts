@@ -3,7 +3,7 @@ import compile from '@webpd/compiler-js'
 import { toDspGraph } from '@webpd/pd-json'
 import { audioworkletJsEval, audioworkletWasm } from '@webpd/audioworklets'
 import { useEffect } from 'react'
-import { AppDispatcher, AppState, StepId, TextStepId } from './appState'
+import { AppDispatcher, AppState, SoundSource, StepId, TextStepId } from './appState'
 import { NODE_BUILDERS, NODE_IMPLEMENTATIONS } from '@webpd/pd-registry'
 import { DspGraph } from '@webpd/dsp-graph'
 import { compileAsc } from './utils'
@@ -12,7 +12,7 @@ export const CHANNEL_COUNT = { in: 2, out: 2 }
 
 const useHandleOperations = (state: AppState, dispatch: AppDispatcher) => {
     useEffect(() => {
-        const { operations, compilationOptions } = state
+        const { operations, compilationOptions, soundSourceOptions } = state
         if (operations.nextStep === null) {
             return
         }
@@ -115,15 +115,29 @@ const useHandleOperations = (state: AppState, dispatch: AppDispatcher) => {
 
             case 'audio':
                 const { target } = compilationOptions
-                if (state.audioStep.webpdNode) {
-                    state.audioStep.webpdNode.disconnect()
+                const { webpdNode, stream, context } = state.audioStep
+                const audioElement = document.querySelector("audio#test-sound") as HTMLMediaElement
+                if (webpdNode) {
+                    webpdNode.disconnect()
                 }
-                let webpdNode: AudioWorkletNode
+
+                let sourceNode: AudioNode
+                if (soundSourceOptions.source === SoundSource.microphone) {
+                    audioElement.volume = 0
+                    sourceNode = context.createMediaStreamSource(stream!)
+                } else if (soundSourceOptions.source === SoundSource.sample) {
+                    audioElement.volume = 1
+                    sourceNode = context.createMediaElementSource(audioElement)
+                } else {
+                    throw new Error(`Invalid sound source ${soundSourceOptions.source}`)
+                }
+
+                let newWebpdNode: AudioWorkletNode
                 if (target === 'js-eval') {
-                    webpdNode = new audioworkletJsEval.WorkletNode(
-                        state.audioStep.context
+                    newWebpdNode = new audioworkletJsEval.WorkletNode(
+                        context
                     )
-                    webpdNode.port.postMessage({
+                    newWebpdNode.port.postMessage({
                         type: 'CODE',
                         payload: {
                             code: state.textSteps.jsCode.text,
@@ -131,10 +145,10 @@ const useHandleOperations = (state: AppState, dispatch: AppDispatcher) => {
                         },
                     })
                 } else if (target === 'wasm') {
-                    webpdNode = new audioworkletWasm.WorkletNode(
-                        state.audioStep.context
+                    newWebpdNode = new audioworkletWasm.WorkletNode(
+                        context
                     )
-                    webpdNode.port.postMessage({
+                    newWebpdNode.port.postMessage({
                         type: 'WASM',
                         payload: {
                             wasmBuffer: state.wasmStep.buffer!,
@@ -144,11 +158,12 @@ const useHandleOperations = (state: AppState, dispatch: AppDispatcher) => {
                 } else {
                     throw new Error(`Invalid target ${target}`)
                 }
-                state.audioStep.sourceNode!.connect(webpdNode)
-                webpdNode.connect(state.audioStep.context.destination)
+
+                sourceNode.connect(newWebpdNode)
+                newWebpdNode.connect(context.destination)
                 dispatch({
                     type: 'AUDIO_OPERATION_DONE',
-                    payload: { webpdNode },
+                    payload: { webpdNode: newWebpdNode },
                 })
                 break
         }

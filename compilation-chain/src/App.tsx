@@ -2,6 +2,7 @@ import React, { useReducer } from 'react';
 import './App.css';
 import { initialAppState, reducer } from './appState';
 import CompilationOptions from './CompilationOptions';
+import SoundSourceOptions from './SoundSourceOptions';
 import StepAudio from './StepAudio';
 import StepText from './StepText';
 import StepWasm from './StepWasm';
@@ -16,6 +17,10 @@ function App() {
 
   return (
     <div className="App">
+      <SoundSourceOptions 
+        dispatch={dispatch} 
+        state={appState.soundSourceOptions}
+      />
       <StepText 
         key={`pd-${appState.textSteps.pd.version}`}
         state={appState.textSteps.pd}
@@ -65,7 +70,10 @@ function App() {
         <StepAudio 
           state={appState.audioStep}
         />
-        <CompilationOptions dispatch={dispatch} />
+        <CompilationOptions 
+          dispatch={dispatch} 
+          state={appState.compilationOptions}
+        />
       </div>
     </div>
   );

@@ -8,13 +8,12 @@ const useInitialize = (state: AppState, dispatch: AppDispatcher) => {
         if (state.isInitialized) {
             return 
         }
+        audioElement.volume = 0
         addModule(state.audioStep.context, audioworkletJsEval.WorkletProcessorCode)
             .then(() => addModule(state.audioStep.context, audioworkletWasm.WorkletProcessorCode))
             .then(() => navigator.mediaDevices.getUserMedia({audio: true}))
             .then((stream) => {
-                // const sourceNode = state.audioStep.context.createMediaStreamSource(stream)
-                const sourceNode = state.audioStep.context.createMediaElementSource(audioElement)
-                dispatch({ type: 'APP_INITIALIZED', payload: { sourceNode } })
+                dispatch({ type: 'APP_INITIALIZED', payload: { stream } })
             })
             .catch((err) => {
                 throw new Error(`failed getting user media ${err}`)
