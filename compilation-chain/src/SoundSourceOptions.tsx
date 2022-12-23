@@ -19,9 +19,9 @@ const SoundSourceOptions: React.FunctionComponent<Props> = ({ dispatch, state })
     return (
         <div className={`SoundSourceOptions`}>
             <label>Sound Source</label>
-            <select onChange={onSoundSourceChange}>
-                <option value={SoundSource.sample} selected={state.source === SoundSource.sample}>Xmas song</option>
-                <option value={SoundSource.microphone} selected={state.source === SoundSource.microphone}>Microphone</option>
+            <select onChange={onSoundSourceChange} value={state.source}>
+                <option value={SoundSource.sample}>Xmas song</option>
+                <option value={SoundSource.microphone}>Microphone</option>
             </select>
         </div>
     )

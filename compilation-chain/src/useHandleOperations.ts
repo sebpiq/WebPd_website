@@ -1,7 +1,7 @@
 import parse from '@webpd/pd-parser'
 import compile from '@webpd/compiler-js'
 import { toDspGraph } from '@webpd/pd-json'
-import { audioworkletJsEval, audioworkletWasm } from '@webpd/audioworklets'
+import { fsWeb, WebPdWorkletNode } from '@webpd/audioworklets'
 import { useEffect } from 'react'
 import { AppDispatcher, AppState, SoundSource, StepId, TextStepId } from './appState'
 import { NODE_BUILDERS, NODE_IMPLEMENTATIONS } from '@webpd/pd-registry'
@@ -25,6 +25,7 @@ const useHandleOperations = (state: AppState, dispatch: AppDispatcher) => {
             try {
                 result = operation()
             } catch (err) {
+                console.error(err)
                 dispatchTextOperationError()
                 return
             }
@@ -110,6 +111,12 @@ const useHandleOperations = (state: AppState, dispatch: AppDispatcher) => {
             case 'wasm':
                 compileAsc(state.textSteps.ascCode.text).then((buffer) => {
                     dispatchWasmBufferSuccess(buffer)
+                }).catch(err => {
+                    console.error(err)
+                    dispatch({
+                        type: 'TEXT_OPERATION_ERROR',
+                        payload: {},
+                    })
                 })
                 break
 
@@ -132,24 +139,20 @@ const useHandleOperations = (state: AppState, dispatch: AppDispatcher) => {
                     throw new Error(`Invalid sound source ${soundSourceOptions.source}`)
                 }
 
-                let newWebpdNode: AudioWorkletNode
+                let newWebpdNode = new WebPdWorkletNode(context)
+                newWebpdNode.port.onmessage = (message) => fsWeb(newWebpdNode, message)
+
                 if (target === 'js-eval') {
-                    newWebpdNode = new audioworkletJsEval.WorkletNode(
-                        context
-                    )
                     newWebpdNode.port.postMessage({
-                        type: 'CODE',
+                        type: 'code:JS',
                         payload: {
-                            code: state.textSteps.jsCode.text,
+                            jsCode: state.textSteps.jsCode.text,
                             arrays: {},
                         },
                     })
                 } else if (target === 'wasm') {
-                    newWebpdNode = new audioworkletWasm.WorkletNode(
-                        context
-                    )
                     newWebpdNode.port.postMessage({
-                        type: 'WASM',
+                        type: 'code:WASM',
                         payload: {
                             wasmBuffer: state.wasmStep.buffer!,
                             arrays: {},

@@ -1,4 +1,4 @@
-import { audioworkletJsEval, audioworkletWasm } from "@webpd/audioworklets"
+import { WebPdWorkletNode } from "@webpd/audioworklets"
 import { buildStepList } from "./utils"
 
 export type TextStepId = keyof AppState['textSteps']
@@ -79,7 +79,7 @@ interface WasmOperationDoneAction {
 
 interface AudioOperationDoneAction {
   type: 'AUDIO_OPERATION_DONE'
-  payload: { webpdNode: AudioWorkletNode }
+  payload: { webpdNode: WebPdWorkletNode }
 }
 
 export type AppAction = TextStepModifiedAction 
@@ -118,7 +118,7 @@ export interface AppState {
   audioStep: {
     context: AudioContext
     stream: MediaStream | null
-    webpdNode: audioworkletJsEval.WorkletNode | audioworkletWasm.WorkletNode | null
+    webpdNode: WebPdWorkletNode | null
     version: number
   }
   wasmStep: WasmStepState
@@ -136,15 +136,25 @@ export const initialAppState: AppState = {
   },
   compilationOptions: {
     target: 'wasm',
-    bitDepth: 32,
+    bitDepth: 64,
   },
   textSteps: {
     pd: {
-      text: `#N canvas 620 382 450 300 12;
-#X obj 86 210 dac~;
-#X obj 163 38 adc~;
-#X connect 1 0 0 0;
-#X connect 1 1 0 1;`,
+      text: `#N canvas 0 0 578 300 12;
+#X obj 96 131 soundfiler;
+#X obj 267 198 dac~;
+#X msg 93 80 read /bla.mp3 SOUND1 SOUND2;
+#X obj 93 22 loadbang;
+#X obj 235 131 tabplay~ SOUND1;
+#X obj 361 132 tabplay~ SOUND2;
+#X obj 349 68 metro 5000;
+#X connect 2 0 0 0;
+#X connect 3 0 2 0;
+#X connect 3 0 6 0;
+#X connect 4 0 1 0;
+#X connect 5 0 1 1;
+#X connect 6 0 4 0;
+#X connect 6 0 5 0;`,
       isExpanded: true,
       version: 0,
     },

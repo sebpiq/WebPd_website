@@ -1,5 +1,5 @@
 import { useEffect } from "react"
-import { audioworkletJsEval, audioworkletWasm, addModule } from '@webpd/audioworklets'
+import { registerWebPdWorkletNode } from '@webpd/audioworklets'
 import { AppDispatcher, AppState } from "./appState"
 
 const useInitialize = (state: AppState, dispatch: AppDispatcher) => {
@@ -9,8 +9,7 @@ const useInitialize = (state: AppState, dispatch: AppDispatcher) => {
             return 
         }
         audioElement.volume = 0
-        addModule(state.audioStep.context, audioworkletJsEval.WorkletProcessorCode)
-            .then(() => addModule(state.audioStep.context, audioworkletWasm.WorkletProcessorCode))
+        registerWebPdWorkletNode(state.audioStep.context)
             .then(() => navigator.mediaDevices.getUserMedia({audio: true}))
             .then((stream) => {
                 dispatch({ type: 'APP_INITIALIZED', payload: { stream } })
