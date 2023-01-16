@@ -1,0 +1,25 @@
+#N canvas 494 272 920 524 12;
+#X obj 153 88 soundfiler;
+#X obj 154 17 loadbang;
+#X obj 140 221 dac~;
+#X obj 124 189 tabplay~ SOUND1;
+#X obj 174 161 tabplay~ SOUND2;
+#N canvas 0 50 450 250 (subpatch) 0;
+#X array SOUND1 100 float 2;
+#X coords 0 1 100 -1 200 140 1;
+#X restore 301 187 graph;
+#N canvas 0 50 450 250 (subpatch) 0;
+#X array SOUND2 100 float 2;
+#X coords 0 1 100 -1 200 140 1;
+#X restore 348 221 graph;
+#X msg 153 123 bang;
+#X msg 153 54 read -resize /sounds/xylophone-short.mp3 SOUND1 SOUND2
+;
+#X connect 0 0 7 0;
+#X connect 1 0 8 0;
+#X connect 3 0 2 0;
+#X connect 4 0 2 1;
+#X connect 4 1 7 0;
+#X connect 7 0 3 0;
+#X connect 7 0 4 0;
+#X connect 8 0 0 0;

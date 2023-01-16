@@ -34,7 +34,8 @@
 }
 
 .StepText._expanded form {
-  height: 30vh;
+  height: auto;
+  min-height: 30vh
 }
 
 .StepText textarea {

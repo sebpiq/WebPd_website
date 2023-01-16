@@ -10,17 +10,17 @@
     "@types/node": "^16.18.7",
     "@types/react": "^18.0.26",
     "@types/react-dom": "^18.0.9",
-    "react": "^18.2.0",
-    "react-dom": "^18.2.0",
-    "react-scripts": "5.0.1",
-    "typescript": "^4.9.4",
-    "web-vitals": "^2.1.4",
     "@webpd/audioworklets": "file:../../WebPd_audioworklets",
     "@webpd/compiler-js": "file:../../WebPd_compiler-js",
     "@webpd/dsp-graph": "file:../../WebPd_dsp-graph",
     "@webpd/pd-json": "file:../../WebPd_pd-json",
     "@webpd/pd-parser": "file:../../WebPd_pd-parser",
-    "@webpd/pd-registry": "file:../../WebPd_pd-registry"
+    "@webpd/pd-registry": "file:../../WebPd_pd-registry",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-scripts": "5.0.1",
+    "typescript": "^4.9.4",
+    "web-vitals": "^2.1.4"
   },
   "scripts": {
     "start": "react-scripts start",

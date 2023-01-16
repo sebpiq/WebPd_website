@@ -1,3 +1,4 @@
+import { AudioSettings } from "@webpd/compiler-js/src/types"
 import { StepId, CompileTarget } from "./appState"
 
 export const JS_EVAL_STEPS: Array<StepId> = ['pd', 'pdJson', 'dspGraph', 'jsCode', 'audio']
@@ -13,13 +14,19 @@ export const buildStepList = (target: CompileTarget, currentStep: StepId) => {
     }
 }
 
-export const compileAsc = async (code: string): Promise<ArrayBuffer> => {
-    const { error, binary, stderr } = await (window as any).asc.compileString(code, {
+export const compileAsc = async (code: string, bitDepth: AudioSettings['bitDepth']): Promise<ArrayBuffer> => {
+    const compileOptions: any = {
         optimizeLevel: 3,
-        runtime: "stub",
+        runtime: "incremental",
         exportRuntime: true,
-    })
+    }
+    if (bitDepth === 32) {
+        // For 32 bits version of Math
+        compileOptions.use = ['Math=NativeMathf']
+    }
+    const { error, binary, stderr } = await (window as any).asc.compileString(code, compileOptions)
     if (error) {
+        console.error(code)
         throw new Error(stderr.toString())
     }
     return binary.buffer

@@ -1,4 +1,5 @@
 import { WebPdWorkletNode } from "@webpd/audioworklets"
+import { PdJson } from "@webpd/pd-json"
 import { buildStepList } from "./utils"
 
 export type TextStepId = keyof AppState['textSteps']
@@ -55,12 +56,39 @@ interface TextStepCommitAction {
   }
 }
 
+interface TextOperationDoneActionPayloadPd { 
+  currentStep: 'pd'
+  text: string
+}
+interface TextOperationDoneActionPayloadPdJson { 
+  currentStep: 'pdJson'
+  text: string
+  pdJson: PdJson.Pd 
+}
+interface TextOperationDoneActionPayloadDspGraph { 
+  currentStep: 'dspGraph'
+  text: string
+}
+interface TextOperationDoneActionPayloadJsCode { 
+  currentStep: 'jsCode'
+  text: string
+}
+interface TextOperationDoneActionPayloadAscCode { 
+  currentStep: 'ascCode'
+  text: string
+}
+
+export type TextOperationDoneResults = TextOperationDoneActionPayloadPd
+  | TextOperationDoneActionPayloadPdJson
+  | TextOperationDoneActionPayloadDspGraph
+  | TextOperationDoneActionPayloadJsCode
+  | TextOperationDoneActionPayloadAscCode
+
 interface TextOperationDoneAction {
   type: 'TEXT_OPERATION_DONE'
   payload: {
-    currentStep: TextStepId
     nextStep: StepId
-    result: string
+    result: TextOperationDoneResults
   }
 }
 
@@ -88,11 +116,26 @@ export type AppAction = TextStepModifiedAction
   | WasmOperationDoneAction | CompilationOptionsSetAction | SoundSourceOptionsSetAction
 
 // ------------------------------------ STATES ------------------------------------ //
-export interface TextStepState {
+
+export interface BaseTextStepState {
   text: string 
   isExpanded: boolean
   version: number
 }
+
+interface PdStepState extends BaseTextStepState { type: 'pd' }
+interface PdJsonStepState extends BaseTextStepState {
+  type: 'pdJson'
+  pdJson: PdJson.Pd | null 
+}
+interface DspGraphStepState extends BaseTextStepState { type: 'dspGraph' }
+interface JsCodeStepState extends BaseTextStepState { type: 'jsCode' }
+interface AscCodeStepState extends BaseTextStepState { type: 'ascCode' }
+export type TextStepState = PdStepState
+  | PdJsonStepState
+  | DspGraphStepState
+  | JsCodeStepState
+  | AscCodeStepState
 
 export interface WasmStepState {
   buffer: ArrayBuffer | null
@@ -110,7 +153,7 @@ export interface AppState {
   }
   textSteps: {
     pd: TextStepState
-    pdJson: TextStepState
+    pdJson: PdJsonStepState
     dspGraph: TextStepState
     jsCode: TextStepState
     ascCode: TextStepState
@@ -135,45 +178,37 @@ export const initialAppState: AppState = {
     source: SoundSource.microphone
   },
   compilationOptions: {
-    target: 'wasm',
-    bitDepth: 64,
+    target: 'js-eval',
+    bitDepth: 32,
   },
   textSteps: {
     pd: {
-      text: `#N canvas 0 0 578 300 12;
-#X obj 96 131 soundfiler;
-#X obj 267 198 dac~;
-#X msg 93 80 read /bla.mp3 SOUND1 SOUND2;
-#X obj 93 22 loadbang;
-#X obj 235 131 tabplay~ SOUND1;
-#X obj 361 132 tabplay~ SOUND2;
-#X obj 349 68 metro 5000;
-#X connect 2 0 0 0;
-#X connect 3 0 2 0;
-#X connect 3 0 6 0;
-#X connect 4 0 1 0;
-#X connect 5 0 1 1;
-#X connect 6 0 4 0;
-#X connect 6 0 5 0;`,
+      type: 'pd',
+      text: ``,
       isExpanded: true,
       version: 0,
     },
     pdJson: {
+      type: 'pdJson',
       text: '',
       isExpanded: false,
       version: 0,
+      pdJson: null,
     },
     dspGraph: {
+      type: 'dspGraph',
       text: '',
       isExpanded: false,
       version: 0,
     },
     jsCode: {
+      type: 'jsCode',
       text: '',
       isExpanded: true,
       version: 0,
     },
     ascCode: {
+      type: 'ascCode',
       text: '',
       isExpanded: true,
       version: 0,
@@ -260,7 +295,8 @@ export const reducer = (state: AppState, action: AppAction): AppState => {
           ...state.textSteps,
           [action.payload.step]: {
             ...state.textSteps[action.payload.step],
-            text: action.payload.text
+            text: action.payload.text,
+            version: state.textSteps[action.payload.step].version + 1,
           }
         },
         stepBeingModified: null,
@@ -270,15 +306,22 @@ export const reducer = (state: AppState, action: AppAction): AppState => {
       }
 
     case 'TEXT_OPERATION_DONE':
+      const actionResult = action.payload.result
+      const currentStepState = {
+        ...state.textSteps[actionResult.currentStep],
+        text: action.payload.result.text,
+      }
+
+      currentStepState.version += 1
+      if (currentStepState.type === 'pdJson' && actionResult.currentStep === 'pdJson') {
+        currentStepState.pdJson = actionResult.pdJson
+      }
+
       return {
         ...state,
         textSteps: {
           ...state.textSteps,
-          [action.payload.currentStep]: {
-            ...state.textSteps[action.payload.currentStep],
-            text: action.payload.result,
-            version: state.textSteps[action.payload.currentStep].version + 1
-          }
+          [actionResult.currentStep]: currentStepState
         },
         operations: {
           ...state.operations,

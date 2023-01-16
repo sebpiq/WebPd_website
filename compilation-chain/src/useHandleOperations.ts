@@ -3,7 +3,13 @@ import compile from '@webpd/compiler-js'
 import { toDspGraph } from '@webpd/pd-json'
 import { fsWeb, WebPdWorkletNode } from '@webpd/audioworklets'
 import { useEffect } from 'react'
-import { AppDispatcher, AppState, SoundSource, StepId, TextStepId } from './appState'
+import {
+    AppDispatcher,
+    AppState,
+    SoundSource,
+    StepId,
+    TextOperationDoneResults,
+} from './appState'
 import { NODE_BUILDERS, NODE_IMPLEMENTATIONS } from '@webpd/pd-registry'
 import { DspGraph } from '@webpd/dsp-graph'
 import { compileAsc } from './utils'
@@ -18,10 +24,10 @@ const useHandleOperations = (state: AppState, dispatch: AppDispatcher) => {
         }
 
         const runTextOperation = (
-            operation: () => string,
+            operation: () => TextOperationDoneResults,
             nextStep: StepId
         ) => {
-            let result: string
+            let result: TextOperationDoneResults
             try {
                 result = operation()
             } catch (err) {
@@ -32,7 +38,6 @@ const useHandleOperations = (state: AppState, dispatch: AppDispatcher) => {
             dispatch({
                 type: 'TEXT_OPERATION_DONE',
                 payload: {
-                    currentStep: operations.nextStep as TextStepId,
                     nextStep,
                     result,
                 },
@@ -59,11 +64,12 @@ const useHandleOperations = (state: AppState, dispatch: AppDispatcher) => {
         switch (operations.nextStep) {
             case 'pdJson':
                 runTextOperation(() => {
-                    return JSON.stringify(
-                        parse(state.textSteps.pd.text),
-                        undefined,
-                        2
-                    )
+                    const pdJson = parse(state.textSteps.pd.text)
+                    return {
+                        currentStep: 'pdJson',
+                        text: JSON.stringify(pdJson, undefined, 2),
+                        pdJson,
+                    }
                 }, 'dspGraph')
                 break
 
@@ -72,7 +78,10 @@ const useHandleOperations = (state: AppState, dispatch: AppDispatcher) => {
                     () => {
                         const pdJson = JSON.parse(state.textSteps.pdJson.text)
                         const dspGraph = toDspGraph(pdJson, NODE_BUILDERS)
-                        return JSON.stringify(dspGraph, undefined, 2)
+                        return {
+                            currentStep: 'dspGraph',
+                            text: JSON.stringify(dspGraph, undefined, 2),
+                        }
                     },
                     compilationOptions.target === 'js-eval'
                         ? 'jsCode'
@@ -83,13 +92,17 @@ const useHandleOperations = (state: AppState, dispatch: AppDispatcher) => {
             case 'jsCode':
                 runTextOperation(() => {
                     const dspGraph = JSON.parse(state.textSteps.dspGraph.text)
-                    return compile(dspGraph, NODE_IMPLEMENTATIONS as any, {
-                        audioSettings: {
-                            channelCount: CHANNEL_COUNT,
-                            bitDepth: compilationOptions.bitDepth,
-                        },
-                        target: 'javascript',
-                    })
+                    return {
+                        currentStep: 'jsCode',
+                        text: compile(dspGraph, NODE_IMPLEMENTATIONS as any, {
+                            audioSettings: {
+                                channelCount: CHANNEL_COUNT,
+                                bitDepth: compilationOptions.bitDepth,
+                            },
+                            target: 'javascript',
+                            debug: true,
+                        }),
+                    }
                 }, 'audio')
                 break
 
@@ -98,34 +111,46 @@ const useHandleOperations = (state: AppState, dispatch: AppDispatcher) => {
                     const dspGraph = JSON.parse(
                         state.textSteps.dspGraph.text
                     ) as DspGraph.Graph
-                    return compile(dspGraph, NODE_IMPLEMENTATIONS as any, {
-                        audioSettings: {
-                            channelCount: CHANNEL_COUNT,
-                            bitDepth: compilationOptions.bitDepth,
-                        },
-                        target: 'assemblyscript',
-                    })
+                    return {
+                        currentStep: 'ascCode',
+                        text: compile(dspGraph, NODE_IMPLEMENTATIONS as any, {
+                            audioSettings: {
+                                channelCount: CHANNEL_COUNT,
+                                bitDepth: compilationOptions.bitDepth,
+                            },
+                            target: 'assemblyscript',
+                            debug: true,
+                        }),
+                    }
                 }, 'wasm')
                 break
 
             case 'wasm':
-                compileAsc(state.textSteps.ascCode.text).then((buffer) => {
-                    dispatchWasmBufferSuccess(buffer)
-                }).catch(err => {
-                    console.error(err)
-                    dispatch({
-                        type: 'TEXT_OPERATION_ERROR',
-                        payload: {},
+                compileAsc(
+                    state.textSteps.ascCode.text,
+                    compilationOptions.bitDepth
+                )
+                    .then((buffer) => {
+                        dispatchWasmBufferSuccess(buffer)
                     })
-                })
+                    .catch((err) => {
+                        console.error(err)
+                        dispatch({
+                            type: 'TEXT_OPERATION_ERROR',
+                            payload: {},
+                        })
+                    })
                 break
 
             case 'audio':
                 const { target } = compilationOptions
                 const { webpdNode, stream, context } = state.audioStep
-                const audioElement = document.querySelector("audio#test-sound") as HTMLMediaElement
+                const audioElement = document.querySelector(
+                    'audio#test-sound'
+                ) as HTMLMediaElement
                 if (webpdNode) {
                     webpdNode.disconnect()
+                    webpdNode.destroy()
                 }
 
                 let sourceNode: AudioNode
@@ -136,18 +161,30 @@ const useHandleOperations = (state: AppState, dispatch: AppDispatcher) => {
                     audioElement.volume = 1
                     sourceNode = context.createMediaElementSource(audioElement)
                 } else {
-                    throw new Error(`Invalid sound source ${soundSourceOptions.source}`)
+                    throw new Error(
+                        `Invalid sound source ${soundSourceOptions.source}`
+                    )
                 }
 
                 let newWebpdNode = new WebPdWorkletNode(context)
-                newWebpdNode.port.onmessage = (message) => fsWeb(newWebpdNode, message)
+                newWebpdNode.port.onmessage = (message) =>
+                    fsWeb(newWebpdNode, message)
+
+                const arrays = Object.values(
+                    state.textSteps.pdJson.pdJson!.arrays
+                ).reduce((arrays, array) => {
+                    arrays[array.args[0]] = array.data
+                        ? new Float32Array(array.data)
+                        : new Float32Array(array.args[1])
+                    return arrays
+                }, {} as { [name: string]: Float32Array | Float64Array })
 
                 if (target === 'js-eval') {
                     newWebpdNode.port.postMessage({
                         type: 'code:JS',
                         payload: {
                             jsCode: state.textSteps.jsCode.text,
-                            arrays: {},
+                            arrays,
                         },
                     })
                 } else if (target === 'wasm') {
@@ -155,7 +192,7 @@ const useHandleOperations = (state: AppState, dispatch: AppDispatcher) => {
                         type: 'code:WASM',
                         payload: {
                             wasmBuffer: state.wasmStep.buffer!,
-                            arrays: {},
+                            arrays,
                         },
                     })
                 } else {
