@@ -1,0 +1,41 @@
+@font-face {
+    font-family: 'Rajdhani';
+    src: local('Rajdhani'),
+        url('./Rajdhani/Rajdhani-Medium.ttf') format('woff');
+}
+
+* {
+    font-family: 'Rajdhani';
+    font-size: 20px;
+    padding: 0;
+    margin: 0;
+    box-sizing: border-box;
+    --bg-color1: #111;
+    --bg-color2: #222;
+    --fg-color1: #eee;
+    color: var(--fg-color1);
+}
+
+body,
+html {
+    width: 100%;
+    height: 100%;
+    background-color: var(--bg-color1);
+}
+
+#patch-controls {
+    padding: 2em;
+}
+
+#controls-root {
+    position: relative;
+}
+
+.controls-container {
+    position: absolute;
+}
+
+.control {
+    position: absolute;
+    background-color: var(--bg-color2);
+}

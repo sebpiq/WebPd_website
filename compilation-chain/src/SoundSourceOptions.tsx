@@ -6,6 +6,9 @@ import TEST_ADC_PD from './patches/test-adc.pd'
 import TEST_WRITESF_PD from './patches/test-writesf.pd'
 import TEST_READSF_PD from './patches/test-readsf.pd'
 import TEST_SOUNDFILER_PD from './patches/test-soundfiler.pd'
+import TEST_DELAYS_PD from './patches/test-delays.pd'
+import TEST_VLINE_PD from './patches/test-vline-triangle.pd'
+import TEST_FILTERS_PD from './patches/test-filters.pd'
 
 const TEST_PATCHES = {
     'test-osc': TEST_OSC_PD,
@@ -13,6 +16,9 @@ const TEST_PATCHES = {
     'test-soundfiler': TEST_SOUNDFILER_PD,
     'test-writesf': TEST_WRITESF_PD,
     'test-readsf': TEST_READSF_PD,
+    'test-delays': TEST_DELAYS_PD,
+    'test-vline': TEST_VLINE_PD,
+    'test-filters': TEST_FILTERS_PD,
 }
 
 interface Props {
@@ -61,6 +67,9 @@ const SoundSourceOptions: React.FunctionComponent<Props> = ({ dispatch, state })
                     <button onClick={onTestPatchLoad('test-soundfiler')}>soundfiler</button>
                     <button onClick={onTestPatchLoad('test-writesf')}>writesf~</button>
                     <button onClick={onTestPatchLoad('test-readsf')}>readsf~</button>
+                    <button onClick={onTestPatchLoad('test-delays')}>delays</button>
+                    <button onClick={onTestPatchLoad('test-vline')}>test triangle osc made with vline~</button>
+                    <button onClick={onTestPatchLoad('test-filters')}>test filters</button>
                 </div>
             </div>
         </div>
