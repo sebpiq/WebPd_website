@@ -24,7 +24,7 @@ html {
 }
 
 #patch-controls {
-    padding: 2em;
+    padding: 1em;
 }
 
 #controls-root {
@@ -33,9 +33,16 @@ html {
 
 .controls-container {
     position: absolute;
+    padding: 0.2em;
+    background-color: var(--bg-color2);
 }
 
 .control {
     position: absolute;
-    background-color: var(--bg-color2);
+}
+
+.label {
+    position: absolute;
+    right: 0;
+    bottom: 0;
 }

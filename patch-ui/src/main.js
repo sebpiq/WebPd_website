@@ -2,9 +2,10 @@ import {
     registerWebPdWorkletNode,
 } from '@webpd/audioworklets'
 import { loadPdJson } from './pd-json'
-import { getControlsFromPdJson } from './pd-json'
+import { createModels } from './models'
 import { createEngine } from './webpd-engine'
-import { adjustRootContainer, renderControlsGui } from './gui'
+import { createViews } from './views'
+import { render } from './render'
 
 const CONTROLS_ROOT_CONTAINER_ELEM = document.querySelector('#controls-root')
 
@@ -12,7 +13,8 @@ const STATE = {
     audioContext: new AudioContext(),
     webpdNode: null,
     pdJson: null,
-    controls: null
+    controls: null,
+    controlsViews: null,
 }
 
 document.querySelector('#start').onclick = () => {
@@ -30,8 +32,9 @@ initializeApp()
     .then(() => loadPdJson('./ginger2.pd'))
     .then((pdJson) => {
         STATE.pdJson = pdJson
-        STATE.controls = getControlsFromPdJson(pdJson, pdJson.patches['0'])
+        STATE.controls = createModels(STATE)
         STATE.webpdNode = createEngine(STATE)
-        renderControlsGui(STATE, CONTROLS_ROOT_CONTAINER_ELEM)
-        adjustRootContainer(CONTROLS_ROOT_CONTAINER_ELEM)
+        STATE.controlsViews = createViews(STATE)
+        STATE
+        render(STATE, CONTROLS_ROOT_CONTAINER_ELEM)
     })

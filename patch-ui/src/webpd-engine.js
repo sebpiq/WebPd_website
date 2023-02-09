@@ -1,4 +1,4 @@
-import { toDspGraph } from '@webpd/pd-json'
+import { buildGraphNodeId, toDspGraph } from '@webpd/pd-json'
 import compile from '@webpd/compiler-js'
 import { NODE_BUILDERS, NODE_IMPLEMENTATIONS } from '@webpd/pd-registry'
 import {
@@ -46,9 +46,9 @@ export const createEngine = (STATE) => {
 const _collectInletCallerSpecs = (controls, inletCallerSpecs = {}) => {
     controls.forEach((control) => {
         if (control.type === 'container') {
-            inletCallerSpecs = _collectInletCallerSpecs(control.controls, inletCallerSpecs)
+            inletCallerSpecs = _collectInletCallerSpecs(control.children, inletCallerSpecs)
         } else if (control.type === 'control') {
-            const nodeId = control.graphNodeId
+            const nodeId = buildGraphNodeId(control.patch.id, control.node.id)
             const portletId = PORTLET_ID
             inletCallerSpecs[nodeId] = inletCallerSpecs[nodeId] || []
             inletCallerSpecs[nodeId].push(portletId)

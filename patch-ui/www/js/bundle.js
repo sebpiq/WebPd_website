@@ -1237,6 +1237,14 @@
       return [patch, remainingTokenizedLines];
   };
 
+  const PORTLET_ID = '0';
+
+  const loadPdJson = async (url) => {
+      const response = await fetch(url);
+      const pdFile = await response.text();
+      return parse(pdFile)
+  };
+
   /*
    * Copyright (c) 2012-2020 Sébastien Piquemal <sebpiq@gmail.com>
    *
@@ -1838,6 +1846,11 @@
       }
   };
 
+  const addPoints = (p1, p2) => ({
+      x: p1.x + p2.x,
+      y: p1.y + p2.y,
+  });
+
   const computeRectanglesIntersection = (r1, r2) => {
       const topLeft = {
           x: Math.max(r1.topLeft.x, r2.topLeft.x),
@@ -1854,26 +1867,45 @@
       }
   };
 
-  const arePointsEqual = (p1, p2) => {
-      return p1.x === p2.x && p1.y === p2.y
-  };
+  const isPointInsideRectangle = (p, r) =>
+      r.topLeft.x <= p.x && p.x <= r.bottomRight.x 
+      && r.topLeft.y <= p.y && p.y <= r.bottomRight.y; 
 
-  const areRectanglesEqual = (bb1, bb2) => {
-      return (arePointsEqual(bb1.topLeft, bb2.topLeft) 
-          && arePointsEqual(bb1.bottomRight, bb2.bottomRight))
-  };
+  const computePointsBoundingBox = (points) => points.reduce(
+      ({ topLeft, bottomRight }, point) => {
+          return {
+              topLeft: {
+                  x: Math.min(point.x, topLeft.x),
+                  y: Math.min(point.y, topLeft.y),
+              },
+              bottomRight: {
+                  x: Math.max(point.x, bottomRight.x),
+                  y: Math.max(point.y, bottomRight.y),
+              },
+          }
+      },
+      {
+          topLeft: { x: Infinity, y: Infinity },
+          bottomRight: { x: -Infinity, y: -Infinity },
+      }
+  );
 
-  const EM_1_SIZE = 3;
+  const computeRectangleDimensions = (r) => ({
+      x: r.bottomRight.x - r.topLeft.x,
+      y: r.bottomRight.y - r.topLeft.y,
+  });
 
-  const PORTLET_ID = '0';
+  const createModels = (STATE) => 
+      // We make sure all controls are inside a container at top level for easier layout
+      _createModelsRecursive(STATE, STATE.pdJson.patches['0'])
+      .map((control) =>
+              control.type === 'control'
+                  ? _buildContainerModel(control.patch, control.node, [control])
+                  : control
+          );
 
-  const loadPdJson = async (url) => {
-      const response = await fetch(url);
-      const pdFile = await response.text();
-      return parse(pdFile)
-  };
-
-  const getControlsFromPdJson = (pd, patch, viewport=null) => {
+  const _createModelsRecursive = (STATE, patch, viewport = null) => {
+      const { pdJson } = STATE;
       if (viewport === null) {
           viewport = {
               topLeft: { x: -Infinity, y: -Infinity },
@@ -1884,11 +1916,12 @@
       const controls = [];
       Object.values(patch.nodes).forEach((node) => {
           if (node.type === 'pd') {
-              const subpatch = pd.patches[node.patchId];
+              const subpatch = pdJson.patches[node.patchId];
               if (!subpatch.layout.graphOnParent) {
                   return
               }
 
+              // 1. we convert all coordinates to the subpatch coords system
               const toSubpatchCoords = makeTranslationTransform(
                   { x: node.layout.x, y: node.layout.y },
                   { x: subpatch.layout.viewportX, y: subpatch.layout.viewportY }
@@ -1897,20 +1930,21 @@
                   topLeft: toSubpatchCoords(viewport.topLeft),
                   bottomRight: toSubpatchCoords(viewport.bottomRight),
               };
-              const subpatchViewport = {
-                  topLeft: {
-                      x: subpatch.layout.viewportX,
-                      y: subpatch.layout.viewportY,
-                  },
-                  bottomRight: {
-                      x:
-                          subpatch.layout.viewportX +
-                          subpatch.layout.viewportWidth,
-                      y:
-                          subpatch.layout.viewportY +
-                          subpatch.layout.viewportHeight,
-                  },
+
+              const topLeft = {
+                  x: subpatch.layout.viewportX,
+                  y: subpatch.layout.viewportY,
               };
+              const subpatchViewport = {
+                  topLeft,
+                  bottomRight: addPoints(topLeft, {
+                      x: subpatch.layout.viewportWidth,
+                      y: subpatch.layout.viewportHeight,
+                  }),
+              };
+
+              // 2. we compute the visible intersection in the subpatch coords system
+              // and call the function for the subpatch
               const visibleSubpatchViewport = computeRectanglesIntersection(
                   parentViewport,
                   subpatchViewport
@@ -1920,94 +1954,46 @@
                   return
               }
 
-              controls.push({
-                  type: 'container',
-                  controls: getControlsFromPdJson(
-                      pd,
-                      subpatch,
-                      visibleSubpatchViewport
-                  ),
-                  boundingBox: {
-                      topLeft: { x: node.layout.x, y: node.layout.y },
-                      bottomRight: {
-                          x:
-                              node.layout.x +
-                              visibleSubpatchViewport.bottomRight.x -
-                              visibleSubpatchViewport.topLeft.x,
-                          y:
-                              node.layout.y +
-                              visibleSubpatchViewport.bottomRight.y -
-                              visibleSubpatchViewport.topLeft.y,
-                      },
-                  },
-              });
-
-          } else if (node.type in CONTROL_TYPE) {
-              const nodeBoundingBox = _getPdNodeBoundingBox(node);
-              const intersectionWithViewport = computeRectanglesIntersection(
-                  viewport,
-                  nodeBoundingBox
+              const children = _createModelsRecursive(
+                  STATE,
+                  subpatch,
+                  visibleSubpatchViewport
               );
-              // We only take nodes that are entirely inside viewport
-              // Therefore, we expect intersection of the node's bounding box
-              // with viewport to be itself.
+
+              controls.push(_buildContainerModel(patch, node, children));
+
+              // 3. When we get ab actual control node, we see if it is inside the
+              // visible viewport (which was previously transformed to local coords).
+          } else if (node.type in CONTROL_TYPE) {
               if (
-                  intersectionWithViewport === null ||
-                  !areRectanglesEqual(nodeBoundingBox, intersectionWithViewport)
+                  !isPointInsideRectangle(
+                      {
+                          x: node.layout.x,
+                          y: node.layout.y,
+                      },
+                      viewport
+                  )
               ) {
                   return
               }
-
-              const graphNodeId = buildGraphNodeId(patch.id, node.id);
-              controls.push({
-                  graphNodeId,
-                  type: 'control',
-                  pdNode: node,
-                  boundingBox: nodeBoundingBox,
-              });
+              controls.push(_buildControlModel(patch, node));
           }
       });
       return controls
   };
 
-  const _getPdNodeBoundingBox = (node) => {
-      let width = node.layout.width;
-      let height = node.layout.height;
-      switch (node.type) {
-          case 'floatatom':
-          case 'symbolatom':
-              height = EM_1_SIZE * 5;
-              width = width * 5;
-              break
-          case 'bng':
-          case 'tgl':
-              width = node.layout.size;
-              height = node.layout.size;
-              break
-          case 'nbx':
-              width = node.layout.widthDigits * EM_1_SIZE * 2;
-              break
-          case 'vradio':
-              width = node.layout.size; 
-              height = node.layout.size * node.args[0];
-              break
-          case 'hradio':
-              width = node.layout.size * node.args[0];
-              height = node.layout.size;
-              break
+  const _buildContainerModel = (patch, node, children) => ({
+      type: 'container',
+      patch,
+      node,
+      children,
+  });
 
-      }
-      return {
-          topLeft: {
-              x: node.layout.x,
-              y: node.layout.y,
-          },
-          bottomRight: {
-              x: node.layout.x + width,
-              y: node.layout.y + height,
-          },
-      }
-  };
+  const _buildControlModel = (patch, node) => ({
+      type: 'control',
+      patch,
+      node,
+  });
 
   /*
    * Copyright (c) 2012-2020 Sébastien Piquemal <sebpiq@gmail.com>
@@ -7598,9 +7584,9 @@ const msg_display = (m) => '[' + m
   const _collectInletCallerSpecs = (controls, inletCallerSpecs = {}) => {
       controls.forEach((control) => {
           if (control.type === 'container') {
-              inletCallerSpecs = _collectInletCallerSpecs(control.controls, inletCallerSpecs);
+              inletCallerSpecs = _collectInletCallerSpecs(control.children, inletCallerSpecs);
           } else if (control.type === 'control') {
-              const nodeId = control.graphNodeId;
+              const nodeId = buildGraphNodeId(control.patch.id, control.node.id);
               const portletId = PORTLET_ID;
               inletCallerSpecs[nodeId] = inletCallerSpecs[nodeId] || [];
               inletCallerSpecs[nodeId].push(portletId);
@@ -7611,151 +7597,225 @@ const msg_display = (m) => '[' + m
       return inletCallerSpecs
   };
 
-  const SCALE_SIZE = { x: 2, y: 3 };
-  const SCALE_POSITION = { x: 2, y: 4 };
+  const PADDING = 0.5;
 
-  const renderControlsGui = (STATE, containerDiv, controls = null) => {
-      const { webpdNode } = STATE;
+  const createViews = (STATE, controls = null) => {
       if (controls === null) {
           controls = STATE.controls;
       }
 
-      controls.forEach((control) => {
+      const controlsViews = controls.map((control) => {
           if (control.type === 'container') {
-              if (control.controls.length === 0) {
-                  return
-              }
-              renderControlsGui(
-                  STATE,
-                  _createControlsContainerDiv(containerDiv, control),
-                  control.controls
-              );
-
+              const nestedViews = createViews(STATE, control.children);
+              return _buildContainerView(control, nestedViews)
+          
           } else if (control.type === 'control') {
-              const controlDiv = _createControlDiv(containerDiv, control);
-              const node = control.pdNode;
-              const width = control.boundingBox.bottomRight.x - control.boundingBox.topLeft.x;
-              const height = control.boundingBox.bottomRight.y - control.boundingBox.topLeft.y;
-              let messageBuilder = (v) => [v];
+              return _buildControlView(control)
+          }
+      });
 
-              let controlView = null;
-              switch (node.type) {
-                  case 'hsl':
-                  // TODO : case 'vsl':
-                      controlView = Nexus.Add.Slider(controlDiv, {
-                          min: node.args[0],
-                          max: node.args[1],
-                          value: node.args[3],
-                          size: [
-                              width * SCALE_SIZE.x,
-                              height * SCALE_SIZE.y,
-                          ],
-                      });
-                      break
+      const packer = new GrowingPacker();
+      const blocks = controlsViews.map((c, i) => ({
+          nodeLayout: c.control.node.layout,
+          w: c.dimensions.x,
+          h: c.dimensions.y,
+          i,
+      }));
+      blocks.sort((a, b) => b.nodeLayout.x - a.nodeLayout.x);
+      packer.fit(blocks);
 
-                  case 'hradio':
-                      // TODO : case 'vradio':
-                      controlView = new Nexus.RadioButton(controlDiv, {
-                          numberOfButtons: node.args[0],
-                          active: node.args[2],
-                          size: [
-                              width * SCALE_SIZE.x,
-                              height * SCALE_SIZE.y,
-                          ],
-                      });
-                      break
+      blocks.forEach((block) => {
+          const controlView = controlsViews[block.i];
+          controlView.position = { x: block.fit.x, y: block.fit.y };
+      });
+      return controlsViews
+  };
 
-                  case 'bng':
-                      // TODO : case 'vradio':
-                      controlView = new Nexus.Button(controlDiv, {
-                          size: [
-                              width * SCALE_SIZE.x,
-                              height * SCALE_SIZE.y,
-                          ],
-                      });
-                      messageBuilder = () => ['bang'];
-                      break
+  const _buildContainerView = (control, children) => ({
+      type: 'container',
+      label: control.node.args[0] || null,
+      control,
+      dimensions: addPoints({x: PADDING * 2, y: PADDING * 2}, computeRectangleDimensions(
+          computePointsBoundingBox([
+              ...children.map((c) => c.position), 
+              ...children.map((c) => addPoints(c.position, c.dimensions))
+          ])
+      )),
+      children,
+      position: null,
+  });
 
-                  case 'nbx':
-                  case 'floatatom':
-                      controlView = new Nexus.Number(controlDiv, {
-                          value: node.type === 'nbx' ? node.args[3]: 0,
-                          size: [
-                              width * SCALE_SIZE.x,
-                              height * SCALE_SIZE.y,
-                          ],
-                      });
-                      break
+  const _buildControlView = (control) => ({
+      type: 'control',
+      label: control.node.layout.label.length ? control.node.layout.label: null,
+      control,
+      dimensions: _getDimensionsGrid(control.node.type, control.node.args),
+      position: null,
+  });
 
-                  case 'tgl':
-                      controlView = new Nexus.Toggle(controlDiv, {
-                          state: !!node.args[2],
-                          size: [
-                              width * SCALE_SIZE.x,
-                              height * SCALE_SIZE.y,
-                          ],
-                      });
-                      messageBuilder = () => ['bang'];
-                      break
+  const _getDimensionsGrid = (nodeType, nodeArgs) => {
+      switch (nodeType) {
+          case 'floatatom':
+          case 'symbolatom':
+              return { x: 2, y: 1 }
+          case 'bng':
+          case 'tgl':
+              return { x: 1, y: 1 }
+          case 'nbx':
+              return { x: 2, y: 1 }
+          case 'vradio':
+              return { x: 1, y: nodeArgs[0] }
+          case 'hradio':
+              return { x: nodeArgs[0], y: 1 }
+          case 'vsl':
+              return { x: 1, y: 4 }
+          case 'hsl':
+              return { x: 4, y: 1 }
+          default:
+              throw new Error(`unsupported type ${nodeType}`)
+      }
+  };
 
-              }
-              if (controlView) {
-                  controlView.on('change', (v) => {
-                      webpdNode.port.postMessage({
-                          type: 'inletCaller',
-                          payload: {
-                              nodeId: control.graphNodeId,
-                              portletId: PORTLET_ID,
-                              message: messageBuilder(v),
-                          },
-                      });
-                  });
-              }
+  const GRID_SIZE_PX = 60;
+  const LABEL_HEIGHT_GRID = 0.3;
+
+  const render = (STATE, parent, controlsViews = null) => {
+      if (controlsViews === null) {
+          controlsViews = STATE.controlsViews;
+      }
+      controlsViews.forEach((controlView) => {
+          if (controlView.type === 'container') {
+              const childrenContainerElem = _renderContainer(STATE, parent, controlView);
+              render(STATE, childrenContainerElem, controlView.children);
+          } else if (controlView.type === 'control') {
+              _renderControl(STATE, parent, controlView);
+          } else {
+              throw new Error(`unexpected control type ${controlView.type}`)
           }
       });
   };
 
-  const adjustRootContainer = (rootContainer) => {
-      const minX = Math.min(
-          ...Array.from(rootContainer.childNodes).map((elem) => {
-              const x = parseInt(elem.style.left);
-              if (isNaN(x)) {
-                  throw new Error(`invalid style for elem`, elem)
-              }
-              return x
-          })
-      );
-      rootContainer.childNodes.forEach((elem) => {
-          elem.style.transform = `translateX(${minX * -1}px)`;
-      });
-  };
+  const _renderControl = (STATE, parent, controlView) => {
+      const { node, patch } = controlView.control;
 
-  const _createControlDiv = (parent, control) => {
-      const node = control.pdNode;
-      const graphNodeId = control.graphNodeId;
       const div = document.createElement('div');
       div.classList.add('control');
-      div.style.left = `${node.layout.x * SCALE_POSITION.x}px`;
-      div.style.top = `${node.layout.y * SCALE_POSITION.y}px`;
-      div.id = `control-${graphNodeId}`;
-      if (node.layout.label) {
-          const label = document.createElement('div');
-          label.classList.add('label');
-          label.innerHTML = node.layout.label;
-          div.appendChild(label);
-      }
+      div.id = `control-${patch.id}-${node.id}`;
+      div.style.left = `${
+        controlView.position.x * GRID_SIZE_PX + PADDING * 0.5 * GRID_SIZE_PX
+    }px`;
+      div.style.top = `${
+        controlView.position.y * GRID_SIZE_PX + PADDING * 0.5 * GRID_SIZE_PX
+    }px`;
+      div.style.width = `${controlView.dimensions.x * GRID_SIZE_PX}px`;
+      div.style.height = `${controlView.dimensions.y * GRID_SIZE_PX}px`;
+      div.style.backgroundColor =
+          '#' + (0x1000000 + Math.random() * 0xffffff).toString(16).substr(1, 6);
+      parent.appendChild(div);
+
+      _renderLabel(div, controlView.label || '-');
+
+      const innerDiv = document.createElement('div');
+      div.appendChild(innerDiv);
+      _renderNexus(STATE, innerDiv, controlView);
+
+      return div
+  };
+
+  const _renderContainer = (_, parent, controlView) => {
+      const div = document.createElement('div');
+      div.classList.add('controls-container');
+
+      div.style.left = `${controlView.position.x * GRID_SIZE_PX}px`;
+      div.style.top = `${controlView.position.y * GRID_SIZE_PX}px`;
+      div.style.width = `${(controlView.dimensions.x - PADDING) * GRID_SIZE_PX}px`;
+      div.style.height = `${
+        (controlView.dimensions.y - PADDING) * GRID_SIZE_PX
+    }px`;
+      div.style.padding = `${PADDING * 0.5 * GRID_SIZE_PX}px`;
+
+      // div.style.backgroundColor = '#'+(0x1000000+(Math.random())*0xffffff).toString(16).substr(1,6)
+      _renderLabel(div, controlView.label || '-');
 
       parent.appendChild(div);
       return div
   };
 
-  const _createControlsContainerDiv = (parent, control) => {
-      const div = document.createElement('div');
-      div.classList.add('controls-container');
-      div.style.left = `${control.boundingBox.topLeft.x * SCALE_POSITION.x}px`;
-      div.style.top = `${control.boundingBox.topLeft.y * SCALE_POSITION.y}px`;
-      parent.appendChild(div);
-      return div
+  const _renderLabel = (parent, label) => {
+      const labelDiv = document.createElement('div');
+      labelDiv.classList.add('label');
+      labelDiv.innerHTML = label;
+      parent.appendChild(labelDiv);
+  };
+
+  const _renderNexus = (STATE, div, controlView) => {
+      const { node, patch } = controlView.control;
+      const width = controlView.dimensions.x * GRID_SIZE_PX;
+      const height = (controlView.dimensions.y - LABEL_HEIGHT_GRID) * GRID_SIZE_PX;
+
+      let nexusElem;
+      switch (node.type) {
+          case 'hsl':
+              // TODO : case 'vsl':
+              nexusElem = new Nexus.Add.Slider(div, {
+                  min: node.args[0],
+                  max: node.args[1],
+                  value: node.args[3],
+                  size: [width, height],
+              });
+              break
+
+          case 'hradio':
+              // TODO : case 'vradio':
+              nexusElem = new Nexus.RadioButton(div, {
+                  numberOfButtons: node.args[0],
+                  active: node.args[2],
+                  size: [width, height],
+              });
+              break
+
+          case 'bng':
+              // TODO : case 'vradio':
+              nexusElem = new Nexus.Button(div, {
+                  size: [height, height],
+              });
+              break
+
+          case 'nbx':
+          case 'floatatom':
+              nexusElem = new Nexus.Number(div, {
+                  value: node.type === 'nbx' ? node.args[3] : 0,
+                  size: [width, height],
+              });
+              break
+
+          case 'tgl':
+              nexusElem = new Nexus.Toggle(div, {
+                  state: !!node.args[2],
+                  size: [width, height],
+              });
+              break
+
+          default:
+              throw new Error(`Not supported ${node.type}`)
+      }
+
+      let messageBuilder;
+      if (node.type === 'bng' || node.type === 'tgl') {
+          messageBuilder = () => ['bang'];
+      } else {
+          messageBuilder = (v) => [v];
+      }
+      nexusElem.on('change', (v) => {
+          STATE.webpdNode.port.postMessage({
+              type: 'inletCaller',
+              payload: {
+                  nodeId: buildGraphNodeId(patch.id, node.id),
+                  portletId: PORTLET_ID,
+                  message: messageBuilder(v),
+              },
+          });
+      });
   };
 
   const CONTROLS_ROOT_CONTAINER_ELEM = document.querySelector('#controls-root');
@@ -7764,7 +7824,8 @@ const msg_display = (m) => '[' + m
       audioContext: new AudioContext(),
       webpdNode: null,
       pdJson: null,
-      controls: null
+      controls: null,
+      controlsViews: null,
   };
 
   document.querySelector('#start').onclick = () => {
@@ -7782,10 +7843,10 @@ const msg_display = (m) => '[' + m
       .then(() => loadPdJson('./ginger2.pd'))
       .then((pdJson) => {
           STATE.pdJson = pdJson;
-          STATE.controls = getControlsFromPdJson(pdJson, pdJson.patches['0']);
+          STATE.controls = createModels(STATE);
           STATE.webpdNode = createEngine(STATE);
-          renderControlsGui(STATE, CONTROLS_ROOT_CONTAINER_ELEM);
-          adjustRootContainer(CONTROLS_ROOT_CONTAINER_ELEM);
+          STATE.controlsViews = createViews(STATE);
+          render(STATE, CONTROLS_ROOT_CONTAINER_ELEM);
       });
 
 })();
