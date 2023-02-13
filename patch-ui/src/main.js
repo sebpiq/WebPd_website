@@ -5,9 +5,10 @@ import { loadPdJson } from './pd-json'
 import { createModels } from './models'
 import { createEngine } from './webpd-engine'
 import { createViews } from './views'
-import { render } from './render'
+import { render, generateColorScheme } from './render'
 
 const CONTROLS_ROOT_CONTAINER_ELEM = document.querySelector('#controls-root')
+const START_BUTTON = document.querySelector('#start')
 
 const STATE = {
     audioContext: new AudioContext(),
@@ -17,7 +18,8 @@ const STATE = {
     controlsViews: null,
 }
 
-document.querySelector('#start').onclick = () => {
+START_BUTTON.onclick = () => {
+    document.querySelector('#start-container').style.display = 'none'
     // https://github.com/WebAudio/web-audio-api/issues/345
     if (STATE.audioContext.state === 'suspended') {
         STATE.audioContext.resume()
@@ -35,6 +37,6 @@ initializeApp()
         STATE.controls = createModels(STATE)
         STATE.webpdNode = createEngine(STATE)
         STATE.controlsViews = createViews(STATE)
-        STATE
+        STATE.colorScheme = generateColorScheme(STATE)
         render(STATE, CONTROLS_ROOT_CONTAINER_ELEM)
     })

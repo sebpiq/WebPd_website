@@ -11,8 +11,8 @@
     margin: 0;
     box-sizing: border-box;
     --bg-color1: #111;
-    --bg-color2: #222;
-    --fg-color1: #eee;
+    --bg-color2: #1b1b1b;
+    --fg-color1: #777;
     color: var(--fg-color1);
 }
 
@@ -21,6 +21,25 @@ html {
     width: 100%;
     height: 100%;
     background-color: var(--bg-color1);
+}
+
+#start-container {
+    width: 100%;
+    height: 100%;
+    position: fixed;
+    z-index: 1;
+    background-color: rgba(1, 1, 1, 0.7);
+}
+
+#start {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    border: none;
+    background: none;
+    font-size: 300%;
+    cursor: pointer;
 }
 
 #patch-controls {
@@ -37,6 +56,10 @@ html {
     background-color: var(--bg-color2);
 }
 
+.controls-container > .label {
+    bottom: -0.35em;
+}
+
 .control {
     position: absolute;
 }
@@ -45,4 +68,5 @@ html {
     position: absolute;
     right: 0;
     bottom: 0;
+    font-size: 90%;
 }

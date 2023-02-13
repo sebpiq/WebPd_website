@@ -1,9 +1,9 @@
 import { buildGraphNodeId } from '@webpd/pd-json'
 import { PORTLET_ID } from './pd-json'
-import { PADDING } from './views'
+import { CONTAINER_PADDING } from './views'
 
-const GRID_SIZE_PX = 60
-const LABEL_HEIGHT_GRID = 0.3
+const GRID_SIZE_PX = 30
+const LABEL_HEIGHT_GRID = 0.6
 
 export const render = (STATE, parent, controlsViews = null) => {
     if (controlsViews === null) {
@@ -24,26 +24,35 @@ export const render = (STATE, parent, controlsViews = null) => {
 const _renderControl = (STATE, parent, controlView) => {
     const { node, patch } = controlView.control
 
+    const color = STATE.colorScheme.next()
+
     const div = document.createElement('div')
     div.classList.add('control')
     div.id = `control-${patch.id}-${node.id}`
     div.style.left = `${
-        controlView.position.x * GRID_SIZE_PX + PADDING * 0.5 * GRID_SIZE_PX
+        controlView.position.x * GRID_SIZE_PX + CONTAINER_PADDING * GRID_SIZE_PX
     }px`
     div.style.top = `${
-        controlView.position.y * GRID_SIZE_PX + PADDING * 0.5 * GRID_SIZE_PX
+        controlView.position.y * GRID_SIZE_PX
     }px`
     div.style.width = `${controlView.dimensions.x * GRID_SIZE_PX}px`
     div.style.height = `${controlView.dimensions.y * GRID_SIZE_PX}px`
-    div.style.backgroundColor =
-        '#' + (0x1000000 + Math.random() * 0xffffff).toString(16).substr(1, 6)
     parent.appendChild(div)
 
-    _renderLabel(div, controlView.label || '-')
+    if (controlView.label) {
+        const labelDiv = _renderLabel(div, controlView.label)
+        labelDiv.style.color = color
+    }
 
     const innerDiv = document.createElement('div')
     div.appendChild(innerDiv)
-    _renderNexus(STATE, innerDiv, controlView)
+    const nexusElem = _renderNexus(STATE, innerDiv, controlView)
+    
+    nexusElem.colorize('accent', color)
+    nexusElem.colorize('fill', 'black')
+    nexusElem.colorize('dark', color)
+    nexusElem.colorize('mediumDark', '#222')
+    nexusElem.colorize('mediumLight', '#333')
 
     return div
 }
@@ -54,14 +63,16 @@ const _renderContainer = (_, parent, controlView) => {
 
     div.style.left = `${controlView.position.x * GRID_SIZE_PX}px`
     div.style.top = `${controlView.position.y * GRID_SIZE_PX}px`
-    div.style.width = `${(controlView.dimensions.x - PADDING) * GRID_SIZE_PX}px`
+    div.style.width = `${(controlView.dimensions.x - CONTAINER_PADDING) * GRID_SIZE_PX}px`
     div.style.height = `${
-        (controlView.dimensions.y - PADDING) * GRID_SIZE_PX
+        (controlView.dimensions.y - CONTAINER_PADDING) * GRID_SIZE_PX
     }px`
-    div.style.padding = `${PADDING * 0.5 * GRID_SIZE_PX}px`
+    div.style.padding = `${CONTAINER_PADDING * 0.5 * GRID_SIZE_PX}px`
 
     // div.style.backgroundColor = '#'+(0x1000000+(Math.random())*0xffffff).toString(16).substr(1,6)
-    _renderLabel(div, controlView.label || '-')
+    if (controlView.label) {
+        _renderLabel(div, controlView.label)
+    }
 
     parent.appendChild(div)
     return div
@@ -72,6 +83,7 @@ const _renderLabel = (parent, label) => {
     labelDiv.classList.add('label')
     labelDiv.innerHTML = label
     parent.appendChild(labelDiv)
+    return labelDiv
 }
 
 const _renderNexus = (STATE, div, controlView) => {
@@ -142,4 +154,39 @@ const _renderNexus = (STATE, div, controlView) => {
             },
         })
     })
+    return nexusElem
+}
+
+export const generateColorScheme = (STATE) => {
+    const colors = []
+    const colorCount = 10
+    const colorSchemeSelector = STATE.pdJson.patches[0].connections.length % 2
+
+    switch (colorSchemeSelector) {
+        case 0:
+            for (let i = 0; i < colorCount; i++) {
+                const r = 0 //+ (colorCount - i) * 100 / colorCount
+                const g = 180 + (colorCount - i) * (240 - 180) / colorCount
+                const b = 100 + i * 150 / colorCount
+                colors.push(`rgba(${Math.round(r)}, ${Math.round(g)}, ${Math.round(b)})`)
+            }
+            break
+        case 1:
+            for (let i = 0; i < colorCount; i++) {
+                const r = 160 + i * 95 / colorCount
+                const b = 80 + (colorCount - i) * 100 / colorCount
+                const g = 0// + (colorCount - i) * 100 / colorCount
+                colors.push(`rgba(${Math.round(r)}, ${Math.round(g)}, ${Math.round(b)})`)
+            }
+            break
+
+    
+    }
+
+    return {
+        counter: 0,
+        next () {
+            return colors[this.counter++ % colors.length]
+        }
+    }
 }

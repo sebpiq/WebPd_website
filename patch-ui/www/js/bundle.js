@@ -1280,24 +1280,29 @@
    *
    */
   const getNode$1 = (graph, nodeId) => {
-      if (!graph[nodeId]) {
-          throw new Error(`Node "${nodeId}" not found in graph`);
+      const node = graph[nodeId];
+      if (node) {
+          return node;
       }
-      return graph[nodeId];
+      throw new Error(`Node "${nodeId}" not found in graph`);
   };
   const getInlet$1 = (node, inletId) => {
-      if (!node.inlets[inletId]) {
-          throw new Error(`Inlet "${inletId}" not found in node ${node.id}`);
+      const inlet = node.inlets[inletId];
+      if (inlet) {
+          return inlet;
       }
-      return node.inlets[inletId];
+      throw new Error(`Inlet "${inletId}" not found in node ${node.id}`);
   };
   const getOutlet$1 = (node, outletId) => {
-      if (!node.outlets[outletId]) {
-          throw new Error(`Outlet "${outletId}" not found in node ${node.id}`);
+      const outlet = node.outlets[outletId];
+      if (outlet) {
+          return outlet;
       }
-      return node.outlets[outletId];
+      throw new Error(`Outlet "${outletId}" not found in node ${node.id}`);
   };
+  /** Returns the list of sinks for the outlet or an empty list. */
   const getSinks$1 = (node, outletId) => node.sinks[outletId] || [];
+  /** Returns the list of sources for the inlet or an empty list. */
   const getSources$1 = (node, inletId) => node.sources[inletId] || [];
 
   /*
@@ -1354,7 +1359,7 @@
           throw new Error(`Signal inlets can have only one connection`);
       }
       _ensureConnectionEndpointArray(sinkNode.sources, sink.portletId).push(source);
-      _ensureConnectionEndpointArray(graph[source.nodeId].sinks, source.portletId).push(sink);
+      _ensureConnectionEndpointArray(sourceNode.sinks, source.portletId).push(sink);
   };
   /** If it exists, remove single connection from `sourceNodeId` to `sinkNodeId`. */
   const disconnect = (graph, source, sink) => {
@@ -1416,10 +1421,28 @@
 
   const subpatchNodeBuilder = {
       translateArgs: (pdNode, _, pd) => {
+          if (pdNode.nodeClass !== 'subpatch') {
+              throw new Error(`Invalid node for subpatch ${pdNode.id}`);
+          }
           const subpatch = pd.patches[pdNode.patchId];
+          if (!subpatch) {
+              throw new Error(`Unknown patch ${pdNode.patchId}`);
+          }
           return {
-              inletTypes: subpatch.inlets.map((inletNodeId) => _portletNodeToPortletType(subpatch['nodes'][inletNodeId])),
-              outletTypes: subpatch.outlets.map((outletNodeId) => _portletNodeToPortletType(subpatch['nodes'][outletNodeId])),
+              inletTypes: subpatch.inlets.map((inletNodeId) => {
+                  const portletNode = subpatch['nodes'][inletNodeId];
+                  if (!portletNode) {
+                      throw new Error(`Unknown [inlet]/[inlet~] node ${inletNodeId}`);
+                  }
+                  return _portletNodeToPortletType(portletNode);
+              }),
+              outletTypes: subpatch.outlets.map((outletNodeId) => {
+                  const portletNode = subpatch['nodes'][outletNodeId];
+                  if (!portletNode) {
+                      throw new Error(`Unknown [outlet]/[outlet~] node ${outletNodeId}`);
+                  }
+                  return _portletNodeToPortletType(portletNode);
+              }),
           };
       },
       build: ({ inletTypes, outletTypes }) => ({
@@ -1605,9 +1628,9 @@
           return;
       }
       // Create Mixer node according to sink type
-      let mixerNode;
+      let mixerNode = null;
       const sinkNode = getNode$1(compilation.graph, sink.nodeId);
-      const sinkType = sinkNode.inlets[sink.portletId].type;
+      const sinkType = getInlet$1(sinkNode, sink.portletId).type;
       // Pd implicitely sums multiple signals when they are connected to the same inlet.
       // We want this behavior to be explicit, so we put a mixer node in between instead.
       if (sinkType === 'message') ;
@@ -1625,12 +1648,11 @@
       // Connect all sources to mixer, and mixer output to sink.
       // We assume that each source is connected to a different inlet of the mixer node.
       if (mixerNode) {
-          const mixerInletIds = Object.keys(mixerNode.inlets);
           sources.forEach((source, inletIndex) => {
-              const mixerInlet = mixerInletIds[inletIndex];
+              const mixerInlet = getInlet$1(mixerNode, inletIndex.toString());
               connect(graph, source, {
                   nodeId: mixerNode.id,
-                  portletId: mixerInlet,
+                  portletId: mixerInlet.id,
               });
           });
           const mixerOutlet = '0';
@@ -1663,8 +1685,9 @@
       return sink;
   };
   const _getNodeBuilder = (compilation, nodeType) => {
-      if (NODE_BUILDERS$1[nodeType]) {
-          return { nodeBuilder: NODE_BUILDERS$1[nodeType], nodeType };
+      const coreNodeBuilder = NODE_BUILDERS$1[nodeType];
+      if (coreNodeBuilder) {
+          return { nodeBuilder: coreNodeBuilder, nodeType };
       }
       const nodeBuilder = compilation.nodeBuilders[nodeType];
       if (!nodeBuilder) {
@@ -2040,24 +2063,29 @@
    *
    */
   const getNode = (graph, nodeId) => {
-      if (!graph[nodeId]) {
-          throw new Error(`Node "${nodeId}" not found in graph`);
+      const node = graph[nodeId];
+      if (node) {
+          return node;
       }
-      return graph[nodeId];
+      throw new Error(`Node "${nodeId}" not found in graph`);
   };
   const getInlet = (node, inletId) => {
-      if (!node.inlets[inletId]) {
-          throw new Error(`Inlet "${inletId}" not found in node ${node.id}`);
+      const inlet = node.inlets[inletId];
+      if (inlet) {
+          return inlet;
       }
-      return node.inlets[inletId];
+      throw new Error(`Inlet "${inletId}" not found in node ${node.id}`);
   };
   const getOutlet = (node, outletId) => {
-      if (!node.outlets[outletId]) {
-          throw new Error(`Outlet "${outletId}" not found in node ${node.id}`);
+      const outlet = node.outlets[outletId];
+      if (outlet) {
+          return outlet;
       }
-      return node.outlets[outletId];
+      throw new Error(`Outlet "${outletId}" not found in node ${node.id}`);
   };
+  /** Returns the list of sinks for the outlet or an empty list. */
   const getSinks = (node, outletId) => node.sinks[outletId] || [];
+  /** Returns the list of sources for the inlet or an empty list. */
   const getSources = (node, inletId) => node.sources[inletId] || [];
 
   /*
@@ -7597,7 +7625,8 @@ const msg_display = (m) => '[' + m
       return inletCallerSpecs
   };
 
-  const PADDING = 0.5;
+  const CONTAINER_PADDING = 0.5;
+  const GRID_DETECT_THRESHOLD_PX = 5;
 
   const createViews = (STATE, controls = null) => {
       if (controls === null) {
@@ -7608,46 +7637,49 @@ const msg_display = (m) => '[' + m
           if (control.type === 'container') {
               const nestedViews = createViews(STATE, control.children);
               return _buildContainerView(control, nestedViews)
-          
           } else if (control.type === 'control') {
               return _buildControlView(control)
           }
       });
 
-      const packer = new GrowingPacker();
-      const blocks = controlsViews.map((c, i) => ({
-          nodeLayout: c.control.node.layout,
-          w: c.dimensions.x,
-          h: c.dimensions.y,
-          i,
-      }));
-      blocks.sort((a, b) => b.nodeLayout.x - a.nodeLayout.x);
-      packer.fit(blocks);
-
-      blocks.forEach((block) => {
-          const controlView = controlsViews[block.i];
-          controlView.position = { x: block.fit.x, y: block.fit.y };
-      });
-      return controlsViews
+      _computeLayout(controlsViews)
+          .forEach((column) =>
+              column
+                  .filter((cell) => !!cell.controlView)
+                  .forEach(
+                      (cell) => (cell.controlView.position = { x: cell.x, y: cell.y })
+                  )
+          );
+      
+      return controlsViews.filter(controlView => {
+          // Can happen if 2 controls overlap, then only one of them will be placed in the grid 
+          if (!controlView.position) {
+              console.warn(`control view "${controlView.label}" could not be assigned a position`);
+          }
+          return controlView.position
+      })
   };
 
   const _buildContainerView = (control, children) => ({
       type: 'container',
       label: control.node.args[0] || null,
       control,
-      dimensions: addPoints({x: PADDING * 2, y: PADDING * 2}, computeRectangleDimensions(
-          computePointsBoundingBox([
-              ...children.map((c) => c.position), 
-              ...children.map((c) => addPoints(c.position, c.dimensions))
-          ])
-      )),
+      dimensions: addPoints(
+          { x: CONTAINER_PADDING * 2, y: CONTAINER_PADDING * 2 },
+          computeRectangleDimensions(
+              computePointsBoundingBox([
+                  ...children.map((c) => c.position),
+                  ...children.map((c) => addPoints(c.position, c.dimensions)),
+              ])
+          )
+      ),
       children,
       position: null,
   });
 
   const _buildControlView = (control) => ({
       type: 'control',
-      label: control.node.layout.label.length ? control.node.layout.label: null,
+      label: control.node.layout.label.length ? control.node.layout.label : null,
       control,
       dimensions: _getDimensionsGrid(control.node.type, control.node.args),
       position: null,
@@ -7657,27 +7689,147 @@ const msg_display = (m) => '[' + m
       switch (nodeType) {
           case 'floatatom':
           case 'symbolatom':
-              return { x: 2, y: 1 }
+              return { x: 4, y: 2 }
           case 'bng':
           case 'tgl':
-              return { x: 1, y: 1 }
+              return { x: 2, y: 2 }
           case 'nbx':
-              return { x: 2, y: 1 }
+              return { x: 4, y: 2 }
           case 'vradio':
-              return { x: 1, y: nodeArgs[0] }
+              return { x: 2, y: 2 * nodeArgs[0] }
           case 'hradio':
-              return { x: nodeArgs[0], y: 1 }
+              return { x: 2 * nodeArgs[0], y: 2 }
           case 'vsl':
-              return { x: 1, y: 4 }
+              return { x: 2, y: 8 }
           case 'hsl':
-              return { x: 4, y: 1 }
+              return { x: 8, y: 2 }
           default:
               throw new Error(`unsupported type ${nodeType}`)
       }
   };
 
-  const GRID_SIZE_PX = 60;
-  const LABEL_HEIGHT_GRID = 0.3;
+  const _computeLayout = (controlsViews) => {
+      const roughGrid = {
+          x: {
+              // controlsViews grouped by column
+              grouped: [],
+              // X for each column
+              coordinates: [],
+              // width for each column
+              sizes: [],
+          },
+          y: {
+              // controlsViews grouped by row
+              grouped: [],
+              // Y for each row
+              coordinates: [],
+              // height for each column
+              sizes: [],
+          },
+      };
+
+      // Start by creating a rough grid which groups the control views by rows
+      // and by columns. 
+      Object.keys(roughGrid).forEach((axis) => {
+          const grouped = roughGrid[axis].grouped;
+          const getCoordinate = (c) => c.control.node.layout[axis];
+          controlsViews.forEach((controlView) => {
+              const inserted = grouped.some((rowsOrColumns) => {
+                  // Try to assign `controlView` to an existing row or column
+                  if (
+                      rowsOrColumns.some(
+                          (otherControlView) =>
+                              Math.abs(
+                                  getCoordinate(controlView) -
+                                      getCoordinate(otherControlView)
+                              ) < GRID_DETECT_THRESHOLD_PX
+                      )
+                  ) {
+                      rowsOrColumns.push(controlView);
+                      return true
+                  }
+              });
+
+              // If it could not be inserted to an existing one, we create a new rowOrColumn,
+              // and insert it in the right place in the list of rowsOrColumns.
+              if (!inserted) {
+                  let i = 0;
+                  while (
+                      i < grouped.length &&
+                      getCoordinate(grouped[i][0]) < getCoordinate(controlView)
+                  ) {
+                      i++;
+                  }
+                  grouped.splice(i, 0, [controlView]);
+              }
+
+              // Assigns the coordinate for the row or column by taking
+              // sizes of the largest controls in each column or row.
+              // and stacking these max sizes.
+              roughGrid[axis].sizes = grouped.map(
+                  (rowOrCol) =>
+                      Math.max(
+                          ...rowOrCol.map(
+                              (controlView) => controlView.dimensions[axis]
+                          )
+                      ),
+                  []
+              );
+
+              roughGrid[axis].coordinates = roughGrid[axis].sizes
+                  .slice(0, -1)
+                  .reduce((coords, size) => [...coords, coords.slice(-1)[0] + size], [0]);
+          });
+      });
+
+      // Create a grid by placing controlViews in cells (col, row).
+      const grid = roughGrid.x.grouped.map((column, colInd) =>
+          roughGrid.y.grouped.map((row, rowInd) => {
+              const controlView = row.filter((controlView) =>
+                  column.includes(controlView)
+              )[0];
+              return {
+                  x: roughGrid.x.coordinates[colInd],
+                  y: roughGrid.y.coordinates[rowInd],
+                  width: controlView ? controlView.dimensions.x: 0,
+                  controlView: controlView || null,
+              }
+          })
+      );
+
+      // Pack the layout more compactly by moving left all columns 
+      // that can be.
+      grid.forEach((column, colInd) => {
+          let dX = column[0].x;
+          column
+              .forEach((cell, rowInd) => {
+                  if (cell.controlView === null) {
+                      return
+                  }
+                  grid.slice(0, colInd)
+                      .map((otherColumn) => otherColumn[rowInd])
+                      .forEach((otherCell) => {
+                          if (otherCell.controlView === null) {
+                              return
+                          }
+                          dX = Math.min(
+                              dX,
+                              cell.x - (otherCell.x + otherCell.width)
+                          );
+                      });
+              });
+          if (dX) {
+              grid.slice(colInd).forEach((column, j) => {
+                  column.forEach((cell) => (cell.x -= dX));
+              });
+          }
+      });
+
+      return grid
+  };
+
+  const GRID_SIZE_PX = 30;
+  const LABEL_HEIGHT_GRID = 0.6;
 
   const render = (STATE, parent, controlsViews = null) => {
       if (controlsViews === null) {
@@ -7698,26 +7850,35 @@ const msg_display = (m) => '[' + m
   const _renderControl = (STATE, parent, controlView) => {
       const { node, patch } = controlView.control;
 
+      const color = STATE.colorScheme.next();
+
       const div = document.createElement('div');
       div.classList.add('control');
       div.id = `control-${patch.id}-${node.id}`;
       div.style.left = `${
-        controlView.position.x * GRID_SIZE_PX + PADDING * 0.5 * GRID_SIZE_PX
+        controlView.position.x * GRID_SIZE_PX + CONTAINER_PADDING * GRID_SIZE_PX
     }px`;
       div.style.top = `${
-        controlView.position.y * GRID_SIZE_PX + PADDING * 0.5 * GRID_SIZE_PX
+        controlView.position.y * GRID_SIZE_PX
     }px`;
       div.style.width = `${controlView.dimensions.x * GRID_SIZE_PX}px`;
       div.style.height = `${controlView.dimensions.y * GRID_SIZE_PX}px`;
-      div.style.backgroundColor =
-          '#' + (0x1000000 + Math.random() * 0xffffff).toString(16).substr(1, 6);
       parent.appendChild(div);
 
-      _renderLabel(div, controlView.label || '-');
+      if (controlView.label) {
+          const labelDiv = _renderLabel(div, controlView.label);
+          labelDiv.style.color = color;
+      }
 
       const innerDiv = document.createElement('div');
       div.appendChild(innerDiv);
-      _renderNexus(STATE, innerDiv, controlView);
+      const nexusElem = _renderNexus(STATE, innerDiv, controlView);
+      
+      nexusElem.colorize('accent', color);
+      nexusElem.colorize('fill', 'black');
+      nexusElem.colorize('dark', color);
+      nexusElem.colorize('mediumDark', '#222');
+      nexusElem.colorize('mediumLight', '#333');
 
       return div
   };
@@ -7728,14 +7889,16 @@ const msg_display = (m) => '[' + m
 
       div.style.left = `${controlView.position.x * GRID_SIZE_PX}px`;
       div.style.top = `${controlView.position.y * GRID_SIZE_PX}px`;
-      div.style.width = `${(controlView.dimensions.x - PADDING) * GRID_SIZE_PX}px`;
+      div.style.width = `${(controlView.dimensions.x - CONTAINER_PADDING) * GRID_SIZE_PX}px`;
       div.style.height = `${
-        (controlView.dimensions.y - PADDING) * GRID_SIZE_PX
+        (controlView.dimensions.y - CONTAINER_PADDING) * GRID_SIZE_PX
     }px`;
-      div.style.padding = `${PADDING * 0.5 * GRID_SIZE_PX}px`;
+      div.style.padding = `${CONTAINER_PADDING * 0.5 * GRID_SIZE_PX}px`;
 
       // div.style.backgroundColor = '#'+(0x1000000+(Math.random())*0xffffff).toString(16).substr(1,6)
-      _renderLabel(div, controlView.label || '-');
+      if (controlView.label) {
+          _renderLabel(div, controlView.label);
+      }
 
       parent.appendChild(div);
       return div
@@ -7746,6 +7909,7 @@ const msg_display = (m) => '[' + m
       labelDiv.classList.add('label');
       labelDiv.innerHTML = label;
       parent.appendChild(labelDiv);
+      return labelDiv
   };
 
   const _renderNexus = (STATE, div, controlView) => {
@@ -7816,9 +7980,45 @@ const msg_display = (m) => '[' + m
               },
           });
       });
+      return nexusElem
+  };
+
+  const generateColorScheme = (STATE) => {
+      const colors = [];
+      const colorCount = 10;
+      const colorSchemeSelector = STATE.pdJson.patches[0].connections.length % 2;
+
+      switch (colorSchemeSelector) {
+          case 0:
+              for (let i = 0; i < colorCount; i++) {
+                  const r = 0; //+ (colorCount - i) * 100 / colorCount
+                  const g = 180 + (colorCount - i) * (240 - 180) / colorCount;
+                  const b = 100 + i * 150 / colorCount;
+                  colors.push(`rgba(${Math.round(r)}, ${Math.round(g)}, ${Math.round(b)})`);
+              }
+              break
+          case 1:
+              for (let i = 0; i < colorCount; i++) {
+                  const r = 160 + i * 95 / colorCount;
+                  const b = 80 + (colorCount - i) * 100 / colorCount;
+                  const g = 0;// + (colorCount - i) * 100 / colorCount
+                  colors.push(`rgba(${Math.round(r)}, ${Math.round(g)}, ${Math.round(b)})`);
+              }
+              break
+
+      
+      }
+
+      return {
+          counter: 0,
+          next () {
+              return colors[this.counter++ % colors.length]
+          }
+      }
   };
 
   const CONTROLS_ROOT_CONTAINER_ELEM = document.querySelector('#controls-root');
+  const START_BUTTON = document.querySelector('#start');
 
   const STATE = {
       audioContext: new AudioContext(),
@@ -7828,7 +8028,8 @@ const msg_display = (m) => '[' + m
       controlsViews: null,
   };
 
-  document.querySelector('#start').onclick = () => {
+  START_BUTTON.onclick = () => {
+      document.querySelector('#start-container').style.display = 'none';
       // https://github.com/WebAudio/web-audio-api/issues/345
       if (STATE.audioContext.state === 'suspended') {
           STATE.audioContext.resume();
@@ -7846,6 +8047,7 @@ const msg_display = (m) => '[' + m
           STATE.controls = createModels(STATE);
           STATE.webpdNode = createEngine(STATE);
           STATE.controlsViews = createViews(STATE);
+          STATE.colorScheme = generateColorScheme(STATE);
           render(STATE, CONTROLS_ROOT_CONTAINER_ELEM);
       });
 
