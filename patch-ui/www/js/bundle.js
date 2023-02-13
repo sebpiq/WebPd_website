@@ -2229,6 +2229,9 @@
           },
       };
   };
+  /**
+   * Remove dead sinks and sources in graph.
+   */
   const trimGraph = (compilation, graphTraversal) => {
       const { graph } = compilation;
       Object.entries(graph).forEach(([nodeId, node]) => {
@@ -2359,13 +2362,19 @@
    * to change the engine state before running the loop.
    * !!! This is not fullproof ! For example if a node is pushing messages
    * but also writing signal outputs, it might be run too early / too late.
+   * @TODO : outletListeners should also be included
    */
-  const graphTraversalForCompile = (graph) => {
+  const graphTraversalForCompile = (graph, inletCallerSpecs) => {
       const nodesPullingSignal = Object.values(graph).filter((node) => !!node.isPullingSignal);
       const nodesPushingMessages = Object.values(graph).filter((node) => !!node.isPushingMessages);
       const graphTraversalSignal = messageNodes(graph, nodesPushingMessages);
       const combined = graphTraversalSignal;
       signalNodes(graph, nodesPullingSignal).forEach((nodeId) => {
+          if (combined.indexOf(nodeId) === -1) {
+              combined.push(nodeId);
+          }
+      });
+      Object.keys(inletCallerSpecs).forEach(nodeId => {
           if (combined.indexOf(nodeId) === -1) {
               combined.push(nodeId);
           }
@@ -2659,7 +2668,7 @@ const msg_display = (m) => '[' + m
    */
   var compileToJavascript = (compilation) => {
       const { codeVariableNames, outletListenerSpecs, inletCallerSpecs, graph } = compilation;
-      const graphTraversal = graphTraversalForCompile(graph);
+      const graphTraversal = graphTraversalForCompile(graph, inletCallerSpecs);
       const globs = compilation.codeVariableNames.globs;
       const { FloatArray } = codeVariableNames.types;
       const metadata = buildMetadata(compilation);
@@ -2764,7 +2773,7 @@ const msg_display = (m) => '[' + m
   var compileToAssemblyscript = (compilation) => {
       const { audioSettings, inletCallerSpecs, codeVariableNames } = compilation;
       const { channelCount } = audioSettings;
-      const graphTraversal = graphTraversalForCompile(compilation.graph);
+      const graphTraversal = graphTraversalForCompile(compilation.graph, inletCallerSpecs);
       const globs = compilation.codeVariableNames.globs;
       const { FloatArray } = codeVariableNames.types;
       const metadata = buildMetadata(compilation);
@@ -7573,49 +7582,97 @@ const msg_display = (m) => '[' + m
       soundfiler: nodeImplementation$7,
   };
 
-  const createEngine = (STATE) => {
-      const { pdJson, controls, audioContext } = STATE;
-      const inletCallerSpecs = _collectInletCallerSpecs(controls);
-      const dspGraph = toDspGraph(pdJson, NODE_BUILDERS);
+  const waitAscCompiler = async () => {
+      return new Promise((resolve) => {
+          const _waitRepeat = () => {
+              setTimeout(() => {
+                  if (window.asc) {
+                      resolve();
+                  } else _waitRepeat();
+              }, 200);
+          };
+          _waitRepeat();        
+      })
+  };
 
-      const jsCode = compile(dspGraph, NODE_IMPLEMENTATIONS, {
-          target: 'javascript',
+  const compileAsc = async (code, bitDepth) => {
+      const compileOptions = {
+          optimizeLevel: 3,
+          runtime: "incremental",
+          exportRuntime: true,
+      };
+      if (bitDepth === 32) {
+          // For 32 bits version of Math
+          compileOptions.use = ['Math=NativeMathf'];
+      }
+      const { error, binary, stderr } = await window.asc.compileString(code, compileOptions);
+      if (error) {
+          console.error(code);
+          throw new Error(stderr.toString())
+      }
+      return binary.buffer
+  };
+
+  const BIT_DEPTH = 32;
+
+  const createEngine = async (STATE) => {
+      const { pdJson, controls, audioContext } = STATE;
+      const dspGraph = toDspGraph(pdJson, NODE_BUILDERS);
+      const inletCallerSpecs = _collectInletCallerSpecs(controls, dspGraph);
+      const arrays = Object.values(pdJson.arrays).reduce(
+          (arrays, array) => ({
+              ...arrays,
+              [array.args[0]]: array.data
+                  ? new Float32Array(array.data)
+                  : new Float32Array(array.args[1]),
+          }),
+          {}
+      );
+
+      const code = compile(dspGraph, NODE_IMPLEMENTATIONS, {
+          target: STATE.target,
           inletCallerSpecs,
           audioSettings: {
-              bitDepth: 32,
+              bitDepth: BIT_DEPTH,
               channelCount: { in: 0, out: 2 },
           },
       });
 
       const webpdNode = new WebPdWorkletNode(audioContext);
       webpdNode.connect(audioContext.destination);
-
       webpdNode.port.onmessage = (message) => index(webpdNode, message);
-      webpdNode.port.postMessage({
-          type: 'code:JS',
-          payload: {
-              jsCode,
-              arrays: Object.values(pdJson.arrays).reduce(
-                  (arrays, array) => ({
-                      ...arrays,
-                      [array.args[0]]: array.data
-                          ? new Float32Array(array.data)
-                          : new Float32Array(array.args[1]),
-                  }),
-                  {}
-              ),
-          },
-      });
+      if (STATE.target === 'javascript') {
+          webpdNode.port.postMessage({
+              type: 'code:JS',
+              payload: {
+                  jsCode: code,
+                  arrays,
+              },
+          });
+      } else if (STATE.target === 'assemblyscript') {
+          const wasmBuffer = await compileAsc(
+              code,
+              BIT_DEPTH
+          );
+          webpdNode.port.postMessage({
+              type: 'code:WASM',
+              payload: {
+                  wasmBuffer,
+                  arrays,
+              },
+          });
+      }
       return webpdNode
   };
 
-  const _collectInletCallerSpecs = (controls, inletCallerSpecs = {}) => {
+  const _collectInletCallerSpecs = (controls, dspGraph, inletCallerSpecs = {}) => {
       controls.forEach((control) => {
           if (control.type === 'container') {
-              inletCallerSpecs = _collectInletCallerSpecs(control.children, inletCallerSpecs);
+              inletCallerSpecs = _collectInletCallerSpecs(control.children, dspGraph, inletCallerSpecs);
           } else if (control.type === 'control') {
               const nodeId = buildGraphNodeId(control.patch.id, control.node.id);
               const portletId = PORTLET_ID;
+              if (!dspGraph[nodeId]) { return }
               inletCallerSpecs[nodeId] = inletCallerSpecs[nodeId] || [];
               inletCallerSpecs[nodeId].push(portletId);
           } else {
@@ -8017,10 +8074,17 @@ const msg_display = (m) => '[' + m
       }
   };
 
-  const CONTROLS_ROOT_CONTAINER_ELEM = document.querySelector('#controls-root');
-  const START_BUTTON = document.querySelector('#start');
+  const ELEMS = {
+      controlsRoot: document.querySelector('#controls-root'),
+      startButton: document.querySelector('#start'),
+      loadingLabel: document.querySelector('#loading'),
+      loadingContainer: document.querySelector('#splash-container')
+  };
+  ELEMS.startButton.style.display = 'none';
+  const PATCH_URL = './ginger2.pd';
 
   const STATE = {
+      target: 'assemblyscript',
       audioContext: new AudioContext(),
       webpdNode: null,
       pdJson: null,
@@ -8028,27 +8092,46 @@ const msg_display = (m) => '[' + m
       controlsViews: null,
   };
 
-  START_BUTTON.onclick = () => {
-      document.querySelector('#start-container').style.display = 'none';
+  ELEMS.startButton.onclick = () => {
+      ELEMS.loadingContainer.style.display = 'none';
       // https://github.com/WebAudio/web-audio-api/issues/345
       if (STATE.audioContext.state === 'suspended') {
           STATE.audioContext.resume();
       }
   };
 
+  const _nextTick = () => new Promise((resolve) => setTimeout(resolve, 1));
+
   const initializeApp = async () => {
+      ELEMS.loadingLabel.innerHTML = 'loading assemblyscript compiler ...';
+      await waitAscCompiler();
       await registerWebPdWorkletNode(STATE.audioContext);
+
+      ELEMS.loadingLabel.innerHTML = `downloading patch ${PATCH_URL} ...`;
+      STATE.pdJson = await loadPdJson(PATCH_URL);
+
+      ELEMS.loadingLabel.innerHTML = 'generating GUI ...';
+      await _nextTick();
+
+      STATE.controls = createModels(STATE);
+      STATE.controlsViews = createViews(STATE);
+      STATE.colorScheme = generateColorScheme(STATE);
+      render(STATE, ELEMS.controlsRoot);
+
+      ELEMS.loadingLabel.innerHTML = 'compiling engine ...';
+      await _nextTick();
+
+      STATE.webpdNode = await createEngine(STATE);
   };
 
   initializeApp()
-      .then(() => loadPdJson('./ginger2.pd'))
-      .then((pdJson) => {
-          STATE.pdJson = pdJson;
-          STATE.controls = createModels(STATE);
-          STATE.webpdNode = createEngine(STATE);
-          STATE.controlsViews = createViews(STATE);
-          STATE.colorScheme = generateColorScheme(STATE);
-          render(STATE, CONTROLS_ROOT_CONTAINER_ELEM);
+      .then(() => {
+          ELEMS.loadingLabel.style.display = 'none';
+          ELEMS.startButton.style.display = 'block';
+          console.log('APP READY');
+      })
+      .catch(() => {
+          ELEMS.loadingLabel.innerHTML = 'ERROR :(';
       });
 
 })();
