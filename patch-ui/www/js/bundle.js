@@ -7680,6 +7680,7 @@ const msg_display = (m) => '[' + m
 
   const createEngine = async (STATE) => {
       const { pdJson, controls, audioContext } = STATE;
+      const { target } = STATE.params;
       const dspGraph = toDspGraph(pdJson, NODE_BUILDERS);
       const inletCallerSpecs = _collectInletCallerSpecs(controls, dspGraph);
       const arrays = Object.values(pdJson.arrays).reduce(
@@ -7693,7 +7694,7 @@ const msg_display = (m) => '[' + m
       );
 
       const code = compile(dspGraph, NODE_IMPLEMENTATIONS, {
-          target: STATE.target,
+          target,
           inletCallerSpecs,
           audioSettings: {
               bitDepth: BIT_DEPTH,
@@ -7704,7 +7705,7 @@ const msg_display = (m) => '[' + m
       const webpdNode = new WebPdWorkletNode(audioContext);
       webpdNode.connect(audioContext.destination);
       webpdNode.port.onmessage = (message) => index(webpdNode, message);
-      if (STATE.target === 'javascript') {
+      if (target === 'javascript') {
           webpdNode.port.postMessage({
               type: 'code:JS',
               payload: {
@@ -7712,7 +7713,7 @@ const msg_display = (m) => '[' + m
                   arrays,
               },
           });
-      } else if (STATE.target === 'assemblyscript') {
+      } else if (target === 'assemblyscript') {
           const wasmBuffer = await compileAsc(
               code,
               BIT_DEPTH
@@ -8034,8 +8035,10 @@ const msg_display = (m) => '[' + m
 
   const _renderNexus = (STATE, div, controlView) => {
       const { node, patch } = controlView.control;
+      const nodeId = buildGraphNodeId(patch.id, node.id);
       const width = controlView.dimensions.x * GRID_SIZE_PX;
       const height = (controlView.dimensions.y - LABEL_HEIGHT_GRID) * GRID_SIZE_PX;
+      const storedValue = STATE.controlsValues.get(nodeId);
 
       let nexusElem;
       switch (node.type) {
@@ -8044,7 +8047,7 @@ const msg_display = (m) => '[' + m
               nexusElem = new Nexus.Add.Slider(div, {
                   min: node.args[0],
                   max: node.args[1],
-                  value: node.args[3],
+                  value: storedValue !== undefined ? storedValue : node.args[3],
                   size: [width, height],
               });
               break
@@ -8053,7 +8056,7 @@ const msg_display = (m) => '[' + m
           case 'vradio':
               nexusElem = new Nexus.RadioButton(div, {
                   numberOfButtons: node.args[0],
-                  active: node.args[2],
+                  active: storedValue !== undefined ? storedValue : node.args[2],
                   size: [width * 0.9, height * 0.9],
               });
               break
@@ -8074,14 +8077,14 @@ const msg_display = (m) => '[' + m
           case 'nbx':
           case 'floatatom':
               nexusElem = new Nexus.Number(div, {
-                  value: node.type === 'nbx' ? node.args[3] : 0,
+                  value: storedValue !== undefined ? storedValue : (node.type === 'nbx' ? node.args[3] : 0),
                   size: [width, height],
               });
               break
 
           case 'tgl':
               nexusElem = new Nexus.Toggle(div, {
-                  state: !!node.args[2],
+                  state: storedValue !== undefined ? storedValue : (!!node.args[2]),
                   size: [width, height],
               });
               break
@@ -8090,22 +8093,15 @@ const msg_display = (m) => '[' + m
               throw new Error(`Not supported ${node.type}`)
       }
 
-      let messageBuilder;
-      if (node.type === 'bng' || node.type === 'tgl') {
-          messageBuilder = () => ['bang'];
-      } else {
-          messageBuilder = (v) => [v];
+      let msgBuilder = (v) => [v];
+      if (node.type === 'bng' || node.type === 'msg') {
+          msgBuilder = () => ['bang'];
+      } else if (node.type === 'tgl') {
+          msgBuilder = (v) => [+v];
       }
-      nexusElem.on('change', (v) => {
-          STATE.webpdNode.port.postMessage({
-              type: 'inletCaller',
-              payload: {
-                  nodeId: buildGraphNodeId(patch.id, node.id),
-                  portletId: PORTLET_ID,
-                  message: messageBuilder(v),
-              },
-          });
-      });
+
+      STATE.controlsValues.register(nodeId, msgBuilder);
+      nexusElem.on('change', (v) => STATE.controlsValues.set(nodeId, v));
       return nexusElem
   };
 
@@ -8117,7 +8113,7 @@ const msg_display = (m) => '[' + m
       switch (colorSchemeSelector) {
           case 0:
               for (let i = 0; i < colorCount; i++) {
-                  const r = 0; //+ (colorCount - i) * 100 / colorCount
+                  const r = 0;
                   const g = 180 + (colorCount - i) * (240 - 180) / colorCount;
                   const b = 100 + i * 150 / colorCount;
                   colors.push(`rgba(${Math.round(r)}, ${Math.round(g)}, ${Math.round(b)})`);
@@ -8127,12 +8123,10 @@ const msg_display = (m) => '[' + m
               for (let i = 0; i < colorCount; i++) {
                   const r = 160 + i * 95 / colorCount;
                   const b = 80 + (colorCount - i) * 100 / colorCount;
-                  const g = 0;// + (colorCount - i) * 100 / colorCount
+                  const g = 0;
                   colors.push(`rgba(${Math.round(r)}, ${Math.round(g)}, ${Math.round(b)})`);
               }
               break
-
-      
       }
 
       return {
@@ -8143,60 +8137,124 @@ const msg_display = (m) => '[' + m
       }
   };
 
-  const ELEMS = {
-      controlsRoot: document.querySelector('#controls-root'),
-      startButton: document.querySelector('#start'),
-      loadingLabel: document.querySelector('#loading'),
-      loadingContainer: document.querySelector('#splash-container')
+  const nextTick = () => new Promise((resolve) => setTimeout(resolve, 1));
+
+  const sendMsgToWebPd = (STATE, nodeId, msg) => {
+      STATE.webpdNode.port.postMessage({
+          type: 'inletCaller',
+          payload: {
+              nodeId,
+              portletId: PORTLET_ID,
+              message: msg,
+          },
+      });
   };
-  ELEMS.startButton.style.display = 'none';
+
+  const loadStateFromUrl = () => {
+      const rawParams = new URLSearchParams(document.location.search);
+      STATE.params = {
+          patch: rawParams.get('patch') || './ginger2.pd',
+          target: rawParams.get('target')  || 'javascript',
+      };
+
+      // We consider that all other unknown params are control values
+      Array.from(rawParams).forEach(([key, rawValue]) => {
+          if (!(key in STATE.params)) {
+              const value = JSON.parse(rawValue);
+              STATE.controlsValues._values[key] = value;
+          }
+      });
+  };
 
   const STATE = {
-      target: 'javascript',
       audioContext: new AudioContext(),
       webpdNode: null,
       pdJson: null,
       controls: null,
       controlsViews: null,
+      controlsValues: {
+          _values: {},
+          _msgBuilders: {},
+          set(nodeId, value) {
+              this._values[nodeId] = value;
+
+              const url = new URL(window.location);
+              Object.entries(this._values).forEach(([nodeId, value]) => {
+                  url.searchParams.set(nodeId, JSON.stringify(value));
+              });
+              window.history.replaceState({}, document.title, url);
+
+              const msgBuilder = this._msgBuilders[nodeId];
+              if (!msgBuilder) {
+                  throw new Error(`no message builder for ${nodeId}`)
+              }
+              sendMsgToWebPd(STATE, nodeId, msgBuilder(value));
+          },
+          get(nodeId) {
+              return this._values[nodeId]
+          },
+          register(nodeId, msgBuilder) {
+              this._msgBuilders[nodeId] = msgBuilder;
+          },
+          initialize() {
+              Object.entries(this._values).forEach(([nodeId, value]) => {
+                  this.set(nodeId, value);
+              });
+          }
+      },
   };
 
+  const ELEMS = {
+      controlsRoot: document.querySelector('#controls-root'),
+      startButton: document.querySelector('#start'),
+      creditsContainer: document.querySelector('#credits'),
+      creditsButton: document.querySelector('#credits button'),
+      loadingLabel: document.querySelector('#loading'),
+      loadingContainer: document.querySelector('#splash-container')
+  };
+
+  ELEMS.creditsButton.onclick = () => {
+      if (ELEMS.creditsContainer.classList.contains('expanded')) {
+          ELEMS.creditsContainer.classList.remove('expanded');
+      } else {
+          ELEMS.creditsContainer.classList.add('expanded');
+      }
+  };
+
+  ELEMS.startButton.style.display = 'none';
   ELEMS.startButton.onclick = () => {
       ELEMS.loadingContainer.style.display = 'none';
+      startSound();
+  };
+
+  const startSound = () => {
       // https://github.com/WebAudio/web-audio-api/issues/345
       if (STATE.audioContext.state === 'suspended') {
           STATE.audioContext.resume();
       }
-  };
-
-  const _nextTick = () => new Promise((resolve) => setTimeout(resolve, 1));
-
-  const hydrateParams = () => {
-      const searchParams = new URLSearchParams(document.location.search);
-      return {
-          patchUrl: searchParams.get('patch') || './ginger2.pd',
-      }
+      STATE.controlsValues.initialize();
   };
 
   const initializeApp = async () => {
-      STATE.params = hydrateParams();
+      loadStateFromUrl();
 
       ELEMS.loadingLabel.innerHTML = 'loading assemblyscript compiler ...';
       await waitAscCompiler();
       await registerWebPdWorkletNode(STATE.audioContext);
 
-      ELEMS.loadingLabel.innerHTML = `downloading patch ${STATE.params.patchUrl} ...`;
-      STATE.pdJson = await loadPdJson(STATE.params.patchUrl);
+      ELEMS.loadingLabel.innerHTML = `downloading patch ${STATE.params.patch} ...`;
+      STATE.pdJson = await loadPdJson(STATE.params.patch);
 
       ELEMS.loadingLabel.innerHTML = 'generating GUI ...';
-      await _nextTick();
+      await nextTick();
 
       STATE.controls = createModels(STATE);
       STATE.controlsViews = createViews(STATE);
       STATE.colorScheme = generateColorScheme(STATE);
       render(STATE, ELEMS.controlsRoot);
 
-      ELEMS.loadingLabel.innerHTML = `compiling${STATE.target === 'assemblyscript' ? ' Web Assembly ': ' '}engine ...`;
-      await _nextTick();
+      ELEMS.loadingLabel.innerHTML = `compiling${STATE.params.target === 'assemblyscript' ? ' Web Assembly ': ' '}engine ...`;
+      await nextTick();
 
       STATE.webpdNode = await createEngine(STATE);
   };
@@ -8208,7 +8266,7 @@ const msg_display = (m) => '[' + m
           console.log('APP READY');
       })
       .catch((err) => {
-          ELEMS.loadingLabel.innerHTML = 'ERROR :(';
+          ELEMS.loadingLabel.innerHTML = 'ERROR :( <br/>' + err.message;
           console.error(err);
       });
 

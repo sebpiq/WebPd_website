@@ -31,6 +31,30 @@ html {
     background-color: rgba(1, 1, 1, 0.7);
 }
 
+#credits {
+    position: fixed;
+    top: 0;
+    right: 0;
+    text-align: right;
+    padding: 1em;
+    z-index: 2;
+}
+
+#credits .content {
+    display: none;
+    border-top: solid 1px;
+}
+
+#credits.expanded .content {
+    display: block;
+}
+
+#credits button {
+    background: none;
+    border: none;
+    cursor: pointer;
+}
+
 #start, #loading {
     position: absolute;
     top: 50%;

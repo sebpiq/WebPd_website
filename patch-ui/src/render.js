@@ -1,5 +1,4 @@
 import { buildGraphNodeId } from '@webpd/pd-json'
-import { PORTLET_ID } from './pd-json'
 import { CONTAINER_PADDING } from './views'
 
 const GRID_SIZE_PX = 30
@@ -86,8 +85,10 @@ const _renderLabel = (parent, label) => {
 
 const _renderNexus = (STATE, div, controlView) => {
     const { node, patch } = controlView.control
+    const nodeId = buildGraphNodeId(patch.id, node.id)
     const width = controlView.dimensions.x * GRID_SIZE_PX
     const height = (controlView.dimensions.y - LABEL_HEIGHT_GRID) * GRID_SIZE_PX
+    const storedValue = STATE.controlsValues.get(nodeId)
 
     let nexusElem
     switch (node.type) {
@@ -96,7 +97,7 @@ const _renderNexus = (STATE, div, controlView) => {
             nexusElem = new Nexus.Add.Slider(div, {
                 min: node.args[0],
                 max: node.args[1],
-                value: node.args[3],
+                value: storedValue !== undefined ? storedValue : node.args[3],
                 size: [width, height],
             })
             break
@@ -105,7 +106,7 @@ const _renderNexus = (STATE, div, controlView) => {
         case 'vradio':
             nexusElem = new Nexus.RadioButton(div, {
                 numberOfButtons: node.args[0],
-                active: node.args[2],
+                active: storedValue !== undefined ? storedValue : node.args[2],
                 size: [width * 0.9, height * 0.9],
             })
             break
@@ -126,14 +127,14 @@ const _renderNexus = (STATE, div, controlView) => {
         case 'nbx':
         case 'floatatom':
             nexusElem = new Nexus.Number(div, {
-                value: node.type === 'nbx' ? node.args[3] : 0,
+                value: storedValue !== undefined ? storedValue : (node.type === 'nbx' ? node.args[3] : 0),
                 size: [width, height],
             })
             break
 
         case 'tgl':
             nexusElem = new Nexus.Toggle(div, {
-                state: !!node.args[2],
+                state: storedValue !== undefined ? storedValue : (!!node.args[2]),
                 size: [width, height],
             })
             break
@@ -142,22 +143,15 @@ const _renderNexus = (STATE, div, controlView) => {
             throw new Error(`Not supported ${node.type}`)
     }
 
-    let messageBuilder
-    if (node.type === 'bng' || node.type === 'tgl') {
-        messageBuilder = () => ['bang']
-    } else {
-        messageBuilder = (v) => [v]
+    let msgBuilder = (v) => [v]
+    if (node.type === 'bng' || node.type === 'msg') {
+        msgBuilder = () => ['bang']
+    } else if (node.type === 'tgl') {
+        msgBuilder = (v) => [+v]
     }
-    nexusElem.on('change', (v) => {
-        STATE.webpdNode.port.postMessage({
-            type: 'inletCaller',
-            payload: {
-                nodeId: buildGraphNodeId(patch.id, node.id),
-                portletId: PORTLET_ID,
-                message: messageBuilder(v),
-            },
-        })
-    })
+
+    STATE.controlsValues.register(nodeId, msgBuilder)
+    nexusElem.on('change', (v) => STATE.controlsValues.set(nodeId, v))
     return nexusElem
 }
 
@@ -169,7 +163,7 @@ export const generateColorScheme = (STATE) => {
     switch (colorSchemeSelector) {
         case 0:
             for (let i = 0; i < colorCount; i++) {
-                const r = 0 //+ (colorCount - i) * 100 / colorCount
+                const r = 0
                 const g = 180 + (colorCount - i) * (240 - 180) / colorCount
                 const b = 100 + i * 150 / colorCount
                 colors.push(`rgba(${Math.round(r)}, ${Math.round(g)}, ${Math.round(b)})`)
@@ -179,12 +173,10 @@ export const generateColorScheme = (STATE) => {
             for (let i = 0; i < colorCount; i++) {
                 const r = 160 + i * 95 / colorCount
                 const b = 80 + (colorCount - i) * 100 / colorCount
-                const g = 0// + (colorCount - i) * 100 / colorCount
+                const g = 0
                 colors.push(`rgba(${Math.round(r)}, ${Math.round(g)}, ${Math.round(b)})`)
             }
             break
-
-    
     }
 
     return {

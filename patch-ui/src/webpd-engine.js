@@ -12,6 +12,7 @@ const BIT_DEPTH = 32
 
 export const createEngine = async (STATE) => {
     const { pdJson, controls, audioContext } = STATE
+    const { target } = STATE.params
     const dspGraph = toDspGraph(pdJson, NODE_BUILDERS)
     const inletCallerSpecs = _collectInletCallerSpecs(controls, dspGraph)
     const arrays = Object.values(pdJson.arrays).reduce(
@@ -25,7 +26,7 @@ export const createEngine = async (STATE) => {
     )
 
     const code = compile(dspGraph, NODE_IMPLEMENTATIONS, {
-        target: STATE.target,
+        target,
         inletCallerSpecs,
         audioSettings: {
             bitDepth: BIT_DEPTH,
@@ -36,7 +37,7 @@ export const createEngine = async (STATE) => {
     const webpdNode = new WebPdWorkletNode(audioContext)
     webpdNode.connect(audioContext.destination)
     webpdNode.port.onmessage = (message) => fsWeb(webpdNode, message)
-    if (STATE.target === 'javascript') {
+    if (target === 'javascript') {
         webpdNode.port.postMessage({
             type: 'code:JS',
             payload: {
@@ -44,7 +45,7 @@ export const createEngine = async (STATE) => {
                 arrays,
             },
         })
-    } else if (STATE.target === 'assemblyscript') {
+    } else if (target === 'assemblyscript') {
         const wasmBuffer = await compileAsc(
             code,
             BIT_DEPTH

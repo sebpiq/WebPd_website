@@ -7,61 +7,60 @@ import { createEngine } from './webpd-engine'
 import { createViews } from './views'
 import { render, generateColorScheme } from './render'
 import { waitAscCompiler } from './wasm'
+import { nextTick } from './misc-utils'
+import { STATE, loadStateFromUrl } from './state'
 
 const ELEMS = {
     controlsRoot: document.querySelector('#controls-root'),
     startButton: document.querySelector('#start'),
+    creditsContainer: document.querySelector('#credits'),
+    creditsButton: document.querySelector('#credits button'),
     loadingLabel: document.querySelector('#loading'),
     loadingContainer: document.querySelector('#splash-container')
 }
-ELEMS.startButton.style.display = 'none'
 
-const STATE = {
-    target: 'javascript',
-    audioContext: new AudioContext(),
-    webpdNode: null,
-    pdJson: null,
-    controls: null,
-    controlsViews: null,
+ELEMS.creditsButton.onclick = () => {
+    if (ELEMS.creditsContainer.classList.contains('expanded')) {
+        ELEMS.creditsContainer.classList.remove('expanded')
+    } else {
+        ELEMS.creditsContainer.classList.add('expanded')
+    }
 }
 
+ELEMS.startButton.style.display = 'none'
 ELEMS.startButton.onclick = () => {
     ELEMS.loadingContainer.style.display = 'none'
+    startSound()
+}
+
+const startSound = () => {
     // https://github.com/WebAudio/web-audio-api/issues/345
     if (STATE.audioContext.state === 'suspended') {
         STATE.audioContext.resume()
     }
-}
-
-const _nextTick = () => new Promise((resolve) => setTimeout(resolve, 1))
-
-const hydrateParams = () => {
-    const searchParams = new URLSearchParams(document.location.search)
-    return {
-        patchUrl: searchParams.get('patch') || './ginger2.pd',
-    }
+    STATE.controlsValues.initialize()
 }
 
 const initializeApp = async () => {
-    STATE.params = hydrateParams()
+    loadStateFromUrl()
 
     ELEMS.loadingLabel.innerHTML = 'loading assemblyscript compiler ...'
     await waitAscCompiler()
     await registerWebPdWorkletNode(STATE.audioContext)
 
-    ELEMS.loadingLabel.innerHTML = `downloading patch ${STATE.params.patchUrl} ...`
-    STATE.pdJson = await loadPdJson(STATE.params.patchUrl)
+    ELEMS.loadingLabel.innerHTML = `downloading patch ${STATE.params.patch} ...`
+    STATE.pdJson = await loadPdJson(STATE.params.patch)
 
     ELEMS.loadingLabel.innerHTML = 'generating GUI ...'
-    await _nextTick()
+    await nextTick()
 
     STATE.controls = createModels(STATE)
     STATE.controlsViews = createViews(STATE)
     STATE.colorScheme = generateColorScheme(STATE)
     render(STATE, ELEMS.controlsRoot)
 
-    ELEMS.loadingLabel.innerHTML = `compiling${STATE.target === 'assemblyscript' ? ' Web Assembly ': ' '}engine ...`
-    await _nextTick()
+    ELEMS.loadingLabel.innerHTML = `compiling${STATE.params.target === 'assemblyscript' ? ' Web Assembly ': ' '}engine ...`
+    await nextTick()
 
     STATE.webpdNode = await createEngine(STATE)
 }
@@ -73,6 +72,6 @@ initializeApp()
         console.log('APP READY')
     })
     .catch((err) => {
-        ELEMS.loadingLabel.innerHTML = 'ERROR :('
+        ELEMS.loadingLabel.innerHTML = 'ERROR :( <br/>' + err.message
         console.error(err)
     })
