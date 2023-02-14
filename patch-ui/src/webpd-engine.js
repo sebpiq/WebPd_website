@@ -10,7 +10,7 @@ import { PORTLET_ID } from './pd-json'
 
 const BIT_DEPTH = 32
 
-export const createEngine = async (STATE) => {
+export const createEngine = async (STATE, stream) => {
     const { pdJson, controls, audioContext } = STATE
     const { target } = STATE.params
     const dspGraph = toDspGraph(pdJson, NODE_BUILDERS)
@@ -34,7 +34,9 @@ export const createEngine = async (STATE) => {
         },
     })
 
+    const sourceNode = audioContext.createMediaStreamSource(stream)
     const webpdNode = new WebPdWorkletNode(audioContext)
+    sourceNode.connect(webpdNode)
     webpdNode.connect(audioContext.destination)
     webpdNode.port.onmessage = (message) => fsWeb(webpdNode, message)
     if (target === 'javascript') {

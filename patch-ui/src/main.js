@@ -33,6 +33,7 @@ ELEMS.startButton.onclick = () => {
     startSound()
 }
 
+STATE.audioContext.suspend()
 const startSound = () => {
     // https://github.com/WebAudio/web-audio-api/issues/345
     if (STATE.audioContext.state === 'suspended') {
@@ -62,7 +63,8 @@ const initializeApp = async () => {
     ELEMS.loadingLabel.innerHTML = `compiling${STATE.params.target === 'assemblyscript' ? ' Web Assembly ': ' '}engine ...`
     await nextTick()
 
-    STATE.webpdNode = await createEngine(STATE)
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+    STATE.webpdNode = await createEngine(STATE, stream)
 }
 
 initializeApp()

@@ -7678,7 +7678,7 @@ const msg_display = (m) => '[' + m
 
   const BIT_DEPTH = 32;
 
-  const createEngine = async (STATE) => {
+  const createEngine = async (STATE, stream) => {
       const { pdJson, controls, audioContext } = STATE;
       const { target } = STATE.params;
       const dspGraph = toDspGraph(pdJson, NODE_BUILDERS);
@@ -7702,7 +7702,9 @@ const msg_display = (m) => '[' + m
           },
       });
 
+      const sourceNode = audioContext.createMediaStreamSource(stream);
       const webpdNode = new WebPdWorkletNode(audioContext);
+      sourceNode.connect(webpdNode);
       webpdNode.connect(audioContext.destination);
       webpdNode.port.onmessage = (message) => index(webpdNode, message);
       if (target === 'javascript') {
@@ -8227,6 +8229,7 @@ const msg_display = (m) => '[' + m
       startSound();
   };
 
+  STATE.audioContext.suspend();
   const startSound = () => {
       // https://github.com/WebAudio/web-audio-api/issues/345
       if (STATE.audioContext.state === 'suspended') {
@@ -8256,7 +8259,8 @@ const msg_display = (m) => '[' + m
       ELEMS.loadingLabel.innerHTML = `compiling${STATE.params.target === 'assemblyscript' ? ' Web Assembly ': ' '}engine ...`;
       await nextTick();
 
-      STATE.webpdNode = await createEngine(STATE);
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      STATE.webpdNode = await createEngine(STATE, stream);
   };
 
   initializeApp()
