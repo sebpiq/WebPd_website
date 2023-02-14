@@ -1338,7 +1338,7 @@
 #X obj 14 182 +~;
 #X obj 55 155 *~;
 #X obj 28 34 hsl 96 8 0 0.95 0 1 empty empty fb -16 5 0 8 #fcfcfc #000000
-#000000 1900 1;
+#000000 0 1;
 #X text 215 66 <- bpm in;
 #X obj 180 8 loadbang;
 #X floatatom 255 127 5 0 0 0 - - - 0;
@@ -1402,7 +1402,7 @@
 #X obj 14 182 +~;
 #X obj 55 155 *~;
 #X obj 28 34 hsl 96 8 0 0.95 0 1 empty empty fb -16 5 0 8 #fcfcfc #000000
-#000000 3500 1;
+#000000 0 1;
 #X text 215 66 <- bpm in;
 #X obj 180 8 loadbang;
 #X floatatom 255 127 5 0 0 0 - - - 0;

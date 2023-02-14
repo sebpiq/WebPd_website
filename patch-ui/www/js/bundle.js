@@ -527,6 +527,7 @@
       hradio: 'hradio',
       vu: 'vu',
       cnv: 'cnv',
+      msg: 'msg',
   };
 
   var IdNamespaces$2;
@@ -549,13 +550,15 @@
   const ESCAPED_DOLLAR_VAR_RE_GLOB = /\\(\$\d+)/g;
   const ESCAPED_COMMA_VAR_RE_GLOB = /\\,/g;
   const ESCAPED_SEMICOLON_VAR_RE_GLOB = /\\;/g;
-  // Parses argument to a string or a number.
-  // Needs to handle the case when the argument is already a number as in the process of gathering
-  // arguments we sometimes insert a number.
+  /**
+   * Parses token to a node arg (string or a number).
+   * Needs to handle the case when the token is already a number as in the process of gathering
+   * arguments we sometimes insert a number.
+   */
   const parseArg = (rawArg) => {
       // Try to parse arg as a number
       try {
-          return parseNumberArg(rawArg);
+          return parseFloatToken(rawArg);
       }
       catch (err) {
           if (!(err instanceof ValueError)) {
@@ -564,7 +567,7 @@
       }
       // Try to parse arg as a string
       try {
-          return parseStringArg(rawArg);
+          return parseStringToken(rawArg);
       }
       catch (err) {
           if (!(err instanceof ValueError)) {
@@ -573,8 +576,8 @@
       }
       throw new ValueError(`Not a valid arg ${rawArg}`);
   };
-  // Parses a float from a .pd file. Returns the parsed float or throws ValueError.
-  const parseNumberArg = (val) => {
+  /** Parses a float from a .pd file. Returns the parsed float or throws ValueError. */
+  const parseFloatToken = (val) => {
       if (isNumber(val)) {
           return val;
       }
@@ -592,16 +595,26 @@
           throw new ValueError(`Not a valid number arg ${val}`);
       }
   };
-  // Parses a '0' or '1' from a .pd file.
-  const parseBoolArg = (val) => {
-      const parsed = parseNumberArg(val);
+  /** Parses an int from a .pd file. Returns the parsed int or throws ValueError. */
+  const parseIntToken = (token) => {
+      if (token === undefined) {
+          throw new ValueError(`Received undefined`);
+      }
+      return parseInt(token, 10);
+  };
+  /** Parses a '0' or '1' from a .pd file. */
+  const parseBoolToken = (val) => {
+      const parsed = parseFloatToken(val);
       if (parsed === 0 || parsed === 1) {
           return parsed;
       }
       throw new ValueError(`Should be 0 or 1`);
   };
-  // Apply some operations to a string arg
-  const parseStringArg = (val, emptyValue = null) => {
+  /**
+   * Apply some operations to a string arg.
+   * @todo : document + dollar-var substitution should not be done here.
+   */
+  const parseStringToken = (val, emptyValue = null) => {
       if (!isString(val)) {
           throw new ValueError(`Not a valid string arg ${val}`);
       }
@@ -635,44 +648,52 @@
    * See https://github.com/sebpiq/WebPd_pd-parser for documentation
    *
    */
-  const hydratePatch = (id, { tokens: canvasTokens }, { tokens: coordsTokens }) => {
-      const patch = {
+  /**
+   * @param coordsTokenizedLine Defined only if the patch declares a graph on its parent,
+   * i.e. if the patch has a UI visible in its parent.
+   */
+  const hydratePatch = (id, canvasTokenizedLine, coordsTokenizedLine) => {
+      const { tokens: canvasTokens } = canvasTokenizedLine;
+      const coordsTokens = coordsTokenizedLine ? coordsTokenizedLine.tokens : null;
+      let layout = {
+          windowX: parseIntToken(canvasTokens[2]),
+          windowY: parseIntToken(canvasTokens[3]),
+          windowWidth: parseIntToken(canvasTokens[4]),
+          windowHeight: parseIntToken(canvasTokens[5]),
+      };
+      if (typeof canvasTokens[7] !== 'undefined') {
+          layout.openOnLoad = parseBoolToken(canvasTokens[7]);
+      }
+      if (coordsTokens && typeof coordsTokens[8] !== 'undefined') {
+          const graphOnParentRaw = parseFloatToken(coordsTokens[8]);
+          layout.graphOnParent = graphOnParentRaw > 0 ? 1 : 0;
+          if (layout.graphOnParent === 1) {
+              layout = {
+                  ...layout,
+                  hideObjectNameAndArguments: graphOnParentRaw === 2 ? 1 : 0,
+                  viewportX: coordsTokens[9] ? parseIntToken(coordsTokens[9]) : 0,
+                  viewportY: coordsTokens[10] ? parseIntToken(coordsTokens[10]) : 0,
+                  viewportWidth: parseIntToken(coordsTokens[6]),
+                  viewportHeight: parseIntToken(coordsTokens[7]),
+              };
+          }
+      }
+      return {
           id,
-          layout: {
-              windowX: parseInt(canvasTokens[2], 10),
-              windowY: parseInt(canvasTokens[3], 10),
-              windowWidth: parseInt(canvasTokens[4], 10),
-              windowHeight: parseInt(canvasTokens[5], 10),
-          },
-          args: [canvasTokens[6]],
+          layout,
+          args: [parseStringToken(canvasTokens[6])],
           nodes: {},
           connections: [],
           inlets: [],
           outlets: [],
       };
-      if (typeof canvasTokens[7] !== 'undefined') {
-          patch.layout.openOnLoad = parseBoolArg(canvasTokens[7]);
-      }
-      if (typeof coordsTokens[8] !== 'undefined') {
-          patch.layout.graphOnParent = parseBoolArg(coordsTokens[8]);
-      }
-      if (patch.layout.graphOnParent === 1) {
-          patch.layout = {
-              ...patch.layout,
-              viewportX: coordsTokens[9] ? parseInt(coordsTokens[9], 10) : 0,
-              viewportY: coordsTokens[10] ? parseInt(coordsTokens[10], 10) : 0,
-              viewportWidth: parseInt(coordsTokens[6], 10),
-              viewportHeight: parseInt(coordsTokens[7], 10),
-          };
-      }
-      return patch;
   };
   const hydrateArray = (id, { tokens }) => {
-      const arrayName = tokens[2];
-      const arraySize = parseFloat(tokens[3]);
+      const arrayName = parseStringToken(tokens[2]);
+      const arraySize = parseIntToken(tokens[3]);
       // Options flag :
       // first bit if for `saveContents` second for `drawAs`
-      const optionsFlag = parseFloat(tokens[5]);
+      const optionsFlag = parseIntToken(tokens[5]);
       const saveContents = (optionsFlag % 2);
       const drawAs = ['polygon', 'points', 'bezier'][optionsFlag >>> 1];
       return {
@@ -692,17 +713,17 @@
       }
       // add subpatch name
       if (canvasType === 'pd') {
-          args.push(tokens[5]);
+          args.push(parseStringToken(tokens[5]));
       }
       return {
           id,
           type: canvasType,
-          patchId: tokens[1],
+          patchId: parseStringToken(tokens[1]),
           nodeClass: 'subpatch',
           args,
           layout: {
-              x: parseInt(tokens[2], 10),
-              y: parseInt(tokens[3], 10),
+              x: parseIntToken(tokens[2]),
+              y: parseIntToken(tokens[3]),
           },
       };
   };
@@ -711,21 +732,21 @@
       args: [],
       type: 'array',
       nodeClass: 'array',
-      arrayId: tokens[1],
+      arrayId: parseStringToken(tokens[1]),
   });
   const hydrateNodeBase = (id, tokens) => {
       const elementType = tokens[1];
-      let type; // the object name
+      let type = ''; // the object name
       let args; // the construction args for the object
       // 2 categories here :
       //  - elems whose name is `elementType`
       //  - elems whose name is `token[4]`
       if (elementType === 'obj') {
-          type = tokens[4];
+          type = parseStringToken(tokens[4]);
           args = tokens.slice(5);
       }
       else {
-          type = elementType;
+          type = parseStringToken(elementType);
           args = tokens.slice(4);
       }
       // If text, we need to re-join all tokens
@@ -737,19 +758,19 @@
           type,
           args,
           layout: {
-              x: parseNumberArg(tokens[2]),
-              y: parseNumberArg(tokens[3]),
+              x: parseFloatToken(tokens[2]),
+              y: parseFloatToken(tokens[3]),
           },
       };
   };
   const hydrateConnection = ({ tokens, }) => ({
       source: {
-          nodeId: tokens[2],
-          portletId: parseInt(tokens[3], 10),
+          nodeId: parseStringToken(tokens[2]),
+          portletId: parseIntToken(tokens[3]),
       },
       sink: {
-          nodeId: tokens[4],
-          portletId: parseInt(tokens[5], 10),
+          nodeId: parseStringToken(tokens[4]),
+          portletId: parseIntToken(tokens[5]),
       },
   });
   const hydrateNodeGeneric = (nodeBase) => {
@@ -772,59 +793,63 @@
           // <width> <lower_limit> <upper_limit> <label_pos> <label> <receive> <send>
           node.layout = {
               ...node.layout,
-              width: parseNumberArg(args[0]),
-              labelPos: parseNumberArg(args[3]),
-              label: parseStringArg(args[4], '-'),
+              width: parseFloatToken(args[0]),
+              labelPos: parseFloatToken(args[3]),
+              label: parseStringToken(args[4], '-'),
           };
           node.args = [
-              parseNumberArg(args[1]),
-              parseNumberArg(args[2]),
-              parseStringArg(args[5], '-'),
-              parseStringArg(args[6], '-'),
+              parseFloatToken(args[1]),
+              parseFloatToken(args[2]),
+              parseStringToken(args[5], '-'),
+              parseStringToken(args[6], '-'),
           ];
+          // In Pd `msg` is actually more handled like a standard object, even though it is a control.
+      }
+      else if (node.type === 'msg') {
+          node.args = node.args.map(parseArg);
       }
       else if (node.type === 'bng') {
           // <size> <hold> <interrupt> <init> <send> <receive> <label> <x_off> <y_off> <font> <fontsize> <bg_color> <fg_color> <label_color>
           node.layout = {
               ...node.layout,
-              size: parseNumberArg(args[0]),
-              hold: parseNumberArg(args[1]),
-              interrupt: parseNumberArg(args[2]),
-              label: parseStringArg(args[6], 'empty'),
-              labelX: parseNumberArg(args[7]),
-              labelY: parseNumberArg(args[8]),
+              size: parseFloatToken(args[0]),
+              hold: parseFloatToken(args[1]),
+              interrupt: parseFloatToken(args[2]),
+              label: parseStringToken(args[6], 'empty'),
+              labelX: parseFloatToken(args[7]),
+              labelY: parseFloatToken(args[8]),
               labelFont: args[9],
-              labelFontSize: parseNumberArg(args[10]),
+              labelFontSize: parseFloatToken(args[10]),
               bgColor: args[11],
               fgColor: args[12],
               labelColor: args[13],
           };
           node.args = [
-              parseBoolArg(args[3]),
-              parseStringArg(args[4], 'empty'),
-              parseStringArg(args[5], 'empty'),
+              parseBoolToken(args[3]),
+              parseStringToken(args[4], 'empty'),
+              parseStringToken(args[5], 'empty'),
           ];
       }
       else if (node.type === 'tgl') {
           // <size> <init> <send> <receive> <label> <x_off> <y_off> <font> <fontsize> <bg_color> <fg_color> <label_color> <init_value> <default_value>
           node.layout = {
               ...node.layout,
-              size: parseNumberArg(args[0]),
-              label: parseStringArg(args[4], 'empty'),
-              labelX: parseNumberArg(args[5]),
-              labelY: parseNumberArg(args[6]),
+              size: parseFloatToken(args[0]),
+              label: parseStringToken(args[4], 'empty'),
+              labelX: parseFloatToken(args[5]),
+              labelY: parseFloatToken(args[6]),
               labelFont: args[7],
-              labelFontSize: parseNumberArg(args[8]),
+              labelFontSize: parseFloatToken(args[8]),
               bgColor: args[9],
               fgColor: args[10],
               labelColor: args[11],
           };
           node.args = [
-              parseNumberArg(args[13]),
-              parseBoolArg(args[1]),
-              parseNumberArg(args[12]),
-              parseStringArg(args[2], 'empty'),
-              parseStringArg(args[3], 'empty'),
+              parseFloatToken(args[13]),
+              parseBoolToken(args[1]),
+              parseFloatToken(args[12]),
+              parseStringToken(args[2], 'empty'),
+              parseStringToken(args[3], 'empty'),
           ];
       }
       else if (node.type === 'nbx') {
@@ -832,49 +857,49 @@
           // <size> <height> <min> <max> <log> <init> <send> <receive> <label> <x_off> <y_off> <font> <fontsize> <bg_color> <fg_color> <label_color> <log_height>
           node.layout = {
               ...node.layout,
-              widthDigits: parseNumberArg(args[0]),
-              height: parseNumberArg(args[1]),
-              log: parseNumberArg(args[4]),
-              label: parseStringArg(args[8], 'empty'),
-              labelX: parseNumberArg(args[9]),
-              labelY: parseNumberArg(args[10]),
+              widthDigits: parseFloatToken(args[0]),
+              height: parseFloatToken(args[1]),
+              log: parseFloatToken(args[4]),
+              label: parseStringToken(args[8], 'empty'),
+              labelX: parseFloatToken(args[9]),
+              labelY: parseFloatToken(args[10]),
               labelFont: args[11],
-              labelFontSize: parseNumberArg(args[12]),
+              labelFontSize: parseFloatToken(args[12]),
               bgColor: args[13],
               fgColor: args[14],
               labelColor: args[15],
               logHeight: args[17],
           };
           node.args = [
-              parseNumberArg(args[2]),
-              parseNumberArg(args[3]),
-              parseBoolArg(args[5]),
-              parseNumberArg(args[16]),
-              parseStringArg(args[6], 'empty'),
-              parseStringArg(args[7], 'empty'),
+              parseFloatToken(args[2]),
+              parseFloatToken(args[3]),
+              parseBoolToken(args[5]),
+              parseFloatToken(args[16]),
+              parseStringToken(args[6], 'empty'),
+              parseStringToken(args[7], 'empty'),
           ];
       }
       else if (node.type === 'vsl' || node.type === 'hsl') {
           // <width> <height> <min> <max> <log> <init> <send> <receive> <label> <x_off> <y_off> <font> <fontsize> <bg_color> <fg_color> <label_color> <default_value> <steady_on_click>
           node.layout = {
               ...node.layout,
-              width: parseNumberArg(args[0]),
-              height: parseNumberArg(args[1]),
-              log: parseNumberArg(args[4]),
-              label: parseStringArg(args[8], 'empty'),
-              labelX: parseNumberArg(args[9]),
-              labelY: parseNumberArg(args[10]),
+              width: parseFloatToken(args[0]),
+              height: parseFloatToken(args[1]),
+              log: parseFloatToken(args[4]),
+              label: parseStringToken(args[8], 'empty'),
+              labelX: parseFloatToken(args[9]),
+              labelY: parseFloatToken(args[10]),
               labelFont: args[11],
-              labelFontSize: parseNumberArg(args[12]),
+              labelFontSize: parseFloatToken(args[12]),
               bgColor: args[13],
               fgColor: args[14],
               labelColor: args[15],
               steadyOnClick: args[17],
           };
-          const minValue = parseNumberArg(args[2]);
-          const maxValue = parseNumberArg(args[3]);
-          const isLogScale = parseBoolArg(args[4]);
-          const pixValue = parseNumberArg(args[16]);
+          const minValue = parseFloatToken(args[2]);
+          const maxValue = parseFloatToken(args[3]);
+          const isLogScale = parseBoolToken(args[4]);
+          const pixValue = parseFloatToken(args[16]);
           const pixSize = node.type === 'hsl' ? node.layout.width : node.layout.height;
           let initValue = 0;
           if (isLogScale) {
@@ -890,68 +915,68 @@
           node.args = [
               minValue,
               maxValue,
-              parseBoolArg(args[5]),
+              parseBoolToken(args[5]),
               initValue,
-              parseStringArg(args[6], 'empty'),
-              parseStringArg(args[7], 'empty'),
+              parseStringToken(args[6], 'empty'),
+              parseStringToken(args[7], 'empty'),
           ];
       }
       else if (node.type === 'vradio' || node.type === 'hradio') {
           // <size> <new_old> <init> <number> <send> <receive> <label> <x_off> <y_off> <font> <fontsize> <bg_color> <fg_color> <label_color> <default_value>
           node.layout = {
               ...node.layout,
-              size: parseNumberArg(args[0]),
-              label: parseStringArg(args[6], 'empty'),
-              labelX: parseNumberArg(args[7]),
-              labelY: parseNumberArg(args[8]),
+              size: parseFloatToken(args[0]),
+              label: parseStringToken(args[6], 'empty'),
+              labelX: parseFloatToken(args[7]),
+              labelY: parseFloatToken(args[8]),
               labelFont: args[9],
-              labelFontSize: parseNumberArg(args[10]),
+              labelFontSize: parseFloatToken(args[10]),
               bgColor: args[11],
               fgColor: args[12],
               labelColor: args[13],
           };
           node.args = [
-              parseNumberArg(args[3]),
-              parseBoolArg(args[1]),
-              parseNumberArg(args[14]),
-              parseStringArg(args[4], 'empty'),
-              parseStringArg(args[5], 'empty'),
-              parseBoolArg(args[2]),
+              parseFloatToken(args[3]),
+              parseBoolToken(args[1]),
+              parseFloatToken(args[14]),
+              parseStringToken(args[4], 'empty'),
+              parseStringToken(args[5], 'empty'),
+              parseBoolToken(args[2]),
           ];
       }
       else if (node.type === 'vu') {
           // <width> <height> <receive> <label> <x_off> <y_off> <font> <fontsize> <bg_color> <label_color> <scale> <?>
           node.layout = {
               ...node.layout,
-              width: parseNumberArg(args[0]),
-              height: parseNumberArg(args[1]),
-              label: parseStringArg(args[3], 'empty'),
-              labelX: parseNumberArg(args[4]),
-              labelY: parseNumberArg(args[5]),
+              width: parseFloatToken(args[0]),
+              height: parseFloatToken(args[1]),
+              label: parseStringToken(args[3], 'empty'),
+              labelX: parseFloatToken(args[4]),
+              labelY: parseFloatToken(args[5]),
               labelFont: args[6],
-              labelFontSize: parseNumberArg(args[7]),
+              labelFontSize: parseFloatToken(args[7]),
               bgColor: args[8],
               labelColor: args[9],
-              log: parseNumberArg(args[10]),
+              log: parseFloatToken(args[10]),
           };
-          node.args = [parseStringArg(args[2], 'empty'), args[11]];
+          node.args = [parseStringToken(args[2], 'empty'), parseStringToken(args[11])];
       }
       else if (node.type === 'cnv') {
           // <size> <width> <height> <send> <receive> <label> <x_off> <y_off> <font> <font_size> <bg_color> <label_color> <?>
           node.layout = {
               ...node.layout,
-              size: parseNumberArg(args[0]),
-              width: parseNumberArg(args[1]),
-              height: parseNumberArg(args[2]),
-              label: parseStringArg(args[5], 'empty'),
-              labelX: parseNumberArg(args[6]),
-              labelY: parseNumberArg(args[7]),
+              size: parseFloatToken(args[0]),
+              width: parseFloatToken(args[1]),
+              height: parseFloatToken(args[2]),
+              label: parseStringToken(args[5], 'empty'),
+              labelX: parseFloatToken(args[6]),
+              labelY: parseFloatToken(args[7]),
               labelFont: args[8],
-              labelFontSize: parseNumberArg(args[9]),
+              labelFontSize: parseFloatToken(args[9]),
               bgColor: args[10],
               labelColor: args[11],
           };
-          node.args = [parseStringArg(args[3], 'empty'), parseStringArg(args[4], 'empty'), args[12]];
+          node.args = [parseStringToken(args[3], 'empty'), parseStringToken(args[4], 'empty'), parseStringToken(args[12])];
       }
       else {
           throw new Error(`Unexpected control node ${node.type}`);
@@ -968,7 +993,7 @@
               const command = afterCommaTokens.shift();
               if (command === 'f') {
                   node.layout.width =
-                      parseNumberArg(afterCommaTokens.shift());
+                      parseFloatToken(afterCommaTokens.shift());
               }
           }
       }
@@ -996,7 +1021,7 @@
       const tokenizedLines = [];
       // use our regular expression to match instances of valid Pd lines
       LINES_RE.lastIndex = 0; // reset lastIndex, in case the previous call threw an error
-      let lineMatch;
+      let lineMatch = null;
       while ((lineMatch = LINES_RE.exec(pdString))) {
           // In order to support object width, pd vanilla adds something like ", f 10" at the end
           // of the line. So we need to look for non-escaped comma, and get that part after it.
@@ -1006,11 +1031,13 @@
               .split(AFTER_COMMA_RE)
               .reverse()
               .map(_reverseString);
+          const lineIndex = pdString.slice(0, lineMatch.index).split('\n').length - 1;
           tokenizedLines.push({
               tokens: tokenizeLine(lineParts[0]),
               lineAfterComma: lineParts[1]
                   ? tokenizeLine(lineParts[1])
                   : undefined,
+              lineIndex
           });
       }
       return tokenizedLines;
@@ -1068,9 +1095,9 @@
           let patchTokenizedLines = patchTokenizedLinesMap[patch.id];
           [pd, patchTokenizedLines] = parseArrays(pd, patchTokenizedLines);
           [patch, patchTokenizedLines] = parseNodesAndConnections(patch, patchTokenizedLines);
-          patch = computePatchPortlets(patch);
+          patch = _computePatchPortlets(patch);
           if (patchTokenizedLines.length) {
-              throw new Error(`invalid chunks : ${patchTokenizedLines.map((l) => l.tokens)}`);
+              throw new ParseError('invalid chunks', patchTokenizedLines[0].lineIndex);
           }
           pd.patches[patch.id] = patch;
       });
@@ -1085,38 +1112,45 @@
       patchTokenizedLinesMap = { ...patchTokenizedLinesMap };
       const patchId = nextPatchId();
       const patchTokenizedLines = [];
-      let patchCanvasTokens;
-      let patchCoordsTokens = { tokens: [] };
-      let lineIndex = -1;
-      while (tokenizedLines.length) {
-          const { tokens } = tokenizedLines[0];
-          lineIndex++;
-          // First line of the patch / subpatch, initializes the patch
-          if (_tokensMatch(tokens, '#N', 'canvas') && lineIndex === 0) {
-              patchCanvasTokens = tokenizedLines.shift();
-              // If not first line, starts a subpatch
-          }
-          else if (_tokensMatch(tokens, '#N', 'canvas')) {
-              [pd, tokenizedLines, patchTokenizedLinesMap] = parsePatches(pd, tokenizedLines, patchTokenizedLinesMap);
-              // coords : visual range of framesets
-          }
-          else if (_tokensMatch(tokens, '#X', 'coords')) {
-              patchCoordsTokens = tokenizedLines.shift();
-              // Restore : ends a canvas definition
-          }
-          else if (_tokensMatch(tokens, '#X', 'restore')) {
-              // Creates a synthetic node that our parser will hydrate at a later stage
-              tokenizedLines[0].tokens = [
-                  'PATCH',
-                  patchId,
-                  ...tokenizedLines[0].tokens.slice(2),
-              ];
-              break;
-              // A normal chunk to add to the current patch
-          }
-          else {
-              patchTokenizedLines.push(tokenizedLines.shift());
-          }
+      let patchCanvasTokens = null;
+      let patchCoordsTokens = null;
+      let iterCounter = -1;
+      let continueIteration = true;
+      while (tokenizedLines.length && continueIteration) {
+          const { tokens, lineIndex } = tokenizedLines[0];
+          iterCounter++;
+          catchParsingErrors(lineIndex, () => {
+              // First line of the patch / subpatch, initializes the patch
+              if (_tokensMatch(tokens, '#N', 'canvas') && iterCounter === 0) {
+                  patchCanvasTokens = tokenizedLines.shift();
+                  // If not first line, starts a subpatch
+              }
+              else if (_tokensMatch(tokens, '#N', 'canvas')) {
+                  ;
+                  [pd, tokenizedLines, patchTokenizedLinesMap] = parsePatches(pd, tokenizedLines, patchTokenizedLinesMap);
+                  // coords : visual range of framesets
+              }
+              else if (_tokensMatch(tokens, '#X', 'coords')) {
+                  patchCoordsTokens = tokenizedLines.shift();
+                  // Restore : ends a canvas definition
+              }
+              else if (_tokensMatch(tokens, '#X', 'restore')) {
+                  // Creates a synthetic node that our parser will hydrate at a later stage
+                  tokenizedLines[0].tokens = [
+                      'PATCH',
+                      patchId,
+                      ...tokenizedLines[0].tokens.slice(2),
+                  ];
+                  continueIteration = false;
+                  // A normal chunk to add to the current patch
+              }
+              else {
+                  patchTokenizedLines.push(tokenizedLines.shift());
+              }
+          });
+      }
+      if (patchCanvasTokens === null) {
+          throw new Error(`Parsing failed #canvas missing`);
       }
       pd.patches[patchId] = hydratePatch(patchId, patchCanvasTokens, patchCoordsTokens);
       patchTokenizedLinesMap[patchId] = patchTokenizedLines;
@@ -1126,7 +1160,7 @@
    * Use the layout of [inlet] / [outlet] objects to compute the order
    * of portlets of a subpatch.
    */
-  const computePatchPortlets = (patch) => {
+  const _computePatchPortlets = (patch) => {
       const _comparePortletsId = (node1, node2) => parseFloat(node1.id) - parseFloat(node2.id);
       const _comparePortletsLayout = (node1, node2) => node1.layout.x - node2.layout.x;
       const inletNodes = Object.values(patch.nodes).filter((node) => ['inlet', 'inlet~'].includes(node.type));
@@ -1156,45 +1190,52 @@
       // the array related instructions which might follow.
       let currentArray = null;
       while (tokenizedLines.length) {
-          const { tokens } = tokenizedLines[0];
-          // start of an array definition
-          if (_tokensMatch(tokens, '#X', 'array')) {
-              currentArray = hydrateArray(nextArrayId(), tokenizedLines.shift());
-              pd.arrays[currentArray.id] = currentArray;
-              // Creates a synthetic node that our parser will hydrate at a later stage
-              remainingTokenizedLines.push({
-                  tokens: ['ARRAY', currentArray.id],
-                  lineAfterComma: [],
-              });
-              // array data to add to the current array
-          }
-          else if (_tokensMatch(tokens, '#A')) {
-              if (!currentArray) {
-                  throw new Error('got array data outside of a array.');
+          const { tokens, lineIndex } = tokenizedLines[0];
+          catchParsingErrors(lineIndex, () => {
+              // start of an array definition
+              if (_tokensMatch(tokens, '#X', 'array')) {
+                  currentArray = hydrateArray(nextArrayId(), tokenizedLines.shift());
+                  pd.arrays[currentArray.id] = currentArray;
+                  // Creates a synthetic node that our parser will hydrate at a later stage
+                  remainingTokenizedLines.push({
+                      tokens: ['ARRAY', currentArray.id],
+                      lineAfterComma: [],
+                      lineIndex,
+                  });
+                  // array data to add to the current array
               }
-              // reads in part of an array of data, starting at the index specified in this line
-              // name of the array comes from the the '#X array' and '#X restore' matches above
-              const indexOffset = parseFloat(tokens[1]);
-              tokens.slice(2).forEach((rawVal, i) => {
-                  const val = parseFloat(rawVal);
-                  if (Number.isFinite(val)) {
-                      currentArray.data[indexOffset + i] = val;
+              else if (_tokensMatch(tokens, '#A')) {
+                  if (!currentArray) {
+                      throw new Error('got array data outside of a array.');
                   }
-              });
-              tokenizedLines.shift();
-              // A normal chunk to add to the current patch
-          }
-          else {
-              remainingTokenizedLines.push(tokenizedLines.shift());
-          }
+                  const currentData = currentArray.data;
+                  if (currentData === null) {
+                      throw new Error('got array data for an array that doesn\'t save contents.');
+                  }
+                  // reads in part of an array of data, starting at the index specified in this line
+                  // name of the array comes from the the '#X array' and '#X restore' matches above
+                  const indexOffset = parseFloatToken(tokens[1]);
+                  tokens.slice(2).forEach((rawVal, i) => {
+                      const val = parseFloatToken(rawVal);
+                      if (Number.isFinite(val)) {
+                          currentData[indexOffset + i] = val;
+                      }
+                  });
+                  tokenizedLines.shift();
+                  // A normal chunk to add to the current patch
+              }
+              else {
+                  remainingTokenizedLines.push(tokenizedLines.shift());
+              }
+          });
       }
       return [pd, remainingTokenizedLines];
   };
   const parseNodesAndConnections = (patch, tokenizedLines) => {
       patch = {
+          ...patch,
           nodes: { ...patch.nodes },
           connections: [...patch.connections],
-          ...patch,
       };
       tokenizedLines = [...tokenizedLines];
       const remainingTokenizedLines = [];
@@ -1203,39 +1244,60 @@
       let idCounter = -1;
       const nextId = () => `${++idCounter}`;
       while (tokenizedLines.length) {
-          const { tokens } = tokenizedLines[0];
-          let node;
-          if (_tokensMatch(tokens, 'PATCH')) {
-              node = hydrateNodePatch(nextId(), tokenizedLines.shift());
-          }
-          else if (_tokensMatch(tokens, 'ARRAY')) {
-              node = hydrateNodeArray(nextId(), tokenizedLines.shift());
-          }
-          else if (NODES.some((nodeType) => _tokensMatch(tokens, '#X', nodeType))) {
-              const tokenizedLine = tokenizedLines.shift();
-              const nodeBase = hydrateNodeBase(nextId(), tokenizedLine.tokens);
-              if (Object.keys(CONTROL_TYPE$1).includes(nodeBase.type)) {
-                  node = hydrateNodeControl(nodeBase);
-                  node = hydrateLineAfterComma(node, tokenizedLine.lineAfterComma);
+          const { tokens, lineIndex } = tokenizedLines[0];
+          catchParsingErrors(lineIndex, () => {
+              let node = null;
+              if (_tokensMatch(tokens, 'PATCH')) {
+                  node = hydrateNodePatch(nextId(), tokenizedLines.shift());
+              }
+              else if (_tokensMatch(tokens, 'ARRAY')) {
+                  node = hydrateNodeArray(nextId(), tokenizedLines.shift());
+              }
+              else if (NODES.some((nodeType) => _tokensMatch(tokens, '#X', nodeType))) {
+                  const tokenizedLine = tokenizedLines.shift();
+                  const nodeBase = hydrateNodeBase(nextId(), tokenizedLine.tokens);
+                  if (Object.keys(CONTROL_TYPE$1).includes(nodeBase.type)) {
+                      node = hydrateNodeControl(nodeBase);
+                      node = hydrateLineAfterComma(node, tokenizedLine.lineAfterComma);
+                  }
+                  else {
+                      node = hydrateNodeGeneric(nodeBase);
+                      node = hydrateLineAfterComma(node, tokenizedLine.lineAfterComma);
+                  }
+              }
+              if (node) {
+                  patch.nodes[node.id] = node;
+                  return;
+              }
+              if (_tokensMatch(tokens, '#X', 'connect')) {
+                  patch.connections.push(hydrateConnection(tokenizedLines.shift()));
               }
               else {
-                  node = hydrateNodeGeneric(nodeBase);
-                  node = hydrateLineAfterComma(node, tokenizedLine.lineAfterComma);
+                  remainingTokenizedLines.push(tokenizedLines.shift());
               }
-          }
-          if (node) {
-              patch.nodes[node.id] = node;
-              continue;
-          }
-          if (_tokensMatch(tokens, '#X', 'connect')) {
-              patch.connections.push(hydrateConnection(tokenizedLines.shift()));
-          }
-          else {
-              remainingTokenizedLines.push(tokenizedLines.shift());
-          }
+          });
       }
       return [patch, remainingTokenizedLines];
   };
+  const catchParsingErrors = (lineIndex, func) => {
+      try {
+          func();
+      }
+      catch (err) {
+          if (err instanceof ValueError) {
+              throw new ParseError(err, lineIndex);
+          }
+          else {
+              throw err;
+          }
+      }
+  };
+  class ParseError extends Error {
+      constructor(error, lineIndex) {
+          super(typeof error === 'string' ? error : error.message);
+          this.lineIndex = lineIndex;
+      }
+  }
 
   const PORTLET_ID = '0';
 
@@ -1267,6 +1329,7 @@
       hradio: 'hradio',
       vu: 'vu',
       cnv: 'cnv',
+      msg: 'msg',
   };
 
   /*
@@ -2151,6 +2214,23 @@
       });
   };
   /**
+   * Remove dead sinks and sources in graph.
+   */
+  const trimGraph = (graph, graphTraversal) => {
+      Object.entries(graph).forEach(([nodeId, node]) => {
+          if (!graphTraversal.includes(nodeId)) {
+              delete graph[nodeId];
+          }
+          else {
+              graph[nodeId] = {
+                  ...node,
+                  sources: removeDeadSources(node.sources, graphTraversal),
+                  sinks: removeDeadSinks(node.sinks, graphTraversal),
+              };
+          }
+      });
+  };
+  /**
    * When `node` has a sink node that is not connected to an end sink, that sink node won't be included
    * in the traversal, but will still appear in `node.sinks`.
    * Therefore, we need to make sure to filter `node.sinks` to exclude sink nodes that don't
@@ -2230,24 +2310,6 @@
       };
   };
   /**
-   * Remove dead sinks and sources in graph.
-   */
-  const trimGraph = (compilation, graphTraversal) => {
-      const { graph } = compilation;
-      Object.entries(graph).forEach(([nodeId, node]) => {
-          if (!graphTraversal.includes(nodeId)) {
-              delete graph[nodeId];
-          }
-          else {
-              graph[nodeId] = {
-                  ...node,
-                  sources: removeDeadSources(node.sources, graphTraversal),
-                  sinks: removeDeadSinks(node.sinks, graphTraversal),
-              };
-          }
-      });
-  };
-  /**
    * Takes the graph traversal, and for each node directly assign the
    * inputs of its next nodes where this can be done.
    * This allow the engine to avoid having to copy between a node's outs
@@ -2256,8 +2318,8 @@
    * @returns Maps that contain inlets and outlets that have been handled
    * by precompilation and don't need to be dealt with further.
    */
-  const preCompileSignalAndMessageFlow = (compilation, graphTraversal) => {
-      const { graph, codeVariableNames, inletCallerSpecs, outletListenerSpecs } = compilation;
+  const preCompileSignalAndMessageFlow = (compilation) => {
+      const { graph, graphTraversal, codeVariableNames, inletCallerSpecs, outletListenerSpecs, } = compilation;
       const graphTraversalNodes = graphTraversal.map((nodeId) => getNode(graph, nodeId));
       const precompiledInlets = {};
       const precompiledOutlets = {};
@@ -2342,11 +2404,15 @@
               }
           });
       });
-      return { precompiledInlets, precompiledOutlets };
+      compilation.precompiledPortlets.precompiledInlets = precompiledInlets;
+      compilation.precompiledPortlets.precompiledOutlets = precompiledOutlets;
   };
-  // TODO : no need for the whole codeVariableNames here
-  const replaceCoreCodePlaceholders = (codeVariableNames, code) => {
-      const { Int, Float, FloatArray, getFloat, setFloat } = codeVariableNames.types;
+  const replaceCoreCodePlaceholders = (bitDepth, code) => {
+      const Int = 'i32';
+      const Float = bitDepth === 32 ? 'f32' : 'f64';
+      const FloatArray = bitDepth === 32 ? 'Float32Array' : 'Float64Array';
+      const getFloat = bitDepth === 32 ? 'getFloat32' : 'getFloat64';
+      const setFloat = bitDepth === 32 ? 'setFloat32' : 'setFloat64';
       return code
           .replaceAll('${Int}', Int)
           .replaceAll('${Float}', Float)
@@ -2362,7 +2428,7 @@
    * to change the engine state before running the loop.
    * !!! This is not fullproof ! For example if a node is pushing messages
    * but also writing signal outputs, it might be run too early / too late.
-   * @TODO : outletListeners should also be included
+   * @TODO : outletListeners should also be included ?
    */
   const graphTraversalForCompile = (graph, inletCallerSpecs) => {
       const nodesPullingSignal = Object.values(graph).filter((node) => !!node.isPullingSignal);
@@ -2374,13 +2440,14 @@
               combined.push(nodeId);
           }
       });
-      Object.keys(inletCallerSpecs).forEach(nodeId => {
+      Object.keys(inletCallerSpecs).forEach((nodeId) => {
           if (combined.indexOf(nodeId) === -1) {
               combined.push(nodeId);
           }
       });
       return combined;
   };
+  const getFloatArrayType = (bitDepth) => bitDepth === 64 ? Float64Array : Float32Array;
 
   /*
    * Copyright (c) 2012-2020 Sébastien Piquemal <sebpiq@gmail.com>
@@ -2453,8 +2520,8 @@
    * See https://github.com/sebpiq/WebPd_pd-parser for documentation
    *
    */
-  var compileDeclare = (compilation, graphTraversal, { precompiledInlets, precompiledOutlets }) => {
-      const { graph, macros, codeVariableNames, nodeImplementations, outletListenerSpecs, debug, } = compilation;
+  var compileDeclare = (compilation) => {
+      const { graph, graphTraversal, macros, codeVariableNames, nodeImplementations, outletListenerSpecs, precompiledPortlets: { precompiledInlets, precompiledOutlets }, debug, } = compilation;
       const graphTraversalNodes = graphTraversal.map((nodeId) => getNode(graph, nodeId));
       const { Var, Func } = macros;
       const { globs } = codeVariableNames;
@@ -2564,8 +2631,8 @@
    * See https://github.com/sebpiq/WebPd_pd-parser for documentation
    *
    */
-  var compileLoop = (compilation, graphTraversal) => {
-      const { graph, codeVariableNames, macros, nodeImplementations } = compilation;
+  var compileLoop = (compilation) => {
+      const { graph, graphTraversal, codeVariableNames, macros, nodeImplementations, } = compilation;
       const { globs } = codeVariableNames;
       const graphTraversalNodes = graphTraversal.map((nodeId) => getNode(graph, nodeId));
       // prettier-ignore
@@ -2593,11 +2660,11 @@
     `;
   };
 
-  var BUF_JS = "/*\n * Copyright (c) 2012-2020 Sébastien Piquemal <sebpiq@gmail.com>\n *\n * BSD Simplified License.\n * For information on usage and redistribution, and for a DISCLAIMER OF ALL\n * WARRANTIES, see the file, \"LICENSE.txt,\" in this distribution.\n *\n * See https://github.com/sebpiq/WebPd_pd-parser for documentation\n *\n */\n// =========================== BUF API\n/**\n * Ring buffer\n */\nclass buf_SoundBuffer {\n    constructor(length) {\n        this.length = length;\n        this.data = new ${FloatArray}(length);\n        this.writeCursor = 0;\n        this.pullAvailableLength = 0;\n    }\n}\n/** Erases all the content from the buffer */\nfunction buf_create(length) {\n    return new buf_SoundBuffer(length);\n}\n/** Erases all the content from the buffer */\nfunction buf_clear(buffer) {\n    buffer.data.fill(0);\n}\n/**\n * Pushes a block to the buffer, throwing an error if the buffer is full.\n * If the block is written successfully, {@link buf_SoundBuffer#writeCursor}\n * is moved corresponding with the length of data written.\n *\n * @todo : Optimize by allowing to read/write directly from host\n */\nfunction buf_pushBlock(buffer, block) {\n    if (buffer.pullAvailableLength + block.length > buffer.length) {\n        throw new Error('buffer full');\n    }\n    let left = block.length;\n    while (left > 0) {\n        const lengthToWrite = toInt(Math.min(toFloat(buffer.length - buffer.writeCursor), toFloat(left)));\n        buffer.data.set(block.subarray(block.length - left, block.length - left + lengthToWrite), buffer.writeCursor);\n        left -= lengthToWrite;\n        buffer.writeCursor = (buffer.writeCursor + lengthToWrite) % buffer.length;\n        buffer.pullAvailableLength += lengthToWrite;\n    }\n    return buffer.pullAvailableLength;\n}\n/**\n * Pulls a single sample from the buffer.\n * This is a destructive operation, and the sample will be\n * unavailable for subsequent readers with the same operation.\n */\nfunction buf_pullSample(buffer) {\n    if (buffer.pullAvailableLength <= 0) {\n        return 0;\n    }\n    const readCursor = buffer.writeCursor - buffer.pullAvailableLength;\n    buffer.pullAvailableLength -= 1;\n    return buffer.data[readCursor >= 0 ? readCursor : buffer.length + readCursor];\n}\n/**\n * Writes a sample at `@link writeCursor` and increments `writeCursor` by one.\n */\nfunction buf_writeSample(buffer, value) {\n    buffer.data[buffer.writeCursor] = value;\n    buffer.writeCursor = (buffer.writeCursor + 1) % buffer.length;\n}\n/**\n * Reads the sample at position `writeCursor - offset`.\n * @param offset Must be between 0 (for reading the last written sample)\n *  and {@link buf_SoundBuffer#length} - 1. A value outside these bounds will not cause\n *  an error, but might cause unexpected results.\n */\nfunction buf_readSample(buffer, offset) {\n    // R = (buffer.writeCursor - 1 - offset) -> ideal read position\n    // W = R % buffer.length -> wrap it so that its within buffer length bounds (but could be negative)\n    // (W + buffer.length) % buffer.length -> if W negative, (W + buffer.length) shifts it back to positive.\n    return buffer.data[(buffer.length + ((buffer.writeCursor - 1 - offset) % buffer.length)) % buffer.length];\n}\n";
+  var BUF_JS = "/*\n * Copyright (c) 2012-2020 Sébastien Piquemal <sebpiq@gmail.com>\n *\n * BSD Simplified License.\n * For information on usage and redistribution, and for a DISCLAIMER OF ALL\n * WARRANTIES, see the file, \"LICENSE.txt,\" in this distribution.\n *\n * See https://github.com/sebpiq/WebPd_pd-parser for documentation\n *\n */\n// =========================== BUF API\n/**\n * Ring buffer\n */\nclass buf_SoundBuffer {\n    constructor(length) {\n        this.length = length;\n        this.data = createFloatArray(length);\n        this.writeCursor = 0;\n        this.pullAvailableLength = 0;\n    }\n}\n/** Erases all the content from the buffer */\nfunction buf_create(length) {\n    return new buf_SoundBuffer(length);\n}\n/** Erases all the content from the buffer */\nfunction buf_clear(buffer) {\n    buffer.data.fill(0);\n}\n/**\n * Pushes a block to the buffer, throwing an error if the buffer is full.\n * If the block is written successfully, {@link buf_SoundBuffer#writeCursor}\n * is moved corresponding with the length of data written.\n *\n * @todo : Optimize by allowing to read/write directly from host\n */\nfunction buf_pushBlock(buffer, block) {\n    if (buffer.pullAvailableLength + block.length > buffer.length) {\n        throw new Error('buffer full');\n    }\n    let left = block.length;\n    while (left > 0) {\n        const lengthToWrite = toInt(Math.min(toFloat(buffer.length - buffer.writeCursor), toFloat(left)));\n        buffer.data.set(block.subarray(block.length - left, block.length - left + lengthToWrite), buffer.writeCursor);\n        left -= lengthToWrite;\n        buffer.writeCursor = (buffer.writeCursor + lengthToWrite) % buffer.length;\n        buffer.pullAvailableLength += lengthToWrite;\n    }\n    return buffer.pullAvailableLength;\n}\n/**\n * Pulls a single sample from the buffer.\n * This is a destructive operation, and the sample will be\n * unavailable for subsequent readers with the same operation.\n */\nfunction buf_pullSample(buffer) {\n    if (buffer.pullAvailableLength <= 0) {\n        return 0;\n    }\n    const readCursor = buffer.writeCursor - buffer.pullAvailableLength;\n    buffer.pullAvailableLength -= 1;\n    return buffer.data[readCursor >= 0 ? readCursor : buffer.length + readCursor];\n}\n/**\n * Writes a sample at `@link writeCursor` and increments `writeCursor` by one.\n */\nfunction buf_writeSample(buffer, value) {\n    buffer.data[buffer.writeCursor] = value;\n    buffer.writeCursor = (buffer.writeCursor + 1) % buffer.length;\n}\n/**\n * Reads the sample at position `writeCursor - offset`.\n * @param offset Must be between 0 (for reading the last written sample)\n *  and {@link buf_SoundBuffer#length} - 1. A value outside these bounds will not cause\n *  an error, but might cause unexpected results.\n */\nfunction buf_readSample(buffer, offset) {\n    // R = (buffer.writeCursor - 1 - offset) -> ideal read position\n    // W = R % buffer.length -> wrap it so that its within buffer length bounds (but could be negative)\n    // (W + buffer.length) % buffer.length -> if W negative, (W + buffer.length) shifts it back to positive.\n    return buffer.data[(buffer.length + ((buffer.writeCursor - 1 - offset) % buffer.length)) % buffer.length];\n}\n";
 
   var SKED_JS = "/*\n * Copyright (c) 2012-2020 Sébastien Piquemal <sebpiq@gmail.com>\n *\n * BSD Simplified License.\n * For information on usage and redistribution, and for a DISCLAIMER OF ALL\n * WARRANTIES, see the file, \"LICENSE.txt,\" in this distribution.\n *\n * See https://github.com/sebpiq/WebPd_pd-parser for documentation\n *\n */\n/**\n * Skeduler id that will never be used.\n * Can be used as a \"no id\", or \"null\" value.\n */\nconst SKED_ID_NULL = -1;\nconst _SKED_WAIT_IN_PROGRESS = 0;\nconst _SKED_WAIT_OVER = 1;\nconst _SKED_MODE_WAIT = 0;\nconst _SKED_MODE_SUBSCRIBE = 1;\n// =========================== SKED API\nclass SkedRequest {\n}\nclass Skeduler {\n    constructor() {\n        this.eventLog = new Set();\n        this.requests = new Map();\n        this.callbacks = new Map();\n        this.idCounter = 1;\n        this.isLoggingEvents = false;\n    }\n}\nfunction sked_create(isLoggingEvents) {\n    const skeduler = new Skeduler();\n    skeduler.isLoggingEvents = isLoggingEvents;\n    return skeduler;\n}\nfunction sked_wait(skeduler, event, callback) {\n    if (skeduler.isLoggingEvents === false) {\n        throw new Error(\"Please activate skeduler's isLoggingEvents\");\n    }\n    if (skeduler.eventLog.has(event)) {\n        callback(event);\n        return SKED_ID_NULL;\n    }\n    else {\n        return _sked_createRequest(skeduler, event, callback, _SKED_MODE_WAIT);\n    }\n}\nfunction sked_subscribe(skeduler, event, callback) {\n    return _sked_createRequest(skeduler, event, callback, _SKED_MODE_SUBSCRIBE);\n}\nfunction sked_emit(skeduler, event) {\n    if (skeduler.isLoggingEvents === true) {\n        skeduler.eventLog.add(event);\n    }\n    if (skeduler.requests.has(event)) {\n        const requests = skeduler.requests.get(event);\n        const requestsStaying = [];\n        for (let i = 0; i < requests.length; i++) {\n            const request = requests[i];\n            if (skeduler.callbacks.has(request.id)) {\n                skeduler.callbacks.get(request.id)(event);\n                if (request.mode === _SKED_MODE_WAIT) {\n                    skeduler.callbacks.delete(request.id);\n                }\n                else {\n                    requestsStaying.push(request);\n                }\n            }\n        }\n        skeduler.requests.set(event, requestsStaying);\n    }\n}\nfunction sked_cancel(skeduler, id) {\n    skeduler.callbacks.delete(id);\n}\nfunction _sked_createRequest(skeduler, event, callback, mode) {\n    const id = _sked_nextId(skeduler);\n    const request = { id, mode };\n    skeduler.callbacks.set(id, callback);\n    if (!skeduler.requests.has(event)) {\n        skeduler.requests.set(event, [request]);\n    }\n    else {\n        skeduler.requests.get(event).push(request);\n    }\n    return id;\n}\nfunction _sked_nextId(skeduler) {\n    return skeduler.idCounter++;\n}\n";
 
-  var FS_JS = "/*\n * Copyright (c) 2012-2020 Sébastien Piquemal <sebpiq@gmail.com>\n *\n * BSD Simplified License.\n * For information on usage and redistribution, and for a DISCLAIMER OF ALL\n * WARRANTIES, see the file, \"LICENSE.txt,\" in this distribution.\n *\n * See https://github.com/sebpiq/WebPd_pd-parser for documentation\n *\n */\nconst FS_OPERATION_SUCCESS = ${FS_OPERATION_SUCCESS};\nconst FS_OPERATION_FAILURE = ${FS_OPERATION_FAILURE};\nconst _FS_OPERATIONS_IDS = new Set();\nconst _FS_OPERATIONS_CALLBACKS = new Map();\nconst _FS_OPERATIONS_SOUND_CALLBACKS = new Map();\nconst _FS_SOUND_STREAM_BUFFERS = new Map();\n// We start at 1, because 0 is what ASC uses when host forgets to pass an arg to \n// a function. Therefore we can get false negatives when a test happens to expect a 0.\nlet _FS_OPERATION_COUNTER = 1;\nconst _FS_SOUND_BUFFER_LENGTH = 20 * 44100;\n// =========================== EXPORTED API\nfunction x_fs_onReadSoundFileResponse(id, status, sound) {\n    _fs_assertOperationExists(id, 'x_fs_onReadSoundFileResponse');\n    _FS_OPERATIONS_IDS.delete(id);\n    // Finish cleaning before calling the callback in case it would throw an error.\n    const callback = _FS_OPERATIONS_SOUND_CALLBACKS.get(id);\n    callback(id, status, sound);\n    _FS_OPERATIONS_SOUND_CALLBACKS.delete(id);\n}\nfunction x_fs_onWriteSoundFileResponse(id, status) {\n    _fs_assertOperationExists(id, 'x_fs_onWriteSoundFileResponse');\n    _FS_OPERATIONS_IDS.delete(id);\n    // Finish cleaning before calling the callback in case it would throw an error.\n    const callback = _FS_OPERATIONS_CALLBACKS.get(id);\n    callback(id, status);\n    _FS_OPERATIONS_CALLBACKS.delete(id);\n}\nfunction x_fs_onSoundStreamData(id, block) {\n    _fs_assertOperationExists(id, 'x_fs_onSoundStreamData');\n    const buffers = _FS_SOUND_STREAM_BUFFERS.get(id);\n    for (let i = 0; i < buffers.length; i++) {\n        buf_pushBlock(buffers[i], block[i]);\n    }\n    return buffers[0].pullAvailableLength;\n}\nfunction x_fs_onCloseSoundStream(id, status) {\n    fs_closeSoundStream(id, status);\n}\n// =========================== FS API\nclass fs_SoundInfo {\n}\nfunction fs_readSoundFile(url, soundInfo, callback) {\n    const id = _fs_createOperationId();\n    _FS_OPERATIONS_SOUND_CALLBACKS.set(id, callback);\n    i_fs_readSoundFile(id, url, fs_soundInfoToMessage(soundInfo));\n    return id;\n}\nfunction fs_writeSoundFile(sound, url, soundInfo, callback) {\n    const id = _fs_createOperationId();\n    _FS_OPERATIONS_CALLBACKS.set(id, callback);\n    i_fs_writeSoundFile(id, sound, url, fs_soundInfoToMessage(soundInfo));\n    return id;\n}\nfunction fs_openSoundReadStream(url, soundInfo, callback) {\n    const id = _fs_createOperationId();\n    const buffers = [];\n    for (let channel = 0; channel < soundInfo.channelCount; channel++) {\n        buffers.push(new buf_SoundBuffer(_FS_SOUND_BUFFER_LENGTH));\n    }\n    _FS_SOUND_STREAM_BUFFERS.set(id, buffers);\n    _FS_OPERATIONS_CALLBACKS.set(id, callback);\n    i_fs_openSoundReadStream(id, url, fs_soundInfoToMessage(soundInfo));\n    return id;\n}\nfunction fs_openSoundWriteStream(url, soundInfo, callback) {\n    const id = _fs_createOperationId();\n    _FS_SOUND_STREAM_BUFFERS.set(id, []);\n    _FS_OPERATIONS_CALLBACKS.set(id, callback);\n    i_fs_openSoundWriteStream(id, url, fs_soundInfoToMessage(soundInfo));\n    return id;\n}\nfunction fs_sendSoundStreamData(id, block) {\n    _fs_assertOperationExists(id, 'fs_sendSoundStreamData');\n    i_fs_sendSoundStreamData(id, block);\n}\nfunction fs_closeSoundStream(id, status) {\n    if (!_FS_OPERATIONS_IDS.has(id)) {\n        return;\n    }\n    _FS_OPERATIONS_IDS.delete(id);\n    _FS_OPERATIONS_CALLBACKS.get(id)(id, status);\n    _FS_OPERATIONS_CALLBACKS.delete(id);\n    // Delete this last, to give the callback \n    // a chance to save a reference to the buffer\n    // If write stream, there won't be a buffer\n    if (_FS_SOUND_STREAM_BUFFERS.has(id)) {\n        _FS_SOUND_STREAM_BUFFERS.delete(id);\n    }\n    i_fs_closeSoundStream(id, status);\n}\nfunction fs_soundInfoToMessage(soundInfo) {\n    const info = msg_create([\n        MSG_FLOAT_TOKEN,\n        MSG_FLOAT_TOKEN,\n        MSG_FLOAT_TOKEN,\n        MSG_STRING_TOKEN,\n        soundInfo.encodingFormat.length,\n        MSG_STRING_TOKEN,\n        soundInfo.endianness.length,\n        MSG_STRING_TOKEN,\n        soundInfo.extraOptions.length\n    ]);\n    msg_writeFloatToken(info, 0, ${Float}(soundInfo.channelCount));\n    msg_writeFloatToken(info, 1, ${Float}(soundInfo.sampleRate));\n    msg_writeFloatToken(info, 2, ${Float}(soundInfo.bitDepth));\n    msg_writeStringToken(info, 3, soundInfo.encodingFormat);\n    msg_writeStringToken(info, 4, soundInfo.endianness);\n    msg_writeStringToken(info, 5, soundInfo.extraOptions);\n    return info;\n}\n// =========================== PRIVATE\nfunction _fs_createOperationId() {\n    const id = _FS_OPERATION_COUNTER++;\n    _FS_OPERATIONS_IDS.add(id);\n    return id;\n}\nfunction _fs_assertOperationExists(id, operationName) {\n    if (!_FS_OPERATIONS_IDS.has(id)) {\n        throw new Error(operationName + ' operation unknown : ' + id.toString());\n    }\n}\n";
+  var FS_JS = "/*\n * Copyright (c) 2012-2020 Sébastien Piquemal <sebpiq@gmail.com>\n *\n * BSD Simplified License.\n * For information on usage and redistribution, and for a DISCLAIMER OF ALL\n * WARRANTIES, see the file, \"LICENSE.txt,\" in this distribution.\n *\n * See https://github.com/sebpiq/WebPd_pd-parser for documentation\n *\n */\nconst _FS_OPERATIONS_IDS = new Set();\nconst _FS_OPERATIONS_CALLBACKS = new Map();\nconst _FS_OPERATIONS_SOUND_CALLBACKS = new Map();\nconst _FS_SOUND_STREAM_BUFFERS = new Map();\n// We start at 1, because 0 is what ASC uses when host forgets to pass an arg to \n// a function. Therefore we can get false negatives when a test happens to expect a 0.\nlet _FS_OPERATION_COUNTER = 1;\nconst _FS_SOUND_BUFFER_LENGTH = 20 * 44100;\n// =========================== EXPORTED API\nfunction x_fs_onReadSoundFileResponse(id, status, sound) {\n    _fs_assertOperationExists(id, 'x_fs_onReadSoundFileResponse');\n    _FS_OPERATIONS_IDS.delete(id);\n    // Finish cleaning before calling the callback in case it would throw an error.\n    const callback = _FS_OPERATIONS_SOUND_CALLBACKS.get(id);\n    callback(id, status, sound);\n    _FS_OPERATIONS_SOUND_CALLBACKS.delete(id);\n}\nfunction x_fs_onWriteSoundFileResponse(id, status) {\n    _fs_assertOperationExists(id, 'x_fs_onWriteSoundFileResponse');\n    _FS_OPERATIONS_IDS.delete(id);\n    // Finish cleaning before calling the callback in case it would throw an error.\n    const callback = _FS_OPERATIONS_CALLBACKS.get(id);\n    callback(id, status);\n    _FS_OPERATIONS_CALLBACKS.delete(id);\n}\nfunction x_fs_onSoundStreamData(id, block) {\n    _fs_assertOperationExists(id, 'x_fs_onSoundStreamData');\n    const buffers = _FS_SOUND_STREAM_BUFFERS.get(id);\n    for (let i = 0; i < buffers.length; i++) {\n        buf_pushBlock(buffers[i], block[i]);\n    }\n    return buffers[0].pullAvailableLength;\n}\nfunction x_fs_onCloseSoundStream(id, status) {\n    fs_closeSoundStream(id, status);\n}\n// =========================== FS API\nclass fs_SoundInfo {\n}\nfunction fs_readSoundFile(url, soundInfo, callback) {\n    const id = _fs_createOperationId();\n    _FS_OPERATIONS_SOUND_CALLBACKS.set(id, callback);\n    i_fs_readSoundFile(id, url, fs_soundInfoToMessage(soundInfo));\n    return id;\n}\nfunction fs_writeSoundFile(sound, url, soundInfo, callback) {\n    const id = _fs_createOperationId();\n    _FS_OPERATIONS_CALLBACKS.set(id, callback);\n    i_fs_writeSoundFile(id, sound, url, fs_soundInfoToMessage(soundInfo));\n    return id;\n}\nfunction fs_openSoundReadStream(url, soundInfo, callback) {\n    const id = _fs_createOperationId();\n    const buffers = [];\n    for (let channel = 0; channel < soundInfo.channelCount; channel++) {\n        buffers.push(new buf_SoundBuffer(_FS_SOUND_BUFFER_LENGTH));\n    }\n    _FS_SOUND_STREAM_BUFFERS.set(id, buffers);\n    _FS_OPERATIONS_CALLBACKS.set(id, callback);\n    i_fs_openSoundReadStream(id, url, fs_soundInfoToMessage(soundInfo));\n    return id;\n}\nfunction fs_openSoundWriteStream(url, soundInfo, callback) {\n    const id = _fs_createOperationId();\n    _FS_SOUND_STREAM_BUFFERS.set(id, []);\n    _FS_OPERATIONS_CALLBACKS.set(id, callback);\n    i_fs_openSoundWriteStream(id, url, fs_soundInfoToMessage(soundInfo));\n    return id;\n}\nfunction fs_sendSoundStreamData(id, block) {\n    _fs_assertOperationExists(id, 'fs_sendSoundStreamData');\n    i_fs_sendSoundStreamData(id, block);\n}\nfunction fs_closeSoundStream(id, status) {\n    if (!_FS_OPERATIONS_IDS.has(id)) {\n        return;\n    }\n    _FS_OPERATIONS_IDS.delete(id);\n    _FS_OPERATIONS_CALLBACKS.get(id)(id, status);\n    _FS_OPERATIONS_CALLBACKS.delete(id);\n    // Delete this last, to give the callback \n    // a chance to save a reference to the buffer\n    // If write stream, there won't be a buffer\n    if (_FS_SOUND_STREAM_BUFFERS.has(id)) {\n        _FS_SOUND_STREAM_BUFFERS.delete(id);\n    }\n    i_fs_closeSoundStream(id, status);\n}\nfunction fs_soundInfoToMessage(soundInfo) {\n    const info = msg_create([\n        MSG_FLOAT_TOKEN,\n        MSG_FLOAT_TOKEN,\n        MSG_FLOAT_TOKEN,\n        MSG_STRING_TOKEN,\n        soundInfo.encodingFormat.length,\n        MSG_STRING_TOKEN,\n        soundInfo.endianness.length,\n        MSG_STRING_TOKEN,\n        soundInfo.extraOptions.length\n    ]);\n    msg_writeFloatToken(info, 0, toFloat(soundInfo.channelCount));\n    msg_writeFloatToken(info, 1, toFloat(soundInfo.sampleRate));\n    msg_writeFloatToken(info, 2, toFloat(soundInfo.bitDepth));\n    msg_writeStringToken(info, 3, soundInfo.encodingFormat);\n    msg_writeStringToken(info, 4, soundInfo.endianness);\n    msg_writeStringToken(info, 5, soundInfo.extraOptions);\n    return info;\n}\n// =========================== PRIVATE\nfunction _fs_createOperationId() {\n    const id = _FS_OPERATION_COUNTER++;\n    _FS_OPERATIONS_IDS.add(id);\n    return id;\n}\nfunction _fs_assertOperationExists(id, operationName) {\n    if (!_FS_OPERATIONS_IDS.has(id)) {\n        throw new Error(operationName + ' operation unknown : ' + id.toString());\n    }\n}\n";
 
   var COMMONS_JS = "/*\n * Copyright (c) 2012-2020 Sébastien Piquemal <sebpiq@gmail.com>\n *\n * BSD Simplified License.\n * For information on usage and redistribution, and for a DISCLAIMER OF ALL\n * WARRANTIES, see the file, \"LICENSE.txt,\" in this distribution.\n *\n * See https://github.com/sebpiq/WebPd_pd-parser for documentation\n *\n */\nconst _commons_ARRAYS = new Map();\nconst _commons_ARRAYS_SKEDULER = sked_create(false);\nconst _commons_ENGINE_LOGGED_SKEDULER = sked_create(true);\n// =========================== COMMONS API\n/**\n * @param callback Called when the engine is configured, or immediately if the engine\n * was already configured.\n */\nfunction commons_waitEngineConfigure(callback) {\n    sked_wait(_commons_ENGINE_LOGGED_SKEDULER, 'configure', callback);\n}\n/**\n * @param callback Called immediately if the array exists, and subsequently, everytime\n * the array is set again.\n * @returns An id that can be used to cancel the subscription.\n */\nfunction commons_subscribeArrayChanges(arrayName, callback) {\n    const id = sked_subscribe(_commons_ARRAYS_SKEDULER, arrayName, callback);\n    if (_commons_ARRAYS.has(arrayName)) {\n        callback(arrayName);\n    }\n    return id;\n}\n/**\n * @param id The id received when subscribing.\n */\nfunction commons_cancelArrayChangesSubscription(id) {\n    sked_cancel(_commons_ARRAYS_SKEDULER, id);\n}\n/** Gets an named array, throwing an error if the array doesn't exist. */\nfunction commons_getArray(arrayName) {\n    if (!_commons_ARRAYS.has(arrayName)) {\n        throw new Error('Unknown array ' + arrayName);\n    }\n    return _commons_ARRAYS.get(arrayName);\n}\nfunction commons_hasArray(arrayName) {\n    return _commons_ARRAYS.has(arrayName);\n}\nfunction commons_setArray(arrayName, array) {\n    _commons_ARRAYS.set(arrayName, array);\n    sked_emit(_commons_ARRAYS_SKEDULER, arrayName);\n}\n// =========================== PRIVATE API\nfunction _commons_emitEngineConfigure() {\n    sked_emit(_commons_ENGINE_LOGGED_SKEDULER, 'configure');\n}\n";
 
@@ -2609,6 +2676,10 @@ const toInt = (v) => v
 const toFloat = (v) => v
 const createFloatArray = (length) => 
     new \${FloatArray}(length)
+const setFloatDataView = (d, p, v) => d.\${setFloat}(p, v)
+const getFloatDataView = (d, p) => d.\${getFloat}(p)
+const FS_OPERATION_SUCCESS = ${FS_OPERATION_SUCCESS}
+const FS_OPERATION_FAILURE = ${FS_OPERATION_FAILURE}
 `;
   const MSG = `
 const MSG_FLOAT_TOKEN = "number"
@@ -2632,9 +2703,13 @@ const msg_display = (m) => '[' + m
     .map(t => typeof t === 'string' ? '"' + t + '"' : t.toString())
     .join(', ') + ']'
 `;
-  // TODO : no need for the whole codeVariableNames here
-  var generateCoreCodeJs = (codeVariableNames) => {
-      return replaceCoreCodePlaceholders(codeVariableNames, CORE + BUF_JS + SKED_JS + COMMONS_JS + MSG + FS_JS);
+  var generateCoreCodeJs = (bitDepth) => {
+      return (replaceCoreCodePlaceholders(bitDepth, CORE) +
+          BUF_JS +
+          SKED_JS +
+          COMMONS_JS +
+          MSG +
+          FS_JS);
   };
 
   /*
@@ -2667,18 +2742,16 @@ const msg_display = (m) => '[' + m
    *
    */
   var compileToJavascript = (compilation) => {
-      const { codeVariableNames, outletListenerSpecs, inletCallerSpecs, graph } = compilation;
-      const graphTraversal = graphTraversalForCompile(graph, inletCallerSpecs);
+      const { codeVariableNames, outletListenerSpecs, inletCallerSpecs, audioSettings, } = compilation;
       const globs = compilation.codeVariableNames.globs;
-      const { FloatArray } = codeVariableNames.types;
       const metadata = buildMetadata(compilation);
-      trimGraph(compilation, graphTraversal);
-      const precompiledPortlets = preCompileSignalAndMessageFlow(compilation, graphTraversal);
+      // When setting an array we need to make sure it is converted to the right type.
+      const floatArrayType = getFloatArrayType(audioSettings.bitDepth);
       // prettier-ignore
       return renderCode$1 `
-        ${generateCoreCodeJs(codeVariableNames)}
+        ${generateCoreCodeJs(audioSettings.bitDepth)}
 
-        ${compileDeclare(compilation, graphTraversal, precompiledPortlets)}
+        ${compileDeclare(compilation)}
 
         ${compileInletCallers(compilation)}
 
@@ -2698,11 +2771,11 @@ const msg_display = (m) => '[' + m
                 _commons_emitEngineConfigure()
             },
             loop: (${globs.input}, ${globs.output}) => {
-                ${compileLoop(compilation, graphTraversal)}
+                ${compileLoop(compilation)}
             },
             commons: {
                 getArray: commons_getArray,
-                setArray: (arrayName, array) => commons_setArray(arrayName, new ${FloatArray}(array)),
+                setArray: (arrayName, array) => commons_setArray(arrayName, new ${floatArrayType.name}(array)),
             },
             outletListeners: {
                 ${Object.entries(outletListenerSpecs).map(([nodeId, outletIds]) => renderCode$1 `${nodeId}: {
@@ -2738,26 +2811,25 @@ const msg_display = (m) => '[' + m
     `;
   };
 
-  var CORE_ASC = "/*\n * Copyright (c) 2012-2020 Sébastien Piquemal <sebpiq@gmail.com>\n *\n * BSD Simplified License.\n * For information on usage and redistribution, and for a DISCLAIMER OF ALL\n * WARRANTIES, see the file, \"LICENSE.txt,\" in this distribution.\n *\n * See https://github.com/sebpiq/WebPd_pd-parser for documentation\n *\n */\n\ntype FloatArray = ${FloatArray}\ntype Float = ${Float}\ntype Int = ${Int}\n\n// =========================== CORE API\nfunction toInt (v: ${Float}): ${Int} { return ${Int}(v) }\nfunction toFloat (v: ${Int}): ${Float} { return ${Float}(v) }\nfunction createFloatArray (length: Int): FloatArray {\n    return new ${FloatArray}(length)\n}\n\n// =========================== EXPORTED API\nfunction x_core_createListOfArrays(): FloatArray[] {\n    const arrays: FloatArray[] = []\n    return arrays\n}\n\nfunction x_core_pushToListOfArrays(arrays: FloatArray[], array: FloatArray): void {\n    arrays.push(array)\n}\n\nfunction x_core_getListOfArraysLength(arrays: FloatArray[]): Int {\n    return arrays.length\n}\n\nfunction x_core_getListOfArraysElem(arrays: FloatArray[], index: Int): FloatArray {\n    return arrays[index]\n}";
+  var CORE_ASC = "/*\n * Copyright (c) 2012-2020 Sébastien Piquemal <sebpiq@gmail.com>\n *\n * BSD Simplified License.\n * For information on usage and redistribution, and for a DISCLAIMER OF ALL\n * WARRANTIES, see the file, \"LICENSE.txt,\" in this distribution.\n *\n * See https://github.com/sebpiq/WebPd_pd-parser for documentation\n *\n */\n\ntype FloatArray = ${FloatArray}\ntype Float = ${Float}\ntype Int = ${Int}\n\n// =========================== CORE API\nfunction toInt (v: ${Float}): ${Int} { return ${Int}(v) }\nfunction toFloat (v: ${Int}): ${Float} { return ${Float}(v) }\nfunction createFloatArray (length: Int): FloatArray {\n    return new ${FloatArray}(length)\n}\nfunction setFloatDataView (\n    dataView: DataView, \n    position: Int, \n    value: Float,\n): void { dataView.${setFloat}(position, value) }\nfunction getFloatDataView (\n    dataView: DataView, \n    position: Int, \n): Float { return dataView.${getFloat}(position) }\n\n// =========================== FS CONSTANTS\nconst FS_OPERATION_SUCCESS: Int = ${FS_OPERATION_SUCCESS}\nconst FS_OPERATION_FAILURE: Int = ${FS_OPERATION_FAILURE}\n\n// =========================== EXPORTED API\nfunction x_core_createListOfArrays(): FloatArray[] {\n    const arrays: FloatArray[] = []\n    return arrays\n}\n\nfunction x_core_pushToListOfArrays(arrays: FloatArray[], array: FloatArray): void {\n    arrays.push(array)\n}\n\nfunction x_core_getListOfArraysLength(arrays: FloatArray[]): Int {\n    return arrays.length\n}\n\nfunction x_core_getListOfArraysElem(arrays: FloatArray[], index: Int): FloatArray {\n    return arrays[index]\n}";
 
-  var BUF_ASC = "/*\n * Copyright (c) 2012-2020 Sébastien Piquemal <sebpiq@gmail.com>\n *\n * BSD Simplified License.\n * For information on usage and redistribution, and for a DISCLAIMER OF ALL\n * WARRANTIES, see the file, \"LICENSE.txt,\" in this distribution.\n *\n * See https://github.com/sebpiq/WebPd_pd-parser for documentation\n *\n */\n\n// =========================== BUF API\n/**\n * Ring buffer \n */\nclass buf_SoundBuffer {\n    public data: FloatArray\n    public length: Int\n    public writeCursor: Int\n    public pullAvailableLength: Int\n\n    constructor(length: Int) {\n        this.length = length\n        this.data = new ${FloatArray}(length)\n        this.writeCursor = 0\n        this.pullAvailableLength = 0\n    }\n}\n\n/** Erases all the content from the buffer */\nfunction buf_create (length: Int): buf_SoundBuffer {\n    return new buf_SoundBuffer(length)\n}\n\n/** Erases all the content from the buffer */\nfunction buf_clear (buffer: buf_SoundBuffer): void {\n    buffer.data.fill(0)\n}\n\n/**\n * Pushes a block to the buffer, throwing an error if the buffer is full. \n * If the block is written successfully, {@link buf_SoundBuffer#writeCursor} \n * is moved corresponding with the length of data written.\n * \n * @todo : Optimize by allowing to read/write directly from host\n */\nfunction buf_pushBlock (\n    buffer: buf_SoundBuffer,\n    block: FloatArray,\n): Int {\n    if (buffer.pullAvailableLength + block.length > buffer.length) {\n        throw new Error('buffer full')\n    }\n\n    let left: Int = block.length\n    while (left > 0) {\n        const lengthToWrite = toInt(Math.min(\n            toFloat(buffer.length - buffer.writeCursor), \n            toFloat(left)\n        ))\n        buffer.data.set(\n            block.subarray(\n                block.length - left, \n                block.length - left + lengthToWrite\n            ), \n            buffer.writeCursor\n        )\n        left -= lengthToWrite\n        buffer.writeCursor = (buffer.writeCursor + lengthToWrite) % buffer.length\n        buffer.pullAvailableLength += lengthToWrite\n    }\n    return buffer.pullAvailableLength\n}\n\n/**\n * Pulls a single sample from the buffer. \n * This is a destructive operation, and the sample will be \n * unavailable for subsequent readers with the same operation.\n */\nfunction buf_pullSample (buffer: buf_SoundBuffer): Float {\n    if (buffer.pullAvailableLength <= 0) {\n        return 0\n    }\n    const readCursor: Int = buffer.writeCursor - buffer.pullAvailableLength\n    buffer.pullAvailableLength -= 1\n    return buffer.data[readCursor >= 0 ? readCursor : buffer.length + readCursor]\n}\n\n/**\n * Writes a sample at `@link writeCursor` and increments `writeCursor` by one.\n */\nfunction buf_writeSample (buffer: buf_SoundBuffer, value: Float): void {\n    buffer.data[buffer.writeCursor] = value\n    buffer.writeCursor = (buffer.writeCursor + 1) % buffer.length\n}\n\n/**\n * Reads the sample at position `writeCursor - offset`.\n * @param offset Must be between 0 (for reading the last written sample)\n *  and {@link buf_SoundBuffer#length} - 1. A value outside these bounds will not cause \n *  an error, but might cause unexpected results.\n */\nfunction buf_readSample (buffer: buf_SoundBuffer, offset: Int): Float {\n    // R = (buffer.writeCursor - 1 - offset) -> ideal read position\n    // W = R % buffer.length -> wrap it so that its within buffer length bounds (but could be negative)\n    // (W + buffer.length) % buffer.length -> if W negative, (W + buffer.length) shifts it back to positive.\n    return buffer.data[(buffer.length + ((buffer.writeCursor - 1 - offset) % buffer.length)) % buffer.length]\n}";
+  var BUF_ASC = "/*\n * Copyright (c) 2012-2020 Sébastien Piquemal <sebpiq@gmail.com>\n *\n * BSD Simplified License.\n * For information on usage and redistribution, and for a DISCLAIMER OF ALL\n * WARRANTIES, see the file, \"LICENSE.txt,\" in this distribution.\n *\n * See https://github.com/sebpiq/WebPd_pd-parser for documentation\n *\n */\n\n// =========================== BUF API\n/**\n * Ring buffer \n */\nclass buf_SoundBuffer {\n    public data: FloatArray\n    public length: Int\n    public writeCursor: Int\n    public pullAvailableLength: Int\n\n    constructor(length: Int) {\n        this.length = length\n        this.data = createFloatArray(length)\n        this.writeCursor = 0\n        this.pullAvailableLength = 0\n    }\n}\n\n/** Erases all the content from the buffer */\nfunction buf_create (length: Int): buf_SoundBuffer {\n    return new buf_SoundBuffer(length)\n}\n\n/** Erases all the content from the buffer */\nfunction buf_clear (buffer: buf_SoundBuffer): void {\n    buffer.data.fill(0)\n}\n\n/**\n * Pushes a block to the buffer, throwing an error if the buffer is full. \n * If the block is written successfully, {@link buf_SoundBuffer#writeCursor} \n * is moved corresponding with the length of data written.\n * \n * @todo : Optimize by allowing to read/write directly from host\n */\nfunction buf_pushBlock (\n    buffer: buf_SoundBuffer,\n    block: FloatArray,\n): Int {\n    if (buffer.pullAvailableLength + block.length > buffer.length) {\n        throw new Error('buffer full')\n    }\n\n    let left: Int = block.length\n    while (left > 0) {\n        const lengthToWrite = toInt(Math.min(\n            toFloat(buffer.length - buffer.writeCursor), \n            toFloat(left)\n        ))\n        buffer.data.set(\n            block.subarray(\n                block.length - left, \n                block.length - left + lengthToWrite\n            ), \n            buffer.writeCursor\n        )\n        left -= lengthToWrite\n        buffer.writeCursor = (buffer.writeCursor + lengthToWrite) % buffer.length\n        buffer.pullAvailableLength += lengthToWrite\n    }\n    return buffer.pullAvailableLength\n}\n\n/**\n * Pulls a single sample from the buffer. \n * This is a destructive operation, and the sample will be \n * unavailable for subsequent readers with the same operation.\n */\nfunction buf_pullSample (buffer: buf_SoundBuffer): Float {\n    if (buffer.pullAvailableLength <= 0) {\n        return 0\n    }\n    const readCursor: Int = buffer.writeCursor - buffer.pullAvailableLength\n    buffer.pullAvailableLength -= 1\n    return buffer.data[readCursor >= 0 ? readCursor : buffer.length + readCursor]\n}\n\n/**\n * Writes a sample at `@link writeCursor` and increments `writeCursor` by one.\n */\nfunction buf_writeSample (buffer: buf_SoundBuffer, value: Float): void {\n    buffer.data[buffer.writeCursor] = value\n    buffer.writeCursor = (buffer.writeCursor + 1) % buffer.length\n}\n\n/**\n * Reads the sample at position `writeCursor - offset`.\n * @param offset Must be between 0 (for reading the last written sample)\n *  and {@link buf_SoundBuffer#length} - 1. A value outside these bounds will not cause \n *  an error, but might cause unexpected results.\n */\nfunction buf_readSample (buffer: buf_SoundBuffer, offset: Int): Float {\n    // R = (buffer.writeCursor - 1 - offset) -> ideal read position\n    // W = R % buffer.length -> wrap it so that its within buffer length bounds (but could be negative)\n    // (W + buffer.length) % buffer.length -> if W negative, (W + buffer.length) shifts it back to positive.\n    return buffer.data[(buffer.length + ((buffer.writeCursor - 1 - offset) % buffer.length)) % buffer.length]\n}";
 
   var SKED_ASC = "/*\n * Copyright (c) 2012-2020 Sébastien Piquemal <sebpiq@gmail.com>\n *\n * BSD Simplified License.\n * For information on usage and redistribution, and for a DISCLAIMER OF ALL\n * WARRANTIES, see the file, \"LICENSE.txt,\" in this distribution.\n *\n * See https://github.com/sebpiq/WebPd_pd-parser for documentation\n *\n */\n\ntype SkedCallback = (event: SkedEvent) => void\ntype SkedId = Int\ntype SkedMode = Int\ntype SkedEvent = string\n\n/** \n * Skeduler id that will never be used. \n * Can be used as a \"no id\", or \"null\" value. \n */\nconst SKED_ID_NULL: SkedId = -1\n\nconst _SKED_WAIT_IN_PROGRESS: Int = 0\nconst _SKED_WAIT_OVER: Int = 1\n\nconst _SKED_MODE_WAIT = 0\nconst _SKED_MODE_SUBSCRIBE = 1\n\n// =========================== SKED API\n\nclass SkedRequest {\n    id: SkedId\n    mode: SkedMode\n}\n\nclass Skeduler {\n    requests: Map<SkedEvent, Array<SkedRequest>>\n\n    callbacks: Map<SkedId, SkedCallback>\n\n    isLoggingEvents: boolean\n    eventLog: Set<SkedEvent>\n\n    idCounter: SkedId\n    \n    constructor() {\n        this.eventLog = new Set()\n        this.requests = new Map()\n        this.callbacks = new Map()\n        this.idCounter = 1\n        this.isLoggingEvents = false\n    }\n}\n\nfunction sked_create (isLoggingEvents: boolean): Skeduler {\n    const skeduler = new Skeduler()\n    skeduler.isLoggingEvents = isLoggingEvents\n    return skeduler\n}\n\nfunction sked_wait (\n    skeduler: Skeduler,\n    event: SkedEvent,\n    callback: SkedCallback,\n): SkedId {\n    if (skeduler.isLoggingEvents === false) {\n        throw new Error(\"Please activate skeduler's isLoggingEvents\")\n    }\n\n    if (skeduler.eventLog.has(event)) {\n        callback(event)\n        return SKED_ID_NULL\n    } else {\n        return _sked_createRequest(skeduler, event, callback, _SKED_MODE_WAIT)\n    }\n}\n\nfunction sked_subscribe (\n    skeduler: Skeduler,\n    event: SkedEvent,\n    callback: SkedCallback,\n): SkedId {\n    return _sked_createRequest(skeduler, event, callback, _SKED_MODE_SUBSCRIBE)\n}\n\nfunction sked_emit (\n    skeduler: Skeduler,\n    event: SkedEvent,\n): void {\n    if (skeduler.isLoggingEvents === true) {\n        skeduler.eventLog.add(event)\n    }\n    if (skeduler.requests.has(event)) {\n        const requests: Array<SkedRequest> = skeduler.requests.get(event)\n        const requestsStaying: Array<SkedRequest> = []\n        for (let i: Int = 0; i < requests.length; i++) {\n            const request: SkedRequest = requests[i]\n            if (skeduler.callbacks.has(request.id)) {\n                skeduler.callbacks.get(request.id)(event)\n                if (request.mode === _SKED_MODE_WAIT) {\n                    skeduler.callbacks.delete(request.id)\n                } else {\n                    requestsStaying.push(request)\n                }\n            }\n        }\n        skeduler.requests.set(event, requestsStaying)\n    }\n}\n\nfunction sked_cancel (\n    skeduler: Skeduler,\n    id: SkedId,\n): void {\n    skeduler.callbacks.delete(id)\n}\n\nfunction _sked_createRequest (\n    skeduler: Skeduler,\n    event: SkedEvent,\n    callback: SkedCallback,\n    mode: SkedMode,\n): SkedId {\n    const id = _sked_nextId(skeduler)\n    const request: SkedRequest = {id, mode}\n    skeduler.callbacks.set(id, callback)\n    if (!skeduler.requests.has(event)) {\n        skeduler.requests.set(event, [request])    \n    } else {\n        skeduler.requests.get(event).push(request)\n    }\n    return id\n}\n\nfunction _sked_nextId (\n    skeduler: Skeduler,\n): SkedId {\n    return skeduler.idCounter++\n}";
 
-  var MSG_ASC = "/*\n * Copyright (c) 2012-2020 Sébastien Piquemal <sebpiq@gmail.com>\n *\n * BSD Simplified License.\n * For information on usage and redistribution, and for a DISCLAIMER OF ALL\n * WARRANTIES, see the file, \"LICENSE.txt,\" in this distribution.\n *\n * See https://github.com/sebpiq/WebPd_pd-parser for documentation\n *\n */\n\ntype MessageFloatToken = Float\ntype MessageCharToken = Int\n\ntype MessageTemplate = Array<Int>\ntype MessageHeaderEntry = Int\ntype MessageHeader = Int32Array\n\nconst MSG_FLOAT_TOKEN: MessageHeaderEntry = 0\nconst MSG_STRING_TOKEN: MessageHeaderEntry = 1\n\n\n// =========================== EXPORTED API\nfunction x_msg_create(templateTypedArray: Int32Array): Message {\n    const template: MessageTemplate = new Array<Int>(templateTypedArray.length)\n    for (let i: Int = 0; i < templateTypedArray.length; i++) {\n        template[i] = templateTypedArray[i]\n    }\n    return msg_create(template)\n}\n\nfunction x_msg_getTokenTypes(message: Message): MessageHeader {\n    return message.tokenTypes\n}\n\nfunction x_msg_createTemplate(length: i32): Int32Array {\n    return new Int32Array(length)\n}\n\n\n// =========================== MSG API\nfunction msg_create(template: MessageTemplate): Message {\n    let i: Int = 0\n    let byteCount: Int = 0\n    let tokenTypes: Array<MessageHeaderEntry> = []\n    let tokenPositions: Array<MessageHeaderEntry> = []\n\n    i = 0\n    while (i < template.length) {\n        switch(template[i]) {\n            case MSG_FLOAT_TOKEN:\n                byteCount += sizeof<MessageFloatToken>()\n                tokenTypes.push(MSG_FLOAT_TOKEN)\n                tokenPositions.push(byteCount)\n                i += 1\n                break\n            case MSG_STRING_TOKEN:\n                byteCount += sizeof<MessageCharToken>() * template[i + 1]\n                tokenTypes.push(MSG_STRING_TOKEN)\n                tokenPositions.push(byteCount)\n                i += 2\n                break\n            default:\n                throw new Error(`unknown token type \" + template[i]`)\n        }\n    }\n\n    const tokenCount = tokenTypes.length\n    const headerByteCount = _msg_computeHeaderLength(tokenCount) * sizeof<MessageHeaderEntry>()\n    byteCount += headerByteCount\n\n    const buffer = new ArrayBuffer(byteCount)\n    const dataView = new DataView(buffer)\n    let writePosition: Int = 0\n    \n    dataView.setInt32(writePosition, tokenCount)\n    writePosition += sizeof<MessageHeaderEntry>()\n\n    for (i = 0; i < tokenCount; i++) {\n        dataView.setInt32(writePosition, tokenTypes[i])\n        writePosition += sizeof<MessageHeaderEntry>()\n    }\n\n    dataView.setInt32(writePosition, headerByteCount)\n    writePosition += sizeof<MessageHeaderEntry>()\n    for (i = 0; i < tokenCount; i++) {\n        dataView.setInt32(writePosition, headerByteCount + tokenPositions[i])\n        writePosition += sizeof<MessageHeaderEntry>()\n    }\n\n    return new Message(buffer)\n}\n\nfunction msg_writeStringToken(\n    message: Message, \n    tokenIndex: Int,\n    value: string,\n): void {\n    const startPosition = message.tokenPositions[tokenIndex]\n    const endPosition = message.tokenPositions[tokenIndex + 1]\n    const expectedStringLength: Int = (endPosition - startPosition) / sizeof<MessageCharToken>()\n    if (value.length !== expectedStringLength) {\n        throw new Error('Invalid string size, specified ' + expectedStringLength.toString() + ', received ' + value.length.toString())\n    }\n\n    for (let i = 0; i < value.length; i++) {\n        message.dataView.setInt32(\n            startPosition + i * sizeof<MessageCharToken>(), \n            value.codePointAt(i)\n        )\n    }\n}\n\nfunction msg_writeFloatToken(\n    message: Message, \n    tokenIndex: Int,\n    value: MessageFloatToken,\n): void {\n    message.dataView.${setFloat}(message.tokenPositions[tokenIndex], value)\n}\n\nfunction msg_readStringToken(\n    message: Message, \n    tokenIndex: Int,\n): string {\n    const startPosition = message.tokenPositions[tokenIndex]\n    const endPosition = message.tokenPositions[tokenIndex + 1]\n    const stringLength: Int = (endPosition - startPosition) / sizeof<MessageCharToken>()\n    let value: string = ''\n    for (let i = 0; i < stringLength; i++) {\n        value += String.fromCodePoint(message.dataView.getInt32(startPosition + sizeof<MessageCharToken>() * i))\n    }\n    return value\n}\n\nfunction msg_readFloatToken(\n    message: Message, \n    tokenIndex: Int,\n): MessageFloatToken {\n    return message.dataView.${getFloat}(message.tokenPositions[tokenIndex])\n}\n\nfunction msg_getLength(message: Message): Int {\n    return message.tokenTypes.length\n}\n\nfunction msg_getTokenType(message: Message, tokenIndex: Int): Int {\n    return message.tokenTypes[tokenIndex]\n}\n\nfunction msg_isStringToken(\n    message: Message, \n    tokenIndex: Int    \n): boolean {\n    return msg_getTokenType(message, tokenIndex) === MSG_STRING_TOKEN\n}\n\nfunction msg_isFloatToken(\n    message: Message, \n    tokenIndex: Int    \n): boolean {\n    return msg_getTokenType(message, tokenIndex) === MSG_FLOAT_TOKEN\n}\n\nfunction msg_isMatching(message: Message, tokenTypes: Array<MessageHeaderEntry>): boolean {\n    if (message.tokenTypes.length !== tokenTypes.length) {\n        return false\n    }\n    for (let i: Int = 0; i < tokenTypes.length; i++) {\n        if (message.tokenTypes[i] !== tokenTypes[i]) {\n            return false\n        }\n    }\n    return true\n}\n\nfunction msg_floats(values: Array<Float>): Message {\n    const message: Message = msg_create(values.map<MessageHeaderEntry>(v => MSG_FLOAT_TOKEN))\n    for (let i: Int = 0; i < values.length; i++) {\n        msg_writeFloatToken(message, i, values[i])\n    }\n    return message\n}\n\nfunction msg_strings(values: Array<string>): Message {\n    const template: MessageTemplate = []\n    for (let i: Int = 0; i < values.length; i++) {\n        template.push(MSG_STRING_TOKEN)\n        template.push(values[i].length)\n    }\n    const message: Message = msg_create(template)\n    for (let i: Int = 0; i < values.length; i++) {\n        msg_writeStringToken(message, i, values[i])\n    }\n    return message\n}\n\nfunction msg_display(message: Message): string {\n    let displayArray: Array<string> = []\n    for (let i: Int = 0; i < msg_getLength(message); i++) {\n        if (msg_isFloatToken(message, i)) {\n            displayArray.push(msg_readFloatToken(message, i).toString())\n        } else {\n            displayArray.push('\"' + msg_readStringToken(message, i) + '\"')\n        }\n    }\n    return '[' + displayArray.join(', ') + ']'\n}\n\n\n// =========================== PRIVATE\n// Message header : [\n//      <Token count>, \n//      <Token 1 type>,  ..., <Token N type>, \n//      <Token 1 start>, ..., <Token N start>, <Token N end>\n//      ... DATA ...\n// ]\nclass Message {\n    public dataView: DataView\n    public header: MessageHeader\n    public tokenCount: MessageHeaderEntry\n    public tokenTypes: MessageHeader\n    public tokenPositions: MessageHeader\n\n    constructor(messageBuffer: ArrayBuffer) {\n        const dataView = new DataView(messageBuffer)\n        const tokenCount = _msg_unpackTokenCount(dataView)\n        const header = _msg_unpackHeader(dataView, tokenCount)\n        this.dataView = dataView\n        this.tokenCount = tokenCount\n        this.header = header \n        this.tokenTypes = _msg_unpackTokenTypes(header)\n        this.tokenPositions = _msg_unpackTokenPositions(header)\n    }\n}\n\nfunction _msg_computeHeaderLength(tokenCount: Int): Int {\n    return 1 + tokenCount * 2 + 1\n}\n\nfunction _msg_unpackTokenCount(messageDataView: DataView): MessageHeaderEntry {\n    return messageDataView.getInt32(0)\n}\n\nfunction _msg_unpackHeader(messageDataView: DataView, tokenCount: MessageHeaderEntry): MessageHeader {\n    const headerLength = _msg_computeHeaderLength(tokenCount)\n    // TODO : why is this `wrap` not working ?\n    // return Int32Array.wrap(messageDataView.buffer, 0, headerLength)\n    const messageHeader = new Int32Array(headerLength)\n    for (let i = 0; i < headerLength; i++) {\n        messageHeader[i] = messageDataView.getInt32(sizeof<MessageHeaderEntry>() * i)\n    }\n    return messageHeader\n}\n\nfunction _msg_unpackTokenTypes(header: MessageHeader): MessageHeader {\n    return header.slice(1, 1 + header[0])\n}\n\nfunction _msg_unpackTokenPositions(header: MessageHeader): MessageHeader {\n    return header.slice(1 + header[0])\n}";
+  var MSG_ASC = "/*\n * Copyright (c) 2012-2020 Sébastien Piquemal <sebpiq@gmail.com>\n *\n * BSD Simplified License.\n * For information on usage and redistribution, and for a DISCLAIMER OF ALL\n * WARRANTIES, see the file, \"LICENSE.txt,\" in this distribution.\n *\n * See https://github.com/sebpiq/WebPd_pd-parser for documentation\n *\n */\n\ntype MessageFloatToken = Float\ntype MessageCharToken = Int\n\ntype MessageTemplate = Array<Int>\ntype MessageHeaderEntry = Int\ntype MessageHeader = Int32Array\n\nconst MSG_FLOAT_TOKEN: MessageHeaderEntry = 0\nconst MSG_STRING_TOKEN: MessageHeaderEntry = 1\n\n\n// =========================== EXPORTED API\nfunction x_msg_create(templateTypedArray: Int32Array): Message {\n    const template: MessageTemplate = new Array<Int>(templateTypedArray.length)\n    for (let i: Int = 0; i < templateTypedArray.length; i++) {\n        template[i] = templateTypedArray[i]\n    }\n    return msg_create(template)\n}\n\nfunction x_msg_getTokenTypes(message: Message): MessageHeader {\n    return message.tokenTypes\n}\n\nfunction x_msg_createTemplate(length: i32): Int32Array {\n    return new Int32Array(length)\n}\n\n\n// =========================== MSG API\nfunction msg_create(template: MessageTemplate): Message {\n    let i: Int = 0\n    let byteCount: Int = 0\n    let tokenTypes: Array<MessageHeaderEntry> = []\n    let tokenPositions: Array<MessageHeaderEntry> = []\n\n    i = 0\n    while (i < template.length) {\n        switch(template[i]) {\n            case MSG_FLOAT_TOKEN:\n                byteCount += sizeof<MessageFloatToken>()\n                tokenTypes.push(MSG_FLOAT_TOKEN)\n                tokenPositions.push(byteCount)\n                i += 1\n                break\n            case MSG_STRING_TOKEN:\n                byteCount += sizeof<MessageCharToken>() * template[i + 1]\n                tokenTypes.push(MSG_STRING_TOKEN)\n                tokenPositions.push(byteCount)\n                i += 2\n                break\n            default:\n                throw new Error(`unknown token type \" + template[i]`)\n        }\n    }\n\n    const tokenCount = tokenTypes.length\n    const headerByteCount = _msg_computeHeaderLength(tokenCount) * sizeof<MessageHeaderEntry>()\n    byteCount += headerByteCount\n\n    const buffer = new ArrayBuffer(byteCount)\n    const dataView = new DataView(buffer)\n    let writePosition: Int = 0\n    \n    dataView.setInt32(writePosition, tokenCount)\n    writePosition += sizeof<MessageHeaderEntry>()\n\n    for (i = 0; i < tokenCount; i++) {\n        dataView.setInt32(writePosition, tokenTypes[i])\n        writePosition += sizeof<MessageHeaderEntry>()\n    }\n\n    dataView.setInt32(writePosition, headerByteCount)\n    writePosition += sizeof<MessageHeaderEntry>()\n    for (i = 0; i < tokenCount; i++) {\n        dataView.setInt32(writePosition, headerByteCount + tokenPositions[i])\n        writePosition += sizeof<MessageHeaderEntry>()\n    }\n\n    return new Message(buffer)\n}\n\nfunction msg_writeStringToken(\n    message: Message, \n    tokenIndex: Int,\n    value: string,\n): void {\n    const startPosition = message.tokenPositions[tokenIndex]\n    const endPosition = message.tokenPositions[tokenIndex + 1]\n    const expectedStringLength: Int = (endPosition - startPosition) / sizeof<MessageCharToken>()\n    if (value.length !== expectedStringLength) {\n        throw new Error('Invalid string size, specified ' + expectedStringLength.toString() + ', received ' + value.length.toString())\n    }\n\n    for (let i = 0; i < value.length; i++) {\n        message.dataView.setInt32(\n            startPosition + i * sizeof<MessageCharToken>(), \n            value.codePointAt(i)\n        )\n    }\n}\n\nfunction msg_writeFloatToken(\n    message: Message, \n    tokenIndex: Int,\n    value: MessageFloatToken,\n): void {\n    setFloatDataView(message.dataView, message.tokenPositions[tokenIndex], value)\n}\n\nfunction msg_readStringToken(\n    message: Message, \n    tokenIndex: Int,\n): string {\n    const startPosition = message.tokenPositions[tokenIndex]\n    const endPosition = message.tokenPositions[tokenIndex + 1]\n    const stringLength: Int = (endPosition - startPosition) / sizeof<MessageCharToken>()\n    let value: string = ''\n    for (let i = 0; i < stringLength; i++) {\n        value += String.fromCodePoint(message.dataView.getInt32(startPosition + sizeof<MessageCharToken>() * i))\n    }\n    return value\n}\n\nfunction msg_readFloatToken(\n    message: Message, \n    tokenIndex: Int,\n): MessageFloatToken {\n    return getFloatDataView(message.dataView, message.tokenPositions[tokenIndex])\n}\n\nfunction msg_getLength(message: Message): Int {\n    return message.tokenTypes.length\n}\n\nfunction msg_getTokenType(message: Message, tokenIndex: Int): Int {\n    return message.tokenTypes[tokenIndex]\n}\n\nfunction msg_isStringToken(\n    message: Message, \n    tokenIndex: Int    \n): boolean {\n    return msg_getTokenType(message, tokenIndex) === MSG_STRING_TOKEN\n}\n\nfunction msg_isFloatToken(\n    message: Message, \n    tokenIndex: Int    \n): boolean {\n    return msg_getTokenType(message, tokenIndex) === MSG_FLOAT_TOKEN\n}\n\nfunction msg_isMatching(message: Message, tokenTypes: Array<MessageHeaderEntry>): boolean {\n    if (message.tokenTypes.length !== tokenTypes.length) {\n        return false\n    }\n    for (let i: Int = 0; i < tokenTypes.length; i++) {\n        if (message.tokenTypes[i] !== tokenTypes[i]) {\n            return false\n        }\n    }\n    return true\n}\n\nfunction msg_floats(values: Array<Float>): Message {\n    const message: Message = msg_create(values.map<MessageHeaderEntry>(v => MSG_FLOAT_TOKEN))\n    for (let i: Int = 0; i < values.length; i++) {\n        msg_writeFloatToken(message, i, values[i])\n    }\n    return message\n}\n\nfunction msg_strings(values: Array<string>): Message {\n    const template: MessageTemplate = []\n    for (let i: Int = 0; i < values.length; i++) {\n        template.push(MSG_STRING_TOKEN)\n        template.push(values[i].length)\n    }\n    const message: Message = msg_create(template)\n    for (let i: Int = 0; i < values.length; i++) {\n        msg_writeStringToken(message, i, values[i])\n    }\n    return message\n}\n\nfunction msg_display(message: Message): string {\n    let displayArray: Array<string> = []\n    for (let i: Int = 0; i < msg_getLength(message); i++) {\n        if (msg_isFloatToken(message, i)) {\n            displayArray.push(msg_readFloatToken(message, i).toString())\n        } else {\n            displayArray.push('\"' + msg_readStringToken(message, i) + '\"')\n        }\n    }\n    return '[' + displayArray.join(', ') + ']'\n}\n\n\n// =========================== PRIVATE\n// Message header : [\n//      <Token count>, \n//      <Token 1 type>,  ..., <Token N type>, \n//      <Token 1 start>, ..., <Token N start>, <Token N end>\n//      ... DATA ...\n// ]\nclass Message {\n    public dataView: DataView\n    public header: MessageHeader\n    public tokenCount: MessageHeaderEntry\n    public tokenTypes: MessageHeader\n    public tokenPositions: MessageHeader\n\n    constructor(messageBuffer: ArrayBuffer) {\n        const dataView = new DataView(messageBuffer)\n        const tokenCount = _msg_unpackTokenCount(dataView)\n        const header = _msg_unpackHeader(dataView, tokenCount)\n        this.dataView = dataView\n        this.tokenCount = tokenCount\n        this.header = header \n        this.tokenTypes = _msg_unpackTokenTypes(header)\n        this.tokenPositions = _msg_unpackTokenPositions(header)\n    }\n}\n\nfunction _msg_computeHeaderLength(tokenCount: Int): Int {\n    return 1 + tokenCount * 2 + 1\n}\n\nfunction _msg_unpackTokenCount(messageDataView: DataView): MessageHeaderEntry {\n    return messageDataView.getInt32(0)\n}\n\nfunction _msg_unpackHeader(messageDataView: DataView, tokenCount: MessageHeaderEntry): MessageHeader {\n    const headerLength = _msg_computeHeaderLength(tokenCount)\n    // TODO : why is this `wrap` not working ?\n    // return Int32Array.wrap(messageDataView.buffer, 0, headerLength)\n    const messageHeader = new Int32Array(headerLength)\n    for (let i = 0; i < headerLength; i++) {\n        messageHeader[i] = messageDataView.getInt32(sizeof<MessageHeaderEntry>() * i)\n    }\n    return messageHeader\n}\n\nfunction _msg_unpackTokenTypes(header: MessageHeader): MessageHeader {\n    return header.slice(1, 1 + header[0])\n}\n\nfunction _msg_unpackTokenPositions(header: MessageHeader): MessageHeader {\n    return header.slice(1 + header[0])\n}";
 
   var COMMONS_ASC = "/*\n * Copyright (c) 2012-2020 Sébastien Piquemal <sebpiq@gmail.com>\n *\n * BSD Simplified License.\n * For information on usage and redistribution, and for a DISCLAIMER OF ALL\n * WARRANTIES, see the file, \"LICENSE.txt,\" in this distribution.\n *\n * See https://github.com/sebpiq/WebPd_pd-parser for documentation\n *\n */\n\nconst _commons_ARRAYS: Map<string, FloatArray> = new Map()\nconst _commons_ARRAYS_SKEDULER: Skeduler = sked_create(false)\n\nconst _commons_ENGINE_LOGGED_SKEDULER: Skeduler = sked_create(true)\n\n// =========================== COMMONS API\n/** \n * @param callback Called when the engine is configured, or immediately if the engine\n * was already configured.\n */\nfunction commons_waitEngineConfigure(\n    callback: SkedCallback,\n): void {\n    sked_wait(_commons_ENGINE_LOGGED_SKEDULER, 'configure', callback)\n}\n\n/** \n * @param callback Called immediately if the array exists, and subsequently, everytime \n * the array is set again.\n * @returns An id that can be used to cancel the subscription.\n */\nfunction commons_subscribeArrayChanges(\n    arrayName: string,\n    callback: SkedCallback,\n): SkedId {\n    const id: SkedId = sked_subscribe(_commons_ARRAYS_SKEDULER, arrayName, callback)\n    if (_commons_ARRAYS.has(arrayName)) {\n        callback(arrayName)\n    }\n    return id\n}\n\n/** \n * @param id The id received when subscribing.\n */\nfunction commons_cancelArrayChangesSubscription(\n    id: SkedId,\n): void {\n    sked_cancel(_commons_ARRAYS_SKEDULER, id)\n}\n\n/** Gets an named array, throwing an error if the array doesn't exist. */\nfunction commons_getArray(\n    arrayName: string,\n): FloatArray {\n    if (!_commons_ARRAYS.has(arrayName)) {\n        throw new Error('Unknown array ' + arrayName)\n    }\n    return _commons_ARRAYS.get(arrayName)\n}\n\nfunction commons_hasArray(\n    arrayName: string,\n): boolean {\n    return _commons_ARRAYS.has(arrayName)\n}\n\nfunction commons_setArray(\n    arrayName: string,\n    array: FloatArray,\n): void {\n    _commons_ARRAYS.set(arrayName, array)\n    sked_emit(_commons_ARRAYS_SKEDULER, arrayName)\n}\n\n// =========================== PRIVATE API\nfunction _commons_emitEngineConfigure(): void {\n    sked_emit(_commons_ENGINE_LOGGED_SKEDULER, 'configure')\n}";
 
-  var FS_ASC = "/*\n * Copyright (c) 2012-2020 Sébastien Piquemal <sebpiq@gmail.com>\n *\n * BSD Simplified License.\n * For information on usage and redistribution, and for a DISCLAIMER OF ALL\n * WARRANTIES, see the file, \"LICENSE.txt,\" in this distribution.\n *\n * See https://github.com/sebpiq/WebPd_pd-parser for documentation\n *\n */\n\nconst FS_OPERATION_SUCCESS: Int = ${FS_OPERATION_SUCCESS}\nconst FS_OPERATION_FAILURE: Int = ${FS_OPERATION_FAILURE}\n\ntype fs_OperationId = Int\ntype fs_OperationStatus = Int\ntype fs_OperationCallback = (id: fs_OperationId, status: fs_OperationStatus) => void\ntype fs_OperationSoundCallback = (id: fs_OperationId, status: fs_OperationStatus, sound: FloatArray[]) => void\n\ntype Url = string\n\nconst _FS_OPERATIONS_IDS = new Set<fs_OperationId>()\nconst _FS_OPERATIONS_CALLBACKS = new Map<fs_OperationId, fs_OperationCallback>()\nconst _FS_OPERATIONS_SOUND_CALLBACKS = new Map<fs_OperationId, fs_OperationSoundCallback>()\nconst _FS_SOUND_STREAM_BUFFERS = new Map<fs_OperationId, Array<buf_SoundBuffer>>()\n\n// We start at 1, because 0 is what ASC uses when host forgets to pass an arg to \n// a function. Therefore we can get false negatives when a test happens to expect a 0.\nlet _FS_OPERATION_COUNTER: Int = 1\n\nconst _FS_SOUND_BUFFER_LENGTH = 20 * 44100\n\n// =========================== EXPORTED API\nfunction x_fs_onReadSoundFileResponse (\n    id: fs_OperationId, \n    status: fs_OperationStatus,\n    sound: FloatArray[]\n): void {\n    _fs_assertOperationExists(id, 'x_fs_onReadSoundFileResponse')\n    _FS_OPERATIONS_IDS.delete(id)\n    // Finish cleaning before calling the callback in case it would throw an error.\n    const callback = _FS_OPERATIONS_SOUND_CALLBACKS.get(id)\n    callback(id, status, sound)\n    _FS_OPERATIONS_SOUND_CALLBACKS.delete(id)\n}\n\nfunction x_fs_onWriteSoundFileResponse (\n    id: fs_OperationId,\n    status: fs_OperationStatus,\n): void {\n    _fs_assertOperationExists(id, 'x_fs_onWriteSoundFileResponse')\n    _FS_OPERATIONS_IDS.delete(id)\n    // Finish cleaning before calling the callback in case it would throw an error.\n    const callback = _FS_OPERATIONS_CALLBACKS.get(id)\n    callback(id, status)\n    _FS_OPERATIONS_CALLBACKS.delete(id)\n}\n\nfunction x_fs_onSoundStreamData (\n    id: fs_OperationId, \n    block: FloatArray[]\n): Int {\n    _fs_assertOperationExists(id, 'x_fs_onSoundStreamData')\n    const buffers = _FS_SOUND_STREAM_BUFFERS.get(id)\n    for (let i: Int = 0; i < buffers.length; i++) {\n        buf_pushBlock(buffers[i], block[i])\n    }\n    return buffers[0].pullAvailableLength\n}\n\nfunction x_fs_onCloseSoundStream (\n    id: fs_OperationId, \n    status: fs_OperationStatus\n): void {\n    fs_closeSoundStream(id, status)\n}\n\n\n// =========================== FS API\nclass fs_SoundInfo {\n    channelCount: Int\n    sampleRate: Float\n    bitDepth: Float\n    encodingFormat: string\n    endianness: string\n    extraOptions: string\n}\n\nfunction fs_readSoundFile(\n    url: Url,\n    soundInfo: fs_SoundInfo,\n    callback: fs_OperationSoundCallback\n): fs_OperationId {\n    const id: fs_OperationId = _fs_createOperationId()\n    _FS_OPERATIONS_SOUND_CALLBACKS.set(id, callback)\n    i_fs_readSoundFile(id, url, fs_soundInfoToMessage(soundInfo))\n    return id\n}\n\nfunction fs_writeSoundFile(\n    sound: FloatArray[],\n    url: Url,\n    soundInfo: fs_SoundInfo,\n    callback: fs_OperationCallback,\n): fs_OperationId {\n    const id: fs_OperationId = _fs_createOperationId()\n    _FS_OPERATIONS_CALLBACKS.set(id, callback)\n    i_fs_writeSoundFile(id, sound, url, fs_soundInfoToMessage(soundInfo))\n    return id\n}\n\nfunction fs_openSoundReadStream(\n    url: Url, \n    soundInfo: fs_SoundInfo,\n    callback: fs_OperationCallback,\n): fs_OperationId {\n    const id: fs_OperationId = _fs_createOperationId()\n    const buffers: Array<buf_SoundBuffer> = []\n    for (let channel = 0; channel < soundInfo.channelCount; channel++) {\n        buffers.push(new buf_SoundBuffer(_FS_SOUND_BUFFER_LENGTH))\n    }\n    _FS_SOUND_STREAM_BUFFERS.set(id, buffers)\n    _FS_OPERATIONS_CALLBACKS.set(id, callback)\n    i_fs_openSoundReadStream(id, url, fs_soundInfoToMessage(soundInfo))\n    return id\n}\n\nfunction fs_openSoundWriteStream(\n    url: Url, \n    soundInfo: fs_SoundInfo,\n    callback: fs_OperationCallback,\n): fs_OperationId {\n    const id: fs_OperationId = _fs_createOperationId()\n    _FS_SOUND_STREAM_BUFFERS.set(id, [])\n    _FS_OPERATIONS_CALLBACKS.set(id, callback)\n    i_fs_openSoundWriteStream(id, url, fs_soundInfoToMessage(soundInfo))\n    return id\n}\n\nfunction fs_sendSoundStreamData(\n    id: fs_OperationId, \n    block: FloatArray[],\n): void {\n    _fs_assertOperationExists(id, 'fs_sendSoundStreamData')\n    i_fs_sendSoundStreamData(id, block)\n}\n\nfunction fs_closeSoundStream (\n    id: fs_OperationId, \n    status: fs_OperationStatus\n): void {\n    if (!_FS_OPERATIONS_IDS.has(id)) {\n        return\n    }\n    _FS_OPERATIONS_IDS.delete(id)\n    _FS_OPERATIONS_CALLBACKS.get(id)(id, status)\n    _FS_OPERATIONS_CALLBACKS.delete(id)\n    // Delete this last, to give the callback \n    // a chance to save a reference to the buffer\n    // If write stream, there won't be a buffer\n    if (_FS_SOUND_STREAM_BUFFERS.has(id)) {\n        _FS_SOUND_STREAM_BUFFERS.delete(id)\n    }\n    i_fs_closeSoundStream(id, status)\n}\n\nfunction fs_soundInfoToMessage(soundInfo: fs_SoundInfo): Message {\n    const info: Message = msg_create([\n        MSG_FLOAT_TOKEN,\n        MSG_FLOAT_TOKEN,\n        MSG_FLOAT_TOKEN,\n        MSG_STRING_TOKEN,\n        soundInfo.encodingFormat.length,\n        MSG_STRING_TOKEN,\n        soundInfo.endianness.length,\n        MSG_STRING_TOKEN,\n        soundInfo.extraOptions.length\n    ])\n    msg_writeFloatToken(info, 0, ${Float}(soundInfo.channelCount))\n    msg_writeFloatToken(info, 1, ${Float}(soundInfo.sampleRate))\n    msg_writeFloatToken(info, 2, ${Float}(soundInfo.bitDepth))\n    msg_writeStringToken(info, 3, soundInfo.encodingFormat)\n    msg_writeStringToken(info, 4, soundInfo.endianness)\n    msg_writeStringToken(info, 5, soundInfo.extraOptions)\n    return info\n}\n\n// =========================== PRIVATE\nfunction _fs_createOperationId(): fs_OperationId {\n    const id: fs_OperationId = _FS_OPERATION_COUNTER++\n    _FS_OPERATIONS_IDS.add(id)\n    return id\n}\n\nfunction _fs_assertOperationExists(\n    id: fs_OperationId,\n    operationName: string,\n): void {\n    if (!_FS_OPERATIONS_IDS.has(id)) {\n        throw new Error(operationName + ' operation unknown : ' + id.toString())\n    }\n}";
+  var FS_ASC = "/*\n * Copyright (c) 2012-2020 Sébastien Piquemal <sebpiq@gmail.com>\n *\n * BSD Simplified License.\n * For information on usage and redistribution, and for a DISCLAIMER OF ALL\n * WARRANTIES, see the file, \"LICENSE.txt,\" in this distribution.\n *\n * See https://github.com/sebpiq/WebPd_pd-parser for documentation\n *\n */\n\ntype fs_OperationId = Int\ntype fs_OperationStatus = Int\ntype fs_OperationCallback = (id: fs_OperationId, status: fs_OperationStatus) => void\ntype fs_OperationSoundCallback = (id: fs_OperationId, status: fs_OperationStatus, sound: FloatArray[]) => void\n\ntype Url = string\n\nconst _FS_OPERATIONS_IDS = new Set<fs_OperationId>()\nconst _FS_OPERATIONS_CALLBACKS = new Map<fs_OperationId, fs_OperationCallback>()\nconst _FS_OPERATIONS_SOUND_CALLBACKS = new Map<fs_OperationId, fs_OperationSoundCallback>()\nconst _FS_SOUND_STREAM_BUFFERS = new Map<fs_OperationId, Array<buf_SoundBuffer>>()\n\n// We start at 1, because 0 is what ASC uses when host forgets to pass an arg to \n// a function. Therefore we can get false negatives when a test happens to expect a 0.\nlet _FS_OPERATION_COUNTER: Int = 1\n\nconst _FS_SOUND_BUFFER_LENGTH = 20 * 44100\n\n// =========================== EXPORTED API\nfunction x_fs_onReadSoundFileResponse (\n    id: fs_OperationId, \n    status: fs_OperationStatus,\n    sound: FloatArray[]\n): void {\n    _fs_assertOperationExists(id, 'x_fs_onReadSoundFileResponse')\n    _FS_OPERATIONS_IDS.delete(id)\n    // Finish cleaning before calling the callback in case it would throw an error.\n    const callback = _FS_OPERATIONS_SOUND_CALLBACKS.get(id)\n    callback(id, status, sound)\n    _FS_OPERATIONS_SOUND_CALLBACKS.delete(id)\n}\n\nfunction x_fs_onWriteSoundFileResponse (\n    id: fs_OperationId,\n    status: fs_OperationStatus,\n): void {\n    _fs_assertOperationExists(id, 'x_fs_onWriteSoundFileResponse')\n    _FS_OPERATIONS_IDS.delete(id)\n    // Finish cleaning before calling the callback in case it would throw an error.\n    const callback = _FS_OPERATIONS_CALLBACKS.get(id)\n    callback(id, status)\n    _FS_OPERATIONS_CALLBACKS.delete(id)\n}\n\nfunction x_fs_onSoundStreamData (\n    id: fs_OperationId, \n    block: FloatArray[]\n): Int {\n    _fs_assertOperationExists(id, 'x_fs_onSoundStreamData')\n    const buffers = _FS_SOUND_STREAM_BUFFERS.get(id)\n    for (let i: Int = 0; i < buffers.length; i++) {\n        buf_pushBlock(buffers[i], block[i])\n    }\n    return buffers[0].pullAvailableLength\n}\n\nfunction x_fs_onCloseSoundStream (\n    id: fs_OperationId, \n    status: fs_OperationStatus\n): void {\n    fs_closeSoundStream(id, status)\n}\n\n// =========================== FS API\nclass fs_SoundInfo {\n    channelCount: Int\n    sampleRate: Int\n    bitDepth: Int\n    encodingFormat: string\n    endianness: string\n    extraOptions: string\n}\n\nfunction fs_readSoundFile(\n    url: Url,\n    soundInfo: fs_SoundInfo,\n    callback: fs_OperationSoundCallback\n): fs_OperationId {\n    const id: fs_OperationId = _fs_createOperationId()\n    _FS_OPERATIONS_SOUND_CALLBACKS.set(id, callback)\n    i_fs_readSoundFile(id, url, fs_soundInfoToMessage(soundInfo))\n    return id\n}\n\nfunction fs_writeSoundFile(\n    sound: FloatArray[],\n    url: Url,\n    soundInfo: fs_SoundInfo,\n    callback: fs_OperationCallback,\n): fs_OperationId {\n    const id: fs_OperationId = _fs_createOperationId()\n    _FS_OPERATIONS_CALLBACKS.set(id, callback)\n    i_fs_writeSoundFile(id, sound, url, fs_soundInfoToMessage(soundInfo))\n    return id\n}\n\nfunction fs_openSoundReadStream(\n    url: Url, \n    soundInfo: fs_SoundInfo,\n    callback: fs_OperationCallback,\n): fs_OperationId {\n    const id: fs_OperationId = _fs_createOperationId()\n    const buffers: Array<buf_SoundBuffer> = []\n    for (let channel = 0; channel < soundInfo.channelCount; channel++) {\n        buffers.push(new buf_SoundBuffer(_FS_SOUND_BUFFER_LENGTH))\n    }\n    _FS_SOUND_STREAM_BUFFERS.set(id, buffers)\n    _FS_OPERATIONS_CALLBACKS.set(id, callback)\n    i_fs_openSoundReadStream(id, url, fs_soundInfoToMessage(soundInfo))\n    return id\n}\n\nfunction fs_openSoundWriteStream(\n    url: Url, \n    soundInfo: fs_SoundInfo,\n    callback: fs_OperationCallback,\n): fs_OperationId {\n    const id: fs_OperationId = _fs_createOperationId()\n    _FS_SOUND_STREAM_BUFFERS.set(id, [])\n    _FS_OPERATIONS_CALLBACKS.set(id, callback)\n    i_fs_openSoundWriteStream(id, url, fs_soundInfoToMessage(soundInfo))\n    return id\n}\n\nfunction fs_sendSoundStreamData(\n    id: fs_OperationId, \n    block: FloatArray[],\n): void {\n    _fs_assertOperationExists(id, 'fs_sendSoundStreamData')\n    i_fs_sendSoundStreamData(id, block)\n}\n\nfunction fs_closeSoundStream (\n    id: fs_OperationId, \n    status: fs_OperationStatus\n): void {\n    if (!_FS_OPERATIONS_IDS.has(id)) {\n        return\n    }\n    _FS_OPERATIONS_IDS.delete(id)\n    _FS_OPERATIONS_CALLBACKS.get(id)(id, status)\n    _FS_OPERATIONS_CALLBACKS.delete(id)\n    // Delete this last, to give the callback \n    // a chance to save a reference to the buffer\n    // If write stream, there won't be a buffer\n    if (_FS_SOUND_STREAM_BUFFERS.has(id)) {\n        _FS_SOUND_STREAM_BUFFERS.delete(id)\n    }\n    i_fs_closeSoundStream(id, status)\n}\n\nfunction fs_soundInfoToMessage(soundInfo: fs_SoundInfo): Message {\n    const info: Message = msg_create([\n        MSG_FLOAT_TOKEN,\n        MSG_FLOAT_TOKEN,\n        MSG_FLOAT_TOKEN,\n        MSG_STRING_TOKEN,\n        soundInfo.encodingFormat.length,\n        MSG_STRING_TOKEN,\n        soundInfo.endianness.length,\n        MSG_STRING_TOKEN,\n        soundInfo.extraOptions.length\n    ])\n    msg_writeFloatToken(info, 0, toFloat(soundInfo.channelCount))\n    msg_writeFloatToken(info, 1, toFloat(soundInfo.sampleRate))\n    msg_writeFloatToken(info, 2, toFloat(soundInfo.bitDepth))\n    msg_writeStringToken(info, 3, soundInfo.encodingFormat)\n    msg_writeStringToken(info, 4, soundInfo.endianness)\n    msg_writeStringToken(info, 5, soundInfo.extraOptions)\n    return info\n}\n\n// =========================== PRIVATE\nfunction _fs_createOperationId(): fs_OperationId {\n    const id: fs_OperationId = _FS_OPERATION_COUNTER++\n    _FS_OPERATIONS_IDS.add(id)\n    return id\n}\n\nfunction _fs_assertOperationExists(\n    id: fs_OperationId,\n    operationName: string,\n): void {\n    if (!_FS_OPERATIONS_IDS.has(id)) {\n        throw new Error(operationName + ' operation unknown : ' + id.toString())\n    }\n}";
 
-  // TODO : no need for the whole codeVariableNames here
-  var generateCoreCodeAsc = (codeVariableNames) => {
-      return (replaceCoreCodePlaceholders(codeVariableNames, CORE_ASC) +
-          replaceCoreCodePlaceholders(codeVariableNames, BUF_ASC) +
-          replaceCoreCodePlaceholders(codeVariableNames, SKED_ASC) +
-          replaceCoreCodePlaceholders(codeVariableNames, COMMONS_ASC) +
-          replaceCoreCodePlaceholders(codeVariableNames, MSG_ASC) +
-          replaceCoreCodePlaceholders(codeVariableNames, FS_ASC));
+  var generateCoreCodeAsc = (bitDepth) => {
+      return (replaceCoreCodePlaceholders(bitDepth, CORE_ASC) +
+          BUF_ASC +
+          SKED_ASC +
+          COMMONS_ASC +
+          MSG_ASC +
+          FS_ASC);
   };
 
   /*
@@ -2773,17 +2845,13 @@ const msg_display = (m) => '[' + m
   var compileToAssemblyscript = (compilation) => {
       const { audioSettings, inletCallerSpecs, codeVariableNames } = compilation;
       const { channelCount } = audioSettings;
-      const graphTraversal = graphTraversalForCompile(compilation.graph, inletCallerSpecs);
       const globs = compilation.codeVariableNames.globs;
-      const { FloatArray } = codeVariableNames.types;
       const metadata = buildMetadata(compilation);
-      trimGraph(compilation, graphTraversal);
-      const precompiledPortlets = preCompileSignalAndMessageFlow(compilation, graphTraversal);
       // prettier-ignore
       return renderCode$1 `
-        ${generateCoreCodeAsc(codeVariableNames)}
+        ${generateCoreCodeAsc(audioSettings.bitDepth)}
 
-        ${compileDeclare(compilation, graphTraversal, precompiledPortlets)}
+        ${compileDeclare(compilation)}
 
         ${compileInletCallers(compilation)}
         
@@ -2792,23 +2860,23 @@ const msg_display = (m) => '[' + m
         `)}
 
         const metadata: string = '${JSON.stringify(metadata)}'
-        let ${globs.input}: FloatArray = new ${FloatArray}(0)
-        let ${globs.output}: FloatArray = new ${FloatArray}(0)
+        let ${globs.input}: FloatArray = createFloatArray(0)
+        let ${globs.output}: FloatArray = createFloatArray(0)
         
         export function configure(sampleRate: Float, blockSize: Int): void {
-            ${globs.input} = new ${FloatArray}(blockSize * ${channelCount.in.toString()})
-            ${globs.output} = new ${FloatArray}(blockSize * ${channelCount.out.toString()})
+            ${globs.input} = createFloatArray(blockSize * ${channelCount.in.toString()})
+            ${globs.output} = createFloatArray(blockSize * ${channelCount.out.toString()})
             ${globs.sampleRate} = sampleRate
             ${globs.blockSize} = blockSize
             _commons_emitEngineConfigure()
         }
 
-        export function getInput(): ${FloatArray} { return ${globs.input} }
+        export function getInput(): FloatArray { return ${globs.input} }
 
-        export function getOutput(): ${FloatArray} { return ${globs.output} }
+        export function getOutput(): FloatArray { return ${globs.output} }
 
         export function loop(): void {
-            ${compileLoop(compilation, graphTraversal)}
+            ${compileLoop(compilation)}
         }
 
         // FS IMPORTS
@@ -2902,7 +2970,6 @@ const msg_display = (m) => '[' + m
       }),
       outletListeners: createNamespace('outletListeners', {}),
       inletCallers: createNamespace('inletCallers', {}),
-      types: createNamespace('types', {}),
   });
   /**
    * Helper that attaches to the generated `codeVariableNames` the names of specified outlet listeners.
@@ -2931,17 +2998,6 @@ const msg_display = (m) => '[' + m
               codeVariableNames.inletCallers[nodeId][inletId] = `inletCaller_${nodeId}_${inletId}`;
           });
       });
-  };
-  /** Helper to attach types to variable names depending on compile target and bitDepth. */
-  const attachTypes = (codeVariableNames, bitDepth) => {
-      codeVariableNames.types.Int = 'i32';
-      codeVariableNames.types.Float = bitDepth === 32 ? 'f32' : 'f64';
-      codeVariableNames.types.FloatArray =
-          bitDepth === 32 ? 'Float32Array' : 'Float64Array';
-      codeVariableNames.types.getFloat =
-          bitDepth === 32 ? 'getFloat32' : 'getFloat64';
-      codeVariableNames.types.setFloat =
-          bitDepth === 32 ? 'setFloat32' : 'setFloat64';
   };
   /**
    * Helper to generate VariableNames, essentially a proxy object that throws an error
@@ -3003,10 +3059,12 @@ const msg_display = (m) => '[' + m
       const codeVariableNames = generate(nodeImplementations, graph, debug);
       attachInletCallers(codeVariableNames, inletCallerSpecs);
       attachOutletListeners(codeVariableNames, outletListenerSpecs);
-      attachTypes(codeVariableNames, audioSettings.bitDepth);
+      const graphTraversal = graphTraversalForCompile(graph, inletCallerSpecs);
+      trimGraph(graph, graphTraversal);
       return executeCompilation({
           target,
           graph,
+          graphTraversal,
           nodeImplementations,
           audioSettings,
           inletCallerSpecs,
@@ -3014,6 +3072,10 @@ const msg_display = (m) => '[' + m
           codeVariableNames,
           macros,
           debug,
+          precompiledPortlets: {
+              precompiledInlets: {},
+              precompiledOutlets: {},
+          },
       });
   };
   /** Asserts settings are valid (or throws error) and sets default values. */
@@ -3035,6 +3097,7 @@ const msg_display = (m) => '[' + m
   const getMacros = (target) => ({ javascript: macros$1, assemblyscript: macros }[target]);
   /** Helper to execute compilation */
   const executeCompilation = (compilation) => {
+      preCompileSignalAndMessageFlow(compilation);
       if (compilation.target === 'javascript') {
           return compileToJavascript(compilation);
       }
@@ -7736,7 +7799,7 @@ const msg_display = (m) => '[' + m
 
   const _buildControlView = (control) => ({
       type: 'control',
-      label: control.node.layout.label.length ? control.node.layout.label : null,
+      label: (control.node.layout.label && control.node.layout.label.length) ? control.node.layout.label : null,
       control,
       dimensions: _getDimensionsGrid(control.node.type, control.node.args),
       position: null,
@@ -7760,6 +7823,8 @@ const msg_display = (m) => '[' + m
               return { x: 2, y: 8 }
           case 'hsl':
               return { x: 8, y: 2 }
+          case 'msg':
+              return { x: Math.round(nodeArgs.join(' ').length), y: 2 }
           default:
               throw new Error(`unsupported type ${nodeType}`)
       }
@@ -7951,8 +8016,6 @@ const msg_display = (m) => '[' + m
         (controlView.dimensions.y - CONTAINER_PADDING) * GRID_SIZE_PX
     }px`;
       div.style.padding = `${CONTAINER_PADDING * 0.5 * GRID_SIZE_PX}px`;
-
-      // div.style.backgroundColor = '#'+(0x1000000+(Math.random())*0xffffff).toString(16).substr(1,6)
       if (controlView.label) {
           _renderLabel(div, controlView.label);
       }
@@ -7977,7 +8040,7 @@ const msg_display = (m) => '[' + m
       let nexusElem;
       switch (node.type) {
           case 'hsl':
-              // TODO : case 'vsl':
+          case 'vsl':
               nexusElem = new Nexus.Add.Slider(div, {
                   min: node.args[0],
                   max: node.args[1],
@@ -7987,18 +8050,24 @@ const msg_display = (m) => '[' + m
               break
 
           case 'hradio':
-              // TODO : case 'vradio':
+          case 'vradio':
               nexusElem = new Nexus.RadioButton(div, {
                   numberOfButtons: node.args[0],
                   active: node.args[2],
-                  size: [width, height],
+                  size: [width * 0.9, height * 0.9],
               });
               break
 
           case 'bng':
-              // TODO : case 'vradio':
               nexusElem = new Nexus.Button(div, {
                   size: [height, height],
+              });
+              break
+
+          case 'msg':
+              nexusElem = new Nexus.TextButton(div, {
+                  size: [width, height],
+                  text: node.args.join(' ')
               });
               break
 
@@ -8081,10 +8150,9 @@ const msg_display = (m) => '[' + m
       loadingContainer: document.querySelector('#splash-container')
   };
   ELEMS.startButton.style.display = 'none';
-  const PATCH_URL = './ginger2.pd';
 
   const STATE = {
-      target: 'assemblyscript',
+      target: 'javascript',
       audioContext: new AudioContext(),
       webpdNode: null,
       pdJson: null,
@@ -8102,13 +8170,22 @@ const msg_display = (m) => '[' + m
 
   const _nextTick = () => new Promise((resolve) => setTimeout(resolve, 1));
 
+  const hydrateParams = () => {
+      const searchParams = new URLSearchParams(document.location.search);
+      return {
+          patchUrl: searchParams.get('patch') || './ginger2.pd',
+      }
+  };
+
   const initializeApp = async () => {
+      STATE.params = hydrateParams();
+
       ELEMS.loadingLabel.innerHTML = 'loading assemblyscript compiler ...';
       await waitAscCompiler();
       await registerWebPdWorkletNode(STATE.audioContext);
 
-      ELEMS.loadingLabel.innerHTML = `downloading patch ${PATCH_URL} ...`;
-      STATE.pdJson = await loadPdJson(PATCH_URL);
+      ELEMS.loadingLabel.innerHTML = `downloading patch ${STATE.params.patchUrl} ...`;
+      STATE.pdJson = await loadPdJson(STATE.params.patchUrl);
 
       ELEMS.loadingLabel.innerHTML = 'generating GUI ...';
       await _nextTick();
@@ -8118,7 +8195,7 @@ const msg_display = (m) => '[' + m
       STATE.colorScheme = generateColorScheme(STATE);
       render(STATE, ELEMS.controlsRoot);
 
-      ELEMS.loadingLabel.innerHTML = 'compiling engine ...';
+      ELEMS.loadingLabel.innerHTML = `compiling${STATE.target === 'assemblyscript' ? ' Web Assembly ': ' '}engine ...`;
       await _nextTick();
 
       STATE.webpdNode = await createEngine(STATE);
@@ -8130,8 +8207,9 @@ const msg_display = (m) => '[' + m
           ELEMS.startButton.style.display = 'block';
           console.log('APP READY');
       })
-      .catch(() => {
+      .catch((err) => {
           ELEMS.loadingLabel.innerHTML = 'ERROR :(';
+          console.error(err);
       });
 
 })();

@@ -15,10 +15,9 @@ const ELEMS = {
     loadingContainer: document.querySelector('#splash-container')
 }
 ELEMS.startButton.style.display = 'none'
-const PATCH_URL = './ginger2.pd'
 
 const STATE = {
-    target: 'assemblyscript',
+    target: 'javascript',
     audioContext: new AudioContext(),
     webpdNode: null,
     pdJson: null,
@@ -36,13 +35,22 @@ ELEMS.startButton.onclick = () => {
 
 const _nextTick = () => new Promise((resolve) => setTimeout(resolve, 1))
 
+const hydrateParams = () => {
+    const searchParams = new URLSearchParams(document.location.search)
+    return {
+        patchUrl: searchParams.get('patch') || './ginger2.pd',
+    }
+}
+
 const initializeApp = async () => {
+    STATE.params = hydrateParams()
+
     ELEMS.loadingLabel.innerHTML = 'loading assemblyscript compiler ...'
     await waitAscCompiler()
     await registerWebPdWorkletNode(STATE.audioContext)
 
-    ELEMS.loadingLabel.innerHTML = `downloading patch ${PATCH_URL} ...`
-    STATE.pdJson = await loadPdJson(PATCH_URL)
+    ELEMS.loadingLabel.innerHTML = `downloading patch ${STATE.params.patchUrl} ...`
+    STATE.pdJson = await loadPdJson(STATE.params.patchUrl)
 
     ELEMS.loadingLabel.innerHTML = 'generating GUI ...'
     await _nextTick()
@@ -52,7 +60,7 @@ const initializeApp = async () => {
     STATE.colorScheme = generateColorScheme(STATE)
     render(STATE, ELEMS.controlsRoot)
 
-    ELEMS.loadingLabel.innerHTML = 'compiling engine ...'
+    ELEMS.loadingLabel.innerHTML = `compiling${STATE.target === 'assemblyscript' ? ' Web Assembly ': ' '}engine ...`
     await _nextTick()
 
     STATE.webpdNode = await createEngine(STATE)
@@ -64,6 +72,7 @@ initializeApp()
         ELEMS.startButton.style.display = 'block'
         console.log('APP READY')
     })
-    .catch(() => {
+    .catch((err) => {
         ELEMS.loadingLabel.innerHTML = 'ERROR :('
+        console.error(err)
     })

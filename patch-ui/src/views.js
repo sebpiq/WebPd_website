@@ -58,7 +58,7 @@ const _buildContainerView = (control, children) => ({
 
 const _buildControlView = (control) => ({
     type: 'control',
-    label: control.node.layout.label.length ? control.node.layout.label : null,
+    label: (control.node.layout.label && control.node.layout.label.length) ? control.node.layout.label : null,
     control,
     dimensions: _getDimensionsGrid(control.node.type, control.node.args),
     position: null,
@@ -82,6 +82,8 @@ const _getDimensionsGrid = (nodeType, nodeArgs) => {
             return { x: 2, y: 8 }
         case 'hsl':
             return { x: 8, y: 2 }
+        case 'msg':
+            return { x: Math.round(nodeArgs.join(' ').length), y: 2 }
         default:
             throw new Error(`unsupported type ${nodeType}`)
     }

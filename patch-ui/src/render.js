@@ -68,8 +68,6 @@ const _renderContainer = (_, parent, controlView) => {
         (controlView.dimensions.y - CONTAINER_PADDING) * GRID_SIZE_PX
     }px`
     div.style.padding = `${CONTAINER_PADDING * 0.5 * GRID_SIZE_PX}px`
-
-    // div.style.backgroundColor = '#'+(0x1000000+(Math.random())*0xffffff).toString(16).substr(1,6)
     if (controlView.label) {
         _renderLabel(div, controlView.label)
     }
@@ -94,7 +92,7 @@ const _renderNexus = (STATE, div, controlView) => {
     let nexusElem
     switch (node.type) {
         case 'hsl':
-            // TODO : case 'vsl':
+        case 'vsl':
             nexusElem = new Nexus.Add.Slider(div, {
                 min: node.args[0],
                 max: node.args[1],
@@ -104,18 +102,24 @@ const _renderNexus = (STATE, div, controlView) => {
             break
 
         case 'hradio':
-            // TODO : case 'vradio':
+        case 'vradio':
             nexusElem = new Nexus.RadioButton(div, {
                 numberOfButtons: node.args[0],
                 active: node.args[2],
-                size: [width, height],
+                size: [width * 0.9, height * 0.9],
             })
             break
 
         case 'bng':
-            // TODO : case 'vradio':
             nexusElem = new Nexus.Button(div, {
                 size: [height, height],
+            })
+            break
+
+        case 'msg':
+            nexusElem = new Nexus.TextButton(div, {
+                size: [width, height],
+                text: node.args.join(' ')
             })
             break
 
