@@ -11,9 +11,11 @@
     margin: 0;
     box-sizing: border-box;
     --bg-color1: #111;
-    --bg-color2: #1b1b1b;
-    --fg-color1: #777;
-    color: var(--fg-color1);
+    --bg-color2: #2C2C2C;
+    --fg-color1: #646464;
+    --fg-color2: #aaa;
+    color: var(--fg-color2);
+    text-transform: uppercase;
 }
 
 body,
@@ -43,6 +45,8 @@ html {
 #credits .content {
     display: none;
     border-top: solid 1px;
+    padding-top: 0.5em;
+    margin-top: 0.5em;
 }
 
 #credits.expanded .content {
@@ -82,7 +86,13 @@ html {
 }
 
 .controls-container > .label {
-    bottom: -0.35em;
+    color: var(--fg-color1);
+    font-size: 80%;
+    position: absolute;
+    bottom: -0.1em;
+    right: 0.1em;
+    top: auto;
+    right: 0;
 }
 
 .control {
@@ -90,8 +100,6 @@ html {
 }
 
 .label {
-    position: absolute;
-    right: 0;
-    bottom: 0;
-    font-size: 90%;
+    font-size: 85%;
+    text-transform: uppercase;
 }

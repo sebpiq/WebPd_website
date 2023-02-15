@@ -30,7 +30,7 @@ export const createEngine = async (STATE, stream) => {
         inletCallerSpecs,
         audioSettings: {
             bitDepth: BIT_DEPTH,
-            channelCount: { in: 0, out: 2 },
+            channelCount: { in: 2, out: 2 },
         },
     })
 

@@ -72,3 +72,12 @@ export const computeRectangleDimensions = (r) => ({
     x: r.bottomRight.x - r.topLeft.x,
     y: r.bottomRight.y - r.topLeft.y,
 })
+
+export const round = (v, decimals = 5) => {
+    const rounded =
+        Math.round(v * Math.pow(10, decimals)) / Math.pow(10, decimals)
+    if (rounded === 0) {
+        return 0
+    }
+    return rounded
+}

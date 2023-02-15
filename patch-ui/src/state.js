@@ -1,4 +1,5 @@
-import { throttled, sendMsgToWebPd } from './misc-utils'
+import { sendMsgToWebPd } from './misc-utils'
+import { round } from './math-utils'
 
 export const loadStateFromUrl = () => {
     const rawParams = new URLSearchParams(document.location.search)
@@ -24,31 +25,33 @@ export const STATE = {
     controlsViews: null,
     controlsValues: {
         _values: {},
-        _msgBuilders: {},
-        set(nodeId, value) {
+        _valueTransforms: {},
+        set(nodeId, rawValue) {
+            const valueTransform = this._valueTransforms[nodeId]
+            if (!valueTransform) {
+                throw new Error(`no value transform for ${nodeId}`)
+            }
+            this._set(nodeId, valueTransform(rawValue))
+        },
+        _set(nodeId, value) {
             this._values[nodeId] = value
-
             const url = new URL(window.location)
             Object.entries(this._values).forEach(([nodeId, value]) => {
-                url.searchParams.set(nodeId, JSON.stringify(value))
+                const paramValue = typeof value === 'number' ? round(value) : value
+                url.searchParams.set(nodeId, JSON.stringify(paramValue))
             })
             window.history.replaceState({}, document.title, url)
-
-            const msgBuilder = this._msgBuilders[nodeId]
-            if (!msgBuilder) {
-                throw new Error(`no message builder for ${nodeId}`)
-            }
-            sendMsgToWebPd(STATE, nodeId, msgBuilder(value))
+            sendMsgToWebPd(STATE, nodeId, [value])
         },
         get(nodeId) {
             return this._values[nodeId]
         },
-        register(nodeId, msgBuilder) {
-            this._msgBuilders[nodeId] = msgBuilder
+        register(nodeId, valueTransform) {
+            this._valueTransforms[nodeId] = valueTransform
         },
         initialize() {
             Object.entries(this._values).forEach(([nodeId, value]) => {
-                this.set(nodeId, value)
+                this._set(nodeId, value)
             })
         }
     },

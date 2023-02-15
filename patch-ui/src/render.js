@@ -3,6 +3,8 @@ import { CONTAINER_PADDING } from './views'
 
 const GRID_SIZE_PX = 30
 const LABEL_HEIGHT_GRID = 0.6
+const SLIDER_SIZE_RATIO = 0.9
+const BUTTON_SIZE_RATIO = 0.8
 
 export const render = (STATE, parent, controlsViews = null) => {
     if (controlsViews === null) {
@@ -28,20 +30,15 @@ const _renderControl = (STATE, parent, controlView) => {
     const div = document.createElement('div')
     div.classList.add('control')
     div.id = `control-${patch.id}-${node.id}`
-    div.style.left = `${
-        controlView.position.x * GRID_SIZE_PX + CONTAINER_PADDING * GRID_SIZE_PX
-    }px`
-    div.style.top = `${
-        controlView.position.y * GRID_SIZE_PX
-    }px`
+    div.style.left = `${controlView.position.x * GRID_SIZE_PX + CONTAINER_PADDING * 0.5 * GRID_SIZE_PX}px`
+    div.style.top = `${controlView.position.y * GRID_SIZE_PX + CONTAINER_PADDING * 0.5 * GRID_SIZE_PX}px`
     div.style.width = `${controlView.dimensions.x * GRID_SIZE_PX}px`
     div.style.height = `${controlView.dimensions.y * GRID_SIZE_PX}px`
     parent.appendChild(div)
 
-    if (controlView.label) {
-        const labelDiv = _renderLabel(div, controlView.label)
-        labelDiv.style.color = color
-    }
+
+    const labelDiv = _renderLabel(div, controlView.label || '')
+    labelDiv.style.color = color
 
     const innerDiv = document.createElement('div')
     div.appendChild(innerDiv)
@@ -79,6 +76,7 @@ const _renderLabel = (parent, label) => {
     const labelDiv = document.createElement('div')
     labelDiv.classList.add('label')
     labelDiv.innerHTML = label
+    labelDiv.style.height = `${LABEL_HEIGHT_GRID * GRID_SIZE_PX}px`
     parent.appendChild(labelDiv)
     return labelDiv
 }
@@ -86,14 +84,19 @@ const _renderLabel = (parent, label) => {
 const _renderNexus = (STATE, div, controlView) => {
     const { node, patch } = controlView.control
     const nodeId = buildGraphNodeId(patch.id, node.id)
-    const width = controlView.dimensions.x * GRID_SIZE_PX
-    const height = (controlView.dimensions.y - LABEL_HEIGHT_GRID) * GRID_SIZE_PX
+    let width = controlView.dimensions.x * GRID_SIZE_PX
+    let height = (controlView.dimensions.y - LABEL_HEIGHT_GRID) * GRID_SIZE_PX
     const storedValue = STATE.controlsValues.get(nodeId)
 
     let nexusElem
     switch (node.type) {
         case 'hsl':
         case 'vsl':
+            if (node.type === 'hsl') { 
+                height *= SLIDER_SIZE_RATIO
+            } else {
+                width *= SLIDER_SIZE_RATIO
+            }
             nexusElem = new Nexus.Add.Slider(div, {
                 min: node.args[0],
                 max: node.args[1],
@@ -107,7 +110,7 @@ const _renderNexus = (STATE, div, controlView) => {
             nexusElem = new Nexus.RadioButton(div, {
                 numberOfButtons: node.args[0],
                 active: storedValue !== undefined ? storedValue : node.args[2],
-                size: [width * 0.9, height * 0.9],
+                size: [width, height],
             })
             break
 
@@ -128,12 +131,13 @@ const _renderNexus = (STATE, div, controlView) => {
         case 'floatatom':
             nexusElem = new Nexus.Number(div, {
                 value: storedValue !== undefined ? storedValue : (node.type === 'nbx' ? node.args[3] : 0),
-                size: [width, height],
+                size: [width, height * BUTTON_SIZE_RATIO],
             })
             break
 
         case 'tgl':
-            nexusElem = new Nexus.Toggle(div, {
+            nexusElem = new Nexus.Button(div, {
+                mode: 'toggle',
                 state: storedValue !== undefined ? storedValue : (!!node.args[2]),
                 size: [width, height],
             })
@@ -143,14 +147,14 @@ const _renderNexus = (STATE, div, controlView) => {
             throw new Error(`Not supported ${node.type}`)
     }
 
-    let msgBuilder = (v) => [v]
+    let valueTransform = (v) => v
     if (node.type === 'bng' || node.type === 'msg') {
-        msgBuilder = () => ['bang']
+        valueTransform = () => 'bang'
     } else if (node.type === 'tgl') {
-        msgBuilder = (v) => [+v]
+        valueTransform = (v) => +v
     }
 
-    STATE.controlsValues.register(nodeId, msgBuilder)
+    STATE.controlsValues.register(nodeId, valueTransform)
     nexusElem.on('change', (v) => STATE.controlsValues.set(nodeId, v))
     return nexusElem
 }
