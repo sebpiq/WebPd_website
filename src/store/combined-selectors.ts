@@ -28,7 +28,7 @@ export const selectBuildSteps = createSelector(
                     break
             }
         }
-        if (outFormat === 'wav') {
+        if (outFormat === 'wav' && ['pd', 'pdJson', 'dspGraph'].includes(inFormat)) {
             return build.listBuildSteps(
                 inFormat,
                 outFormat,
@@ -51,8 +51,9 @@ export const selectBuildOutputHasExtraOptions = createSelector(
         }
         if (
             ['pd', 'pdJson', 'dspGraph'].includes(inFormat) &&
-            ['wav', 'patchPlayer'].includes(outFormat) && 
-            !isBuilding && !isBuildingComplete
+            ['wav', 'patchPlayer'].includes(outFormat) &&
+            !isBuilding &&
+            !isBuildingComplete
         ) {
             return true
         } else {
