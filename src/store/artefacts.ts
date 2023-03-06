@@ -17,15 +17,11 @@ export const ASSETS: {
 
 interface ArtefactsState {
     isBuilding: boolean
-    warnings: Array<string> | null
-    errors: Array<string> | null
     step: BuildFormat | null
 }
 
 const initialState: ArtefactsState = {
     isBuilding: false,
-    warnings: null,
-    errors: null,
     step: null,
 }
 
@@ -35,8 +31,6 @@ export default createSlice({
     reducers: {
         startBuild: (state) => {
             state.isBuilding = true
-            state.warnings = null
-            state.errors = null
         },
         buildComplete: (state, action: PayloadAction<{artefacts: Artefacts, patchPlayer: PatchPlayer | null}>) => {
             ASSETS.artefacts = action.payload.artefacts
@@ -54,12 +48,6 @@ export default createSlice({
                 warnings?: Array<string>
             }>
         ) => {
-            if (action.payload.warnings) {
-                state.warnings = [...(state.warnings || []), ...action.payload.warnings]
-            }
-            if (action.payload.errors) {
-                state.errors = [...(state.errors || []), ...action.payload.errors]
-            }
             if (action.payload.status === 1) {
                 state.isBuilding = false
             }
