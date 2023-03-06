@@ -1,10 +1,17 @@
 import styled from 'styled-components'
 import { Box, H2 } from '../components'
 import { useAppSelector } from '../store'
-import { selectArtefacts, selectArtefactsErrors, selectArtefactsIsBuilding, selectArtefactsIsBuildingComplete, selectArtefactsStep } from '../store/artefacts-selectors'
+import {
+    selectArtefacts,
+    selectArtefactsErrors,
+    selectArtefactsIsBuilding,
+    selectArtefactsStep,
+} from '../store/artefacts-selectors'
 import { selectBuildOutputFormat } from '../store/build-output-selectors'
+import { selectIsBuildingComplete } from '../store/combined-selectors'
 import ArtefactViewer from './ArtefactViewer'
 import Errors from './Errors'
+import PatchPlayerContainer from './PatchPlayerContainer'
 
 const Container = styled(Box)``
 
@@ -14,7 +21,7 @@ const Artefacts = () => {
     const errors = useAppSelector(selectArtefactsErrors)
     const buildStep = useAppSelector(selectArtefactsStep)
     const isBuilding = useAppSelector(selectArtefactsIsBuilding)
-    const isBuildingComplete = useAppSelector(selectArtefactsIsBuildingComplete)
+    const isBuildingComplete = useAppSelector(selectIsBuildingComplete)
 
     if (errors) {
         return (
@@ -24,14 +31,22 @@ const Artefacts = () => {
         )
     }
 
-    if (!outFormat || !(isBuilding || isBuildingComplete)) {
+    if (!outFormat || !isBuildingComplete) {
         return null
     }
 
     return (
         <Container>
             {isBuilding && <H2>Building {buildStep} ...</H2>}
-            {outFormat !== 'patchPlayer' ? <ArtefactViewer artefacts={artefacts} format={outFormat} showDownloadButton={true} />: 'PATCHPLAYER >'}
+            {outFormat !== 'patchPlayer' && isBuildingComplete ? (
+                <ArtefactViewer
+                    artefacts={artefacts}
+                    format={outFormat}
+                    showDownloadButton={true}
+                />
+            ) : (
+                <PatchPlayerContainer artefacts={artefacts} />
+            )}
         </Container>
     )
 }

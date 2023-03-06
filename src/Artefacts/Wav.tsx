@@ -75,15 +75,12 @@ const Wav: React.FunctionComponent<Props> = ({ wav, showDownloadButton }) => {
         )
         const onPlay = () => {
             setIsPlaying(true)
-            console.log('ONPLAY')
         }
         const onPause = () => {
             setIsPlaying(false)
-            console.log('ONPAUSE')
         }
         const onEnded = () => {
             setIsPlaying(false)
-            console.log('ONENDED')
         }
         audio.onplay = onPlay
         audio.onpause = onPause

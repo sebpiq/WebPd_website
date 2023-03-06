@@ -20,7 +20,6 @@ export default createSlice({
     reducers: {},
     extraReducers: (builder) => {
         builder.addCase(appInitializationDone.fulfilled.type, (state) => {
-            console.log('appInitializationDone.fulfilled')
             state.isInitialized = true
         })
     },

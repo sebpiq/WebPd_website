@@ -49,7 +49,6 @@ const AppInner = () => {
     useEffect(() => {
         const interval = setInterval(() => {
             if (window.asc) {
-                console.log('APP INITIALIZED DONE')
                 clearInterval(interval)
                 dispatch(appInitializationDone())
             }

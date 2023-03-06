@@ -1,8 +1,8 @@
 import { createSelector } from '@reduxjs/toolkit'
-import { build, BuildFormat } from 'webpd'
+import { build } from 'webpd'
 import {
+    selectArtefacts,
     selectArtefactsIsBuilding,
-    selectArtefactsIsBuildingComplete,
 } from './artefacts-selectors'
 import { selectBuildInputFormat } from './build-input-selectors'
 import {
@@ -28,7 +28,10 @@ export const selectBuildSteps = createSelector(
                     break
             }
         }
-        if (outFormat === 'wav' && ['pd', 'pdJson', 'dspGraph'].includes(inFormat)) {
+        if (
+            outFormat === 'wav' &&
+            ['pd', 'pdJson', 'dspGraph'].includes(inFormat)
+        ) {
             return build.listBuildSteps(
                 inFormat,
                 outFormat,
@@ -40,11 +43,28 @@ export const selectBuildSteps = createSelector(
     }
 )
 
+export const selectIsBuildingComplete = createSelector(
+    selectArtefactsIsBuilding,
+    selectBuildSteps,
+    selectArtefacts,
+    (isBuilding, buildSteps, artefacts) => {
+        if (isBuilding) {
+            return false
+        }
+        
+        const outFormat = (buildSteps ? buildSteps.slice(-1)[0] : null)
+        if (!outFormat) {
+            return false
+        }
+        return !!artefacts[outFormat]
+    }
+)
+
 export const selectBuildOutputHasExtraOptions = createSelector(
     selectBuildInputFormat,
     selectBuildOutputFormat,
     selectArtefactsIsBuilding,
-    selectArtefactsIsBuildingComplete,
+    selectIsBuildingComplete,
     (inFormat, outFormat, isBuilding, isBuildingComplete) => {
         if (!inFormat || !outFormat) {
             return null
@@ -61,3 +81,13 @@ export const selectBuildOutputHasExtraOptions = createSelector(
         }
     }
 )
+
+export const selectInletCallerSpecs = createSelector(selectBuildInputFormat, (inFormat) => {
+    if (!inFormat) {
+        return null
+    }
+    if (!['pd', 'pdJson'].includes(inFormat)) {
+        return null
+    }
+    
+})

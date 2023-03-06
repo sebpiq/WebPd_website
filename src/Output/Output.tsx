@@ -7,11 +7,10 @@ import { selectBuildInputArtefacts } from '../store/build-input-selectors'
 import { selectBuildOutputFormat } from '../store/build-output-selectors'
 import artefacts from '../store/artefacts'
 import {
-    selectArtefactsIsBuilding,
-    selectArtefactsIsBuildingComplete,
+    selectArtefactsIsBuilding
 } from '../store/artefacts-selectors'
 import { theme } from '../theme'
-import { selectBuildOutputHasExtraOptions } from '../store/combined-selectors'
+import { selectIsBuildingComplete, selectBuildOutputHasExtraOptions } from '../store/combined-selectors'
 
 const Container = styled(Box)``
 
@@ -24,7 +23,7 @@ const BuildConfig = () => {
     const inputArtefacts = useAppSelector(selectBuildInputArtefacts)
     const outFormat = useAppSelector(selectBuildOutputFormat)
     const isBuilding = useAppSelector(selectArtefactsIsBuilding)
-    const isBuildingComplete = useAppSelector(selectArtefactsIsBuildingComplete)
+    const isBuildingComplete = useAppSelector(selectIsBuildingComplete)
     const hasExtraOptions = useAppSelector(selectBuildOutputHasExtraOptions)
 
     const onGo = () => {

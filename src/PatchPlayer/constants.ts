@@ -1,0 +1,1 @@
+export const PORTLET_ID = '0'

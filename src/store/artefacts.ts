@@ -1,10 +1,21 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit'
 import { Artefacts, build, BuildFormat } from 'webpd'
+import { PatchPlayer } from '../PatchPlayer/PatchPlayer'
 import buildInput from './build-input'
 import buildOutput from './build-output'
 
-interface ArtefactsState {
+// We need to kep these out of state
+// because these complex, non-serializable values
+// cause errors with immer and RTK.
+export const ASSETS: {
     artefacts: Artefacts
+    patchPlayer: PatchPlayer | null
+} = {
+    artefacts: build.createArtefacts(),
+    patchPlayer: null,
+}
+
+interface ArtefactsState {
     isBuilding: boolean
     warnings: Array<string> | null
     errors: Array<string> | null
@@ -12,7 +23,6 @@ interface ArtefactsState {
 }
 
 const initialState: ArtefactsState = {
-    artefacts: build.createArtefacts(),
     isBuilding: false,
     warnings: null,
     errors: null,
@@ -23,16 +33,14 @@ export default createSlice({
     name: 'buildOutput',
     initialState,
     reducers: {
-        setArtefacts: (state, action: PayloadAction<Artefacts>) => {
-            state.artefacts = action.payload
-        },
         startBuild: (state) => {
             state.isBuilding = true
             state.warnings = null
             state.errors = null
         },
-        buildComplete: (state, action: PayloadAction<Artefacts>) => {
-            state.artefacts = action.payload
+        buildComplete: (state, action: PayloadAction<{artefacts: Artefacts, patchPlayer: PatchPlayer | null}>) => {
+            ASSETS.artefacts = action.payload.artefacts
+            ASSETS.patchPlayer = action.payload.patchPlayer
             state.isBuilding = false
         },
         startStep: (state, action: PayloadAction<BuildFormat>) => {
@@ -58,7 +66,13 @@ export default createSlice({
         },
     },
     extraReducers(builder) {
-        builder.addCase(buildOutput.actions.setFormat, () => initialState)
-        builder.addCase(buildInput.actions.setLocalFile, () => initialState)
+        builder.addCase(buildOutput.actions.setFormat, () => {
+            ASSETS.artefacts = build.createArtefacts()
+            return initialState
+        })
+        builder.addCase(buildInput.actions.setLocalFile, () => {
+            ASSETS.artefacts = build.createArtefacts()
+            return initialState
+        })
     },
 })

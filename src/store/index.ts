@@ -12,7 +12,8 @@ export const store = configureStore({
         buildOutput: buildOutput.reducer,
         artefacts: artefacts.reducer,
     },
-    // Needed because we handle ArrayBuffers and other nice things
+    // Needed because we pass ArrayBuffers and other nice things
+    // in actions
     middleware: (getDefaultMiddleware) =>
         getDefaultMiddleware({
             serializableCheck: false,
