@@ -24,10 +24,7 @@ export default createSlice({
         },
     },
     extraReducers(builder) {
-        builder.addCase(buildInput.actions.setLocalFile, (state) => {
-            state.format = null
-        })
-        builder.addCase(buildInput.actions.setUrlFile, (state) => {
+        builder.addCase(buildInput.actions.setFocusOn, (state) => {
             state.format = null
         })
     },

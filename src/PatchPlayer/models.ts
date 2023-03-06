@@ -4,7 +4,7 @@ import {
     makeTranslationTransform,
     computeRectanglesIntersection,
     isPointInsideRectangle,
-    addPoints,
+    sumPoints,
     Rectangle,
     round,
 } from './math-utils'
@@ -98,7 +98,7 @@ export const _createModelsRecursive = (
             }
             const subpatchViewport = {
                 topLeft,
-                bottomRight: addPoints(topLeft, {
+                bottomRight: sumPoints(topLeft, {
                     x: subpatchLayout.viewportWidth,
                     y: subpatchLayout.viewportHeight,
                 }),

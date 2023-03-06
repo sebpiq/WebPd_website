@@ -21,6 +21,10 @@ const Container = styled.div`
     justify-content: space-between;
 `
 
+const ButtonInit = styled(Button)`
+    ${h2Mixin}
+`
+
 const ButtonActive = styled(Button)`
     ${h2Mixin}
     background: none;
@@ -34,22 +38,33 @@ const ButtonInactive = styled(Button)`
 const OutputSelector = () => {
     const dispatch = useAppDispatch()
     const outFormat = useAppSelector(selectBuildOutputFormat)
-    const outFormats = Array.from(useAppSelector(selectBuildOutputFormatsAvailable))
+    const outFormats = Array.from(
+        useAppSelector(selectBuildOutputFormatsAvailable)
+    )
 
     return (
         <Container>
             {outFormats.flatMap((outFormatOption, i) => {
-                const ButtonComponent = outFormatOption === outFormat ? ButtonActive: (!!outFormat ? ButtonInactive: Button)
+                const ButtonComponent =
+                    outFormatOption === outFormat
+                        ? ButtonActive
+                        : !!outFormat
+                        ? ButtonInactive
+                        : ButtonInit
                 return [
                     <ButtonComponent
                         key={outFormatOption}
                         onClick={() =>
-                            dispatch(buildOutput.actions.setFormat(outFormatOption))
+                            dispatch(
+                                buildOutput.actions.setFormat(outFormatOption)
+                            )
                         }
                     >
                         {BUILD_WEBSITE_FORMATS[outFormatOption].description}
                     </ButtonComponent>,
-                    i < outFormats.length - 1 ? <Or key={outFormatOption + 'OR'}>OR</Or> : null
+                    i < outFormats.length - 1 ? (
+                        <Or key={outFormatOption + 'OR'}>OR</Or>
+                    ) : null,
                 ]
             })}
         </Container>

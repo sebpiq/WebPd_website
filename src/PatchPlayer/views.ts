@@ -1,6 +1,6 @@
 import { PdJson } from 'webpd'
 import {
-    addPoints,
+    sumPoints,
     computePointsBoundingBox,
     computeRectangleDimensions,
     Point,
@@ -39,19 +39,22 @@ export const createViews = (
                 type: 'container',
                 label: typeof control.node.args[0] === 'string' ? control.node.args[0]: null,
                 control,
-                dimensions: addPoints(
+                dimensions: sumPoints(
                     { x: CONTAINER_PADDING * 2, y: CONTAINER_PADDING * 2 },
                     computeRectangleDimensions(
                         computePointsBoundingBox([
                             ...nestedViews.map((c) => c.position!),
                             ...nestedViews.map((c) =>
-                                addPoints(c.position!, c.dimensions)
+                                sumPoints(c.position!, c.dimensions)
                             ),
                         ])
                     )
                 ),
                 children: nestedViews,
-                position: null,
+                position: {
+                    x: (control.node.layout!.x || 0) / 5,
+                    y: (control.node.layout!.y || 0) / 5,
+                },
             }
             return view
         } else {
@@ -64,19 +67,22 @@ export const createViews = (
                     control.node.type,
                     control.node.args
                 ),
-                position: null,
+                position: {
+                    x: (control.node.layout!.x || 0) / 5,
+                    y: (control.node.layout!.y || 0) / 5,
+                },
             }
             return view
         }
     })
 
-    _computeLayout(controlsViews).forEach((column) =>
-        column
-            .filter((cell) => !!cell.controlView)
-            .forEach(
-                (cell) => (cell.controlView.position = { x: cell.x, y: cell.y })
-            )
-    )
+    // _computeLayout(controlsViews).forEach((column) =>
+    //     column
+    //         .filter((cell) => !!cell.controlView)
+    //         .forEach(
+    //             (cell) => (cell.controlView.position = { x: cell.x, y: cell.y })
+    //         )
+    // )
 
     return controlsViews.filter((controlView) => {
         // Can happen if 2 controls overlap, then only one of them will be placed in the grid
