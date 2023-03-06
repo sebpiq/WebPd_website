@@ -1,7 +1,5 @@
 import { createSelector } from '@reduxjs/toolkit'
 import { build } from 'webpd'
-import { BUILD_STATUS } from './artefacts'
-import { selectArtefactsBuildStatus } from './artefacts-selectors'
 import { selectBuildInputFormat } from './build-input-selectors'
 import {
     selectBuildOutputCodeTarget,
@@ -13,6 +11,7 @@ export const selectBuildSteps = createSelector(
     selectBuildOutputFormat,
     selectBuildOutputCodeTarget,
     (inFormat, outFormat, codeTarget) => {
+        console.log('selectBuildSteps CODE TARGET', codeTarget)
         if (!inFormat || !outFormat) {
             return null
         }

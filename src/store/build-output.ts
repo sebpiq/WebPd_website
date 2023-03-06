@@ -27,5 +27,8 @@ export default createSlice({
         builder.addCase(buildInput.actions.setLocalFile, (state) => {
             state.format = null
         })
+        builder.addCase(buildInput.actions.setUrlFile, (state) => {
+            state.format = null
+        })
     },
 })

@@ -49,7 +49,7 @@ const Wasm: React.FunctionComponent<Props> = ({
 
     return (
         <Container>
-            {filename ? <Filename>{filename}</Filename> : null}
+            {filename ? <Filename filename={filename} /> : null}
             {showFileSize ? <Filesize>file size : {fileSizeStr}</Filesize> : null}
             <BinaryContainer>
                 {array.slice(0, 1000).map((val, i) => (

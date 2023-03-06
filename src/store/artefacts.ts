@@ -67,13 +67,12 @@ export default createSlice({
         }
     },
     extraReducers(builder) {
-        builder.addCase(buildOutput.actions.setFormat, () => {
+        const reset = () => {
             ASSETS.artefacts = build.createArtefacts()
             return initialState
-        })
-        builder.addCase(buildInput.actions.setLocalFile, () => {
-            ASSETS.artefacts = build.createArtefacts()
-            return initialState
-        })
+        }
+        builder.addCase(buildOutput.actions.setFormat, reset)
+        builder.addCase(buildInput.actions.setLocalFile, reset)
+        builder.addCase(buildInput.actions.setUrlFile, reset)
     },
 })

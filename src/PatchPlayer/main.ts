@@ -79,6 +79,7 @@ export const start = async (
     }
 
     ELEMS.loadingLabel.innerHTML = 'loading assemblyscript compiler ...'
+    console.log('PatchPlayer START')
     await runtime.registerWebPdWorkletNode(patchPlayer.audioContext)
 
     ELEMS.loadingLabel.innerHTML = 'generating GUI ...'

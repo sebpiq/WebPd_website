@@ -28,11 +28,24 @@
     -->
         <title>WebPd</title>
         <script src="./js/NexusUI.js.js"></script>
-        <script src="./js/assemblyscript.js" async></script>
+        
+        <script async src="./js/es-module-shims@1.js"></script>
+        <!-- To update the importmap, copy paste from : https://cdn.jsdelivr.net/npm/assemblyscript/dist/web.html -->
+        <script type="importmap">
+          {
+              "imports": {
+                  "binaryen": "./js/binaryen@111.0.0-nightly.20230111.js",
+                  "long": "./js/long@5.2.0.js",
+                  "assemblyscript": "./js/assemblyscript@0.26.3.js",
+                  "assemblyscript/asc": "./js/assemblyscript@0.26.3.asc.js"
+              }
+          }
+          </script>
         <script type="module">
             import asc from "assemblyscript/asc"
             window.asc = asc
         </script>
+        
     </head>
     <body>
         <noscript>You need to enable JavaScript to run this app.</noscript>

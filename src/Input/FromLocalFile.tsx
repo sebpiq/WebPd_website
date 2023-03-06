@@ -1,19 +1,27 @@
 import { useCallback } from 'react'
 import { useDropzone } from 'react-dropzone'
 import styled from 'styled-components'
-import { useAppDispatch } from '../store'
+import { useAppDispatch, useAppSelector } from '../store'
 import buildInput from '../store/build-input'
+import { selectBuildInputFilepath } from '../store/build-input-selectors'
 import { theme } from '../theme'
 
+interface Props {
+    isActive: boolean
+}
+
 const Container = styled.span`
+    padding: ${theme.spacings.space0p1} 0;
     cursor: pointer;
 `
 
-const Span = styled.span`
-    color: ${theme.colors.colorScheme.next()};
+const Span = styled.span<{ isActive: boolean }>`
+    color: ${(props) =>
+        props.isActive ? theme.colors.colorScheme.next() : theme.colors.fg2};
 `
 
-const FromLocalFile = () => {
+const FromLocalFile: React.FunctionComponent<Props> = ({ isActive }) => {
+    const filepath = useAppSelector(selectBuildInputFilepath)
     const dispatch = useAppDispatch()
 
     const onDrop = useCallback((files: Array<File>) => {
@@ -40,9 +48,9 @@ const FromLocalFile = () => {
         <Container {...getRootProps()}>
             <input {...getInputProps()} />
             {isDragActive ? (
-                <Span>Drop the file here ...</Span>
+                <Span isActive={isActive || false}>Drop the file here ...</Span>
             ) : (
-                <Span>Upload a .pd file from your computer</Span>
+                <Span isActive={isActive || false}>{filepath ? 'Choose a different file': 'Upload a file from your computer'}</Span>
             )}
         </Container>
     )

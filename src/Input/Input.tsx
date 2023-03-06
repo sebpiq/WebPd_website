@@ -1,15 +1,17 @@
 import styled from 'styled-components'
 import ArtefactViewer from '../Artefacts/ArtefactViewer'
-import { Box, H2 } from '../components'
+import { Box, H2, Or } from '../components'
 import { useAppSelector } from '../store'
-import { selectBuildInputArtefacts, selectBuildInputFilepath, selectBuildInputFormat } from '../store/build-input-selectors'
+import {
+    selectBuildInputArtefacts,
+    selectBuildInputFilepath,
+    selectBuildInputFocusOn,
+    selectBuildInputFormat,
+    selectBuildInputUrl,
+} from '../store/build-input-selectors'
+import { theme } from '../theme'
 import FromLocalFile from './FromLocalFile'
 import FromUrl from './FromUrl'
-
-const Left = styled.div``
-const Right = styled.div`
-    max-width: 50%;
-`
 
 const Container = styled(Box)`
     display: flex;
@@ -17,8 +19,24 @@ const Container = styled(Box)`
     justify-content: space-between;
 `
 
+const Left = styled.div``
+const Right = styled.div`
+    max-width: 50%;
+`
+
+const InputContainer = styled.div<{ startsWithUrl: boolean }>`
+    display: flex;
+    flex-direction: ${(props) =>
+        props.startsWithUrl ? 'column-reverse': 'column'};
+    & > * {
+        display: inline-block;
+    }
+`
+
 const Input = () => {
     const filepath = useAppSelector(selectBuildInputFilepath)
+    const url = useAppSelector(selectBuildInputUrl)
+    const focusOn = useAppSelector(selectBuildInputFocusOn)
     const inFormat = useAppSelector(selectBuildInputFormat)
     const artefacts = useAppSelector(selectBuildInputArtefacts)
     let inputPreview: JSX.Element | null = null
@@ -28,7 +46,7 @@ const Input = () => {
             <ArtefactViewer
                 format={inFormat}
                 artefacts={artefacts}
-                filename={filepath || undefined}
+                filename={filepath || url || undefined}
             />
         )
     }
@@ -37,11 +55,12 @@ const Input = () => {
         <Container>
             <Left>
                 <H2>Choose a file</H2>
-                <FromLocalFile /> OR <FromUrl />
+                <InputContainer startsWithUrl={focusOn === 'url'}>
+                    <FromLocalFile isActive={focusOn === 'local'} /> <Or>OR</Or>{' '}
+                    <FromUrl isActive={focusOn === 'url'} />
+                </InputContainer>
             </Left>
-            <Right>
-                {inputPreview}
-            </Right>
+            <Right>{inputPreview}</Right>
         </Container>
     )
 }

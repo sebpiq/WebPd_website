@@ -2,6 +2,7 @@ import styled from 'styled-components'
 import React from 'react'
 import { Artefacts } from 'webpd'
 import { Filename } from '../components'
+import { theme } from '../theme'
 
 interface Props {
     pd: NonNullable<Artefacts['pd']>
@@ -10,6 +11,7 @@ interface Props {
 
 const Container = styled.div`
     position: relative;
+    background-color: ${theme.colors.bg1p5};
 `
 
 const Pre = styled.pre`
@@ -24,7 +26,7 @@ const PdFile: React.FunctionComponent<Props> = ({ pd, filename }) => {
     return (
         <Container>
             <Pre>{pd}</Pre>
-            {filename ? <Filename>{filename}</Filename>: null}
+            {filename ? <Filename filename={filename} />: null}
         </Container>
     )
 }

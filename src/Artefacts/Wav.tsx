@@ -1,9 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { useSelector } from 'react-redux'
 import styled from 'styled-components'
 import { Artefacts } from 'webpd'
-import { Button } from '../components'
-import { selectBuildInputFilepath } from '../store/build-input-selectors'
+import { Button, ButtonActive } from '../components'
 import { theme } from '../theme'
 import { download, round } from '../utils'
 
@@ -60,7 +58,6 @@ const Player = styled.div`
 `
 
 const Wav: React.FunctionComponent<Props> = ({ wav, showDownloadButton }) => {
-    const filepath = useSelector(selectBuildInputFilepath)
     const [isPlaying, setIsPlaying] = useState(false)
     const [, setCurrentTime] = useState(0)
     const volumeDialRef = useRef<HTMLDivElement>(null)
@@ -132,16 +129,16 @@ const Wav: React.FunctionComponent<Props> = ({ wav, showDownloadButton }) => {
     }
 
     const onDownload = () => {
-        download(`${filepath ? filepath : 'audio'}.webpd.wav`, wav, 'audio/wav')
+        download(`audio.webpd.wav`, wav, 'audio/wav')
     }
 
     return (
         <Container>
             <Player>
             {isPlaying ? (
-                <Button onClick={onClickPause}>Pause</Button>
+                <ButtonActive onClick={onClickPause}>Pause</ButtonActive>
             ) : (
-                <Button onClick={onClickPlay}>Play</Button>
+                <ButtonActive onClick={onClickPlay}>Play</ButtonActive>
             )}
             <Time>
                 <span>{formatTime(audio.currentTime)}</span>

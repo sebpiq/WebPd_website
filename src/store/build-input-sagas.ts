@@ -5,11 +5,14 @@ export function* watchSetUrl() {
     yield takeLatest(buildInput.actions.setUrl.type, fetchUrl)
 }
 
-export function* fetchUrl(action: ReturnType<typeof buildInput.actions.setUrl>) {
+export function* fetchUrl(
+    action: ReturnType<typeof buildInput.actions.setUrl>
+) {
+    const url = action.payload
     try {
-        const arrayBuffer: ArrayBuffer = yield call(makeRequest, action.payload)
-        yield put(buildInput.actions.setFileFromUrl(arrayBuffer))
-    } catch(err: any) {
+        const arrayBuffer: ArrayBuffer = yield call(makeRequest, url)
+        yield put(buildInput.actions.setUrlFile({ arrayBuffer, url }))
+    } catch (err: any) {
         yield put(buildInput.actions.fetchUrlError(err.message))
     }
 }

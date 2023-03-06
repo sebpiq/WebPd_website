@@ -52,21 +52,22 @@ ReduxQuerySync({
         jsOrAsc: {
             selector: selectBuildOutputCodeTarget,
             action: buildOutput.actions.setCodeTarget,
+            defaultValue: buildOutput.getInitialState().codeTarget
         },
         target: {
             selector: selectBuildOutputFormat,
             action: buildOutput.actions.setFormat,
-            defaultValue: null,
+            defaultValue: buildOutput.getInitialState().format,
         },
         url: {
             selector: selectBuildInputUrl,
             action: buildInput.actions.setUrl,
-            defaultValue: '',
+            defaultValue: buildInput.getInitialState().url,
         },
         build: {
             selector: selectAppWillBuildOnLoad,
             action: app.actions.setWillBuildOnLoad,
-            defaultValue: false,
+            defaultValue: app.getInitialState().willBuildOnLoad,
             stringToValue: (str: string) => str === '1',
             valueToString: (value: boolean) => value ? '1': '0',
         },

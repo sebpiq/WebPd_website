@@ -23,6 +23,7 @@ function* makeBuild() {
         selectBuildOutputFormat
     )
 
+    console.log('SAGA makeBuild', buildSteps, inputArtefacts)
     if (!inputArtefacts || !buildSteps) {
         return
     }
@@ -31,7 +32,6 @@ function* makeBuild() {
     let patchPlayer: PatchPlayer | null = null
     for (let step of buildSteps) {
         yield put(artefacts.actions.startStep(step))
-        console.log(step, patchPlayer)
         const result: Awaited<ReturnType<typeof build.performBuildStep>> =
             yield call(build.performBuildStep, tempArtefacts, step, {
                 audioSettings: {

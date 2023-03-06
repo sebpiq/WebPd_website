@@ -1,7 +1,7 @@
 import styled from 'styled-components'
 import OutputSelector from './OutputSelector'
 import ExtraOptions from './ExtraOptions'
-import { ActionButton, Box } from '../components'
+import { ButtonActive, Box } from '../components'
 import { useAppDispatch, useAppSelector } from '../store'
 import { selectBuildInputArtefacts } from '../store/build-input-selectors'
 import { selectBuildOutputFormat } from '../store/build-output-selectors'
@@ -37,7 +37,7 @@ const BuildConfig = () => {
             {outFormat && hasExtraOptions ? <ExtraOptions />: null}
             {outFormat && buildStatus === BUILD_STATUS.INIT ? (
                 <ButtonContainer>
-                    <ActionButton onClick={onGo}>Go !</ActionButton>
+                    <ButtonActive onClick={onGo}>Go !</ButtonActive>
                 </ButtonContainer>
             ) : null}
         </Container>

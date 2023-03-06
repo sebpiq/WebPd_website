@@ -7,6 +7,8 @@ export const selectBuildInputFilepath = (state: RootState) =>
     state.buildInput.filepath
 export const selectBuildInputArrayBuffer = (state: RootState) =>
     state.buildInput.arrayBuffer
+export const selectBuildInputFocusOn = (state: RootState) =>
+    state.buildInput.focusOn
 
 export const selectBuildInputFormat = createSelector(
     selectBuildInputUrl,

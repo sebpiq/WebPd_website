@@ -56,14 +56,17 @@ const theme = {
 
     colors: {
         bg1: '#111111',
+        bg1p5: '#1c1c1c',
         bg2: '#222222',
         bg3: '#444444',
         fg1: '#eeeeee',
+        fg2: '#555555',
         colorScheme: COLOR_SCHEME,
     },
 
     spacings: {
         'space1': '1rem',
+        'space2': '2rem',
         'space0p1': '0.25rem',
     },
 

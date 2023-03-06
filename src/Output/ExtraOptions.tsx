@@ -9,7 +9,8 @@ import { CodeTarget, CODE_TARGETS } from '../types'
 interface Props {}
 
 const Container = styled.div`
-    margin-top: ${theme.spacings.space1};
+    margin-top: ${theme.spacings.space2};
+    margin-bottom: ${theme.spacings.space2};
 `
 
 const OptionContainer = styled.div`

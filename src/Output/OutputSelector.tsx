@@ -1,6 +1,6 @@
 import styled from 'styled-components'
 import { BUILD_FORMATS } from 'webpd'
-import { ActionButton, Button } from '../components'
+import { Button, Or, h2Mixin } from '../components'
 import { useAppDispatch, useAppSelector } from '../store'
 import buildOutput from '../store/build-output'
 import {
@@ -21,6 +21,16 @@ const Container = styled.div`
     justify-content: space-between;
 `
 
+const ButtonActive = styled(Button)`
+    ${h2Mixin}
+    background: none;
+`
+
+const ButtonInactive = styled(Button)`
+    background-color: ${theme.colors.bg2};
+    color: ${theme.colors.fg2};
+`
+
 const OutputSelector = () => {
     const dispatch = useAppDispatch()
     const outFormat = useAppSelector(selectBuildOutputFormat)
@@ -29,7 +39,7 @@ const OutputSelector = () => {
     return (
         <Container>
             {outFormats.flatMap((outFormatOption, i) => {
-                const ButtonComponent = outFormatOption === outFormat ? ActionButton: Button
+                const ButtonComponent = outFormatOption === outFormat ? ButtonActive: (!!outFormat ? ButtonInactive: Button)
                 return [
                     <ButtonComponent
                         key={outFormatOption}
@@ -39,7 +49,7 @@ const OutputSelector = () => {
                     >
                         {BUILD_WEBSITE_FORMATS[outFormatOption].description}
                     </ButtonComponent>,
-                    i < outFormats.length - 1 ? <span key={outFormatOption + 'OR'}>OR</span> : null
+                    i < outFormats.length - 1 ? <Or key={outFormatOption + 'OR'}>OR</Or> : null
                 ]
             })}
         </Container>

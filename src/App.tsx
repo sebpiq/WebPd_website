@@ -38,6 +38,10 @@ const GlobalStyle = createGlobalStyle`
         border: none;
         font-size: 100%;
     }
+
+    textarea:focus, input:focus{
+        outline: ${theme.colors.fg2} solid 1px;
+    }
 `
 
 const AppInner = () => {
