@@ -93,7 +93,7 @@ const _renderControl = (
 ) => {
     const { node, patch } = controlView.control
 
-    const color = patchPlayer.colorScheme.next()
+    const color = patchPlayer.settings.colorScheme.next()
     const position = assertNonNullable(
         controlView.position,
         'point is not defined'

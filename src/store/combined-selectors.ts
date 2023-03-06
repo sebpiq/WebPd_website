@@ -1,9 +1,7 @@
 import { createSelector } from '@reduxjs/toolkit'
 import { build } from 'webpd'
-import {
-    selectArtefacts,
-    selectArtefactsIsBuilding,
-} from './artefacts-selectors'
+import { BUILD_STATUS } from './artefacts'
+import { selectArtefactsBuildStatus } from './artefacts-selectors'
 import { selectBuildInputFormat } from './build-input-selectors'
 import {
     selectBuildOutputCodeTarget,
@@ -43,37 +41,16 @@ export const selectBuildSteps = createSelector(
     }
 )
 
-export const selectIsBuildingComplete = createSelector(
-    selectArtefactsIsBuilding,
-    selectBuildSteps,
-    selectArtefacts,
-    (isBuilding, buildSteps, artefacts) => {
-        if (isBuilding) {
-            return false
-        }
-        
-        const outFormat = (buildSteps ? buildSteps.slice(-1)[0] : null)
-        if (!outFormat) {
-            return false
-        }
-        return !!artefacts[outFormat]
-    }
-)
-
 export const selectBuildOutputHasExtraOptions = createSelector(
     selectBuildInputFormat,
     selectBuildOutputFormat,
-    selectArtefactsIsBuilding,
-    selectIsBuildingComplete,
-    (inFormat, outFormat, isBuilding, isBuildingComplete) => {
+    (inFormat, outFormat) => {
         if (!inFormat || !outFormat) {
             return null
         }
         if (
             ['pd', 'pdJson', 'dspGraph'].includes(inFormat) &&
-            ['wav', 'patchPlayer'].includes(outFormat) &&
-            !isBuilding &&
-            !isBuildingComplete
+            ['wav', 'patchPlayer'].includes(outFormat)
         ) {
             return true
         } else {
@@ -82,12 +59,14 @@ export const selectBuildOutputHasExtraOptions = createSelector(
     }
 )
 
-export const selectInletCallerSpecs = createSelector(selectBuildInputFormat, (inFormat) => {
-    if (!inFormat) {
-        return null
+export const selectInletCallerSpecs = createSelector(
+    selectBuildInputFormat,
+    (inFormat) => {
+        if (!inFormat) {
+            return null
+        }
+        if (!['pd', 'pdJson'].includes(inFormat)) {
+            return null
+        }
     }
-    if (!['pd', 'pdJson'].includes(inFormat)) {
-        return null
-    }
-    
-})
+)

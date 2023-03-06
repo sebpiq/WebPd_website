@@ -1,13 +1,13 @@
 import styled from 'styled-components'
 import { Box, H2 } from '../components'
 import { useAppSelector } from '../store'
+import { BUILD_STATUS } from '../store/artefacts'
 import {
     selectArtefacts,
-    selectArtefactsIsBuilding,
+    selectArtefactsBuildStatus,
     selectArtefactsStep,
 } from '../store/artefacts-selectors'
 import { selectBuildOutputFormat } from '../store/build-output-selectors'
-import { selectIsBuildingComplete } from '../store/combined-selectors'
 import { selectConsoleErrors } from '../store/console-selectors'
 import ArtefactViewer from './ArtefactViewer'
 import PatchPlayerContainer from './PatchPlayerContainer'
@@ -19,25 +19,28 @@ const Artefacts = () => {
     const artefacts = useAppSelector(selectArtefacts)
     const errors = useAppSelector(selectConsoleErrors)
     const buildStep = useAppSelector(selectArtefactsStep)
-    const isBuilding = useAppSelector(selectArtefactsIsBuilding)
-    const isBuildingComplete = useAppSelector(selectIsBuildingComplete)
+    const buildStatus = useAppSelector(selectArtefactsBuildStatus)
 
-    if (!outFormat || !isBuildingComplete || errors) {
+    if (!outFormat || errors || buildStatus !== BUILD_STATUS.SUCCESS) {
         return null
     }
 
     return (
         <Container>
-            {isBuilding && <H2>Building {buildStep} ...</H2>}
-            {outFormat !== 'patchPlayer' && isBuildingComplete ? (
-                <ArtefactViewer
-                    artefacts={artefacts}
-                    format={outFormat}
-                    showDownloadButton={true}
-                />
-            ) : (
-                <PatchPlayerContainer artefacts={artefacts} />
+            {buildStatus === BUILD_STATUS.IN_PROGRESS && (
+                <H2>Building {buildStep} ...</H2>
             )}
+            {buildStatus === BUILD_STATUS.SUCCESS ? (
+                outFormat !== 'patchPlayer' ? (
+                    <ArtefactViewer
+                        artefacts={artefacts}
+                        format={outFormat}
+                        showDownloadButton={true}
+                    />
+                ) : (
+                    <PatchPlayerContainer artefacts={artefacts} />
+                )
+            ) : null}
         </Container>
     )
 }

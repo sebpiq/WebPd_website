@@ -4,6 +4,15 @@ import { PatchPlayer } from '../PatchPlayer/PatchPlayer'
 import buildInput from './build-input'
 import buildOutput from './build-output'
 
+export const BUILD_STATUS = {
+    INIT: 0,
+    IN_PROGRESS: 1,
+    SUCCESS: 2,
+    ERRORED: 3,
+}
+
+type BuildStatus = typeof BUILD_STATUS.INIT | typeof BUILD_STATUS.IN_PROGRESS | typeof BUILD_STATUS.SUCCESS | typeof BUILD_STATUS.ERRORED
+
 // We need to kep these out of state
 // because these complex, non-serializable values
 // cause errors with immer and RTK.
@@ -16,12 +25,12 @@ export const ASSETS: {
 }
 
 interface ArtefactsState {
-    isBuilding: boolean
+    buildStatus: BuildStatus
     step: BuildFormat | null
 }
 
 const initialState: ArtefactsState = {
-    isBuilding: false,
+    buildStatus: BUILD_STATUS.INIT,
     step: null,
 }
 
@@ -30,12 +39,12 @@ export default createSlice({
     initialState,
     reducers: {
         startBuild: (state) => {
-            state.isBuilding = true
+            state.buildStatus = BUILD_STATUS.IN_PROGRESS
         },
         buildSuccess: (state, action: PayloadAction<{artefacts: Artefacts, patchPlayer: PatchPlayer | null}>) => {
             ASSETS.artefacts = action.payload.artefacts
             ASSETS.patchPlayer = action.payload.patchPlayer
-            state.isBuilding = false
+            state.buildStatus = BUILD_STATUS.SUCCESS
         },
         startStep: (state, action: PayloadAction<BuildFormat>) => {
             state.step = action.payload
@@ -49,9 +58,13 @@ export default createSlice({
             }>
         ) => {
             if (action.payload.status === 1) {
-                state.isBuilding = false
+                state.buildStatus = BUILD_STATUS.ERRORED
             }
         },
+        clean: () => {
+            ASSETS.artefacts = build.createArtefacts()
+            return initialState
+        }
     },
     extraReducers(builder) {
         builder.addCase(buildOutput.actions.setFormat, () => {

@@ -75,11 +75,12 @@ export const _createModelsRecursive = (
         if (node.type === 'pd' && node.nodeClass === 'subpatch') {
             const subpatch = pdJson!.patches[node.patchId]
             const nodeLayout = _assertNodeLayout(node.layout)
-            const subpatchLayout = _assertPatchLayout(subpatch.layout)
 
             if (!subpatch.layout!.graphOnParent) {
                 return
             }
+
+            const subpatchLayout = _assertPatchLayout(subpatch.layout)
 
             // 1. we convert all coordinates to the subpatch coords system
             const toSubpatchCoords = makeTranslationTransform(
@@ -256,6 +257,7 @@ const _assertPatchLayout = (layout: PdJson.Patch['layout']) => {
         typeof viewportWidth !== 'number' ||
         typeof viewportHeight !== 'number'
     ) {
+        debugger
         throw new Error(`Missing patch layout attributes`)
     }
     return {

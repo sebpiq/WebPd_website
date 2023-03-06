@@ -19,7 +19,9 @@ function* makeBuild() {
     const buildSteps: ReturnType<typeof selectBuildSteps> = yield select(
         selectBuildSteps
     )
-    const outFormat: ReturnType<typeof selectBuildOutputFormat> = yield select(selectBuildOutputFormat)
+    const outFormat: ReturnType<typeof selectBuildOutputFormat> = yield select(
+        selectBuildOutputFormat
+    )
 
     if (!inputArtefacts || !buildSteps) {
         return
@@ -29,11 +31,9 @@ function* makeBuild() {
     let patchPlayer: PatchPlayer | null = null
     for (let step of buildSteps) {
         yield put(artefacts.actions.startStep(step))
-        const result: Awaited<ReturnType<typeof build.performBuildStep>> = yield call(
-            build.performBuildStep,
-            tempArtefacts,
-            step,
-            {
+        console.log(step, patchPlayer)
+        const result: Awaited<ReturnType<typeof build.performBuildStep>> =
+            yield call(build.performBuildStep, tempArtefacts, step, {
                 audioSettings: {
                     channelCount: { in: 2, out: 2 },
                     bitDepth: BIT_DEPTH,
@@ -47,8 +47,7 @@ function* makeBuild() {
                 nodeBuilders: NODE_BUILDERS,
                 nodeImplementations: NODE_IMPLEMENTATIONS,
                 abstractionLoader: async () => null,
-            }
-        )
+            })
 
         const errors = result.status === 1 ? result.errors : undefined
         yield put(
@@ -63,7 +62,10 @@ function* makeBuild() {
         }
 
         if (step === 'dspGraph' && outFormat === 'patchPlayer') {
-            patchPlayer = create(tempArtefacts, theme.colors.colorScheme)
+            patchPlayer = create(tempArtefacts, {
+                colorScheme: theme.colors.colorScheme,
+                showCredits: false,
+            })
         }
     }
     yield put(

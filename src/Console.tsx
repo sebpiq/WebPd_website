@@ -11,7 +11,6 @@ const ErrorContainer = styled.pre`
 
 const Console: React.FunctionComponent = () => {
     const errors = useAppSelector(selectConsoleErrors)
-    console.log('ERRORS', errors)
     if (!errors) {
         return null
     }

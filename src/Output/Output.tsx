@@ -5,12 +5,10 @@ import { ActionButton, Box } from '../components'
 import { useAppDispatch, useAppSelector } from '../store'
 import { selectBuildInputArtefacts } from '../store/build-input-selectors'
 import { selectBuildOutputFormat } from '../store/build-output-selectors'
-import artefacts from '../store/artefacts'
-import {
-    selectArtefactsIsBuilding
-} from '../store/artefacts-selectors'
+import artefacts, { BUILD_STATUS } from '../store/artefacts'
 import { theme } from '../theme'
-import { selectIsBuildingComplete, selectBuildOutputHasExtraOptions } from '../store/combined-selectors'
+import { selectBuildOutputHasExtraOptions } from '../store/combined-selectors'
+import { selectArtefactsBuildStatus } from '../store/artefacts-selectors'
 
 const Container = styled(Box)``
 
@@ -22,8 +20,7 @@ const BuildConfig = () => {
     const dispatch = useAppDispatch()
     const inputArtefacts = useAppSelector(selectBuildInputArtefacts)
     const outFormat = useAppSelector(selectBuildOutputFormat)
-    const isBuilding = useAppSelector(selectArtefactsIsBuilding)
-    const isBuildingComplete = useAppSelector(selectIsBuildingComplete)
+    const buildStatus = useAppSelector(selectArtefactsBuildStatus)
     const hasExtraOptions = useAppSelector(selectBuildOutputHasExtraOptions)
 
     const onGo = () => {
@@ -38,7 +35,7 @@ const BuildConfig = () => {
         <Container>
             <OutputSelector />
             {outFormat && hasExtraOptions ? <ExtraOptions />: null}
-            {outFormat && !isBuilding && !isBuildingComplete ? (
+            {outFormat && buildStatus === BUILD_STATUS.INIT ? (
                 <ButtonContainer>
                     <ActionButton onClick={onGo}>Go !</ActionButton>
                 </ButtonContainer>

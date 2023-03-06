@@ -13,7 +13,7 @@ const Container = styled.div`
 `
 
 const Pre = styled.pre`
-    max-height: 50vh;
+    max-height: 10em;
     overflow: auto;
     margin: 0;
     padding: 0;

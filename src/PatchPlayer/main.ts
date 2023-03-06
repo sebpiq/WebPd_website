@@ -9,14 +9,12 @@ import { createEngine } from './webpd-engine'
 import { createViews } from './views'
 import { renderControlViews, renderStructure } from './render'
 import { assertNonNullable, nextTick } from './misc-utils'
-import { PatchPlayer } from './PatchPlayer'
+import { PatchPlayer, Settings } from './PatchPlayer'
 import { Artefacts, DspGraph, dspGraph, runtime } from 'webpd'
 
 export const create = (
     artefacts: Artefacts,
-    colorScheme: {
-        next: () => string
-    }
+    settings: Settings
 ): PatchPlayer => {
     const pdJson = assertNonNullable(
         artefacts.pdJson,
@@ -46,7 +44,7 @@ export const create = (
         controls,
         controlsValues,
         controlsViews: createViews(controls),
-        colorScheme,
+        settings,
         inletCallerSpecs: _collectInletCallerSpecs(controls, dspGraph.graph),
     }
 }
@@ -61,6 +59,10 @@ export const start = async (
     // TODO
     // loadStateFromUrl()
     const ELEMS = renderStructure(rootElem)
+
+    if (patchPlayer.settings.showCredits !== true) {
+        ELEMS.creditsButton.style.display = 'none'
+    }
 
     ELEMS.creditsButton.onclick = () => {
         if (ELEMS.creditsContainer.classList.contains('expanded')) {

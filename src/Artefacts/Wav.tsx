@@ -112,7 +112,6 @@ const Wav: React.FunctionComponent<Props> = ({ wav, showDownloadButton }) => {
             return
         }
         const interval = setInterval(() => {
-            console.log('INTERVAL')
             setCurrentTime(audio.currentTime)
         }, 100)
         return () => clearInterval(interval)

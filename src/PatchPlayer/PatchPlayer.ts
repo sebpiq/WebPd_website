@@ -1,6 +1,11 @@
-import { PdJson, Settings } from 'webpd'
+import { PdJson, Settings as WebPdSettings } from 'webpd'
 import { ControlModel, ControlsValues } from './models'
 import { ControlView } from './views'
+
+export interface Settings {
+    colorScheme: { next: () => string }
+    showCredits?: boolean
+}
 
 // TODO
 // export const loadStateFromUrl = () => {
@@ -19,17 +24,14 @@ import { ControlView } from './views'
 //     })
 // }
 
-
 export interface PatchPlayer {
     rootElem: HTMLElement | null
     audioContext: AudioContext
-    webpdNode: any//runtime.WebPdWorkletNode | null
+    webpdNode: any //runtime.WebPdWorkletNode | null
     pdJson: PdJson.Pd
     controls: Array<ControlModel>
     controlsViews: Array<ControlView>
     controlsValues: ControlsValues
-    inletCallerSpecs: NonNullable<Settings['inletCallerSpecs']>,
-    colorScheme: {
-        next: () => string
-    }
+    inletCallerSpecs: NonNullable<WebPdSettings['inletCallerSpecs']>
+    settings: Settings
 }

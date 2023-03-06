@@ -55,11 +55,10 @@ const theme = {
     },
 
     colors: {
-        bg1: '#111',
-        bg2: '#222',
-        bg3: '#444',
-        bgActive1: 'green',
-        fg1: '#eee',
+        bg1: '#111111',
+        bg2: '#222222',
+        bg3: '#444444',
+        fg1: '#eeeeee',
         colorScheme: COLOR_SCHEME,
     },
 
