@@ -1,6 +1,7 @@
 import { createSlice } from "@reduxjs/toolkit"
 import artefacts from "./artefacts"
 import buildInput from "./build-input"
+import buildOutput from "./build-output"
 
 interface ConsoleState {
     warnings: Array<string> | null
@@ -30,6 +31,7 @@ export default createSlice({
             }
         })
         builder.addCase(buildInput.actions.setUrl, () => initialState)
+        builder.addCase(buildOutput.actions.setFormat, () => initialState)
         builder.addCase(buildInput.actions.fetchUrlError, (
             state,
             action

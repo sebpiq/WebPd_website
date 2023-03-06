@@ -12,9 +12,11 @@ import {
 } from './build-output-selectors'
 import { selectBuildInputUrl } from './build-input-selectors'
 import createSagaMiddleware from 'redux-saga'
-import { all } from 'redux-saga/effects'
+import { all, call } from 'redux-saga/effects'
 import { watchSetUrl } from './build-input-sagas'
-import { selectArtefactsIsBuilding } from './artefacts-selectors'
+import { watchStartBuild } from './artefacts-sagas'
+import { selectAppWillBuildOnLoad } from './app-selectors'
+import { initializeApp } from './app-sagas'
 const sagaMiddleware = createSagaMiddleware()
 
 export const store = configureStore({
@@ -39,7 +41,7 @@ export const useAppDispatch: () => AppDispatch = useDispatch
 export const useAppSelector: TypedUseSelectorHook<RootState> = useSelector
 
 function* rootSaga() {
-    yield all([watchSetUrl()])
+    yield all([initializeApp(), watchSetUrl(), watchStartBuild()])
 }
 
 sagaMiddleware.run(rootSaga)
@@ -62,12 +64,12 @@ ReduxQuerySync({
             defaultValue: '',
         },
         build: {
-            selector: selectArtefactsIsBuilding,
-            action: artefacts.actions.startBuild,
-            stringToValue: (urlParam: string) => urlParam === '1',
-            valueToString: (value: boolean) => value ? '1': '0',
+            selector: selectAppWillBuildOnLoad,
+            action: app.actions.setWillBuildOnLoad,
             defaultValue: false,
-        }
+            stringToValue: (str: string) => str === '1',
+            valueToString: (value: boolean) => value ? '1': '0',
+        },
     },
     initialTruth: 'location',
 })

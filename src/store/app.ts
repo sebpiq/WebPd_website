@@ -1,26 +1,28 @@
-import { createAsyncThunk, createSlice } from '@reduxjs/toolkit'
-import { build } from 'webpd'
+import { createSlice, PayloadAction } from '@reduxjs/toolkit'
+import artefacts from './artefacts'
 
 interface AppState {
     isInitialized: boolean
+    willBuildOnLoad: boolean
 }
-
-export const appInitializationDone = createAsyncThunk(
-    'app/initializationDone',
-    async () => {
-        build.setAsc(window.asc)
-    }
-)
 
 export default createSlice({
     name: 'app',
     initialState: {
         isInitialized: false,
+        willBuildOnLoad: false,
     } as AppState,
-    reducers: {},
-    extraReducers: (builder) => {
-        builder.addCase(appInitializationDone.fulfilled.type, (state) => {
+    reducers: {
+        setWillBuildOnLoad: (state, action: PayloadAction<boolean>) => {
+            state.willBuildOnLoad = action.payload
+        },
+        initializationDone: (state) => {
             state.isInitialized = true
+        }
+    },
+    extraReducers: (builder) => {
+        builder.addCase(artefacts.actions.buildSuccess, (state) => {
+            state.willBuildOnLoad = true
         })
     },
 })

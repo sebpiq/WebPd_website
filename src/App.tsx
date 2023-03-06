@@ -1,13 +1,10 @@
 import { createGlobalStyle } from 'styled-components'
 import { Artefacts } from './Artefacts'
-import SideEffects from './SideEffects'
 import Input from './Input'
 import { theme } from './theme'
 import Output from './Output'
 import { Provider } from 'react-redux'
-import { store, useAppDispatch, useAppSelector } from './store'
-import { useEffect } from 'react'
-import { appInitializationDone } from './store/app'
+import { store, useAppSelector } from './store'
 import { selectAppIsInitialized } from './store/app-selectors'
 import Introduction from './Introduction'
 import Console from './Console'
@@ -43,18 +40,7 @@ const GlobalStyle = createGlobalStyle`
 `
 
 const AppInner = () => {
-    const dispatch = useAppDispatch()
     const isAppInitialized = useAppSelector(selectAppIsInitialized)
-
-    // App initialization
-    useEffect(() => {
-        const interval = setInterval(() => {
-            if (window.asc) {
-                clearInterval(interval)
-                dispatch(appInitializationDone())
-            }
-        }, 100)
-    }, [])
 
     if (!isAppInitialized) {
         return <>
@@ -65,7 +51,6 @@ const AppInner = () => {
 
     return (
         <>
-            <SideEffects />
             <Introduction />
             <Input />
             <Output />

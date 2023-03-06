@@ -32,7 +32,7 @@ export default createSlice({
         startBuild: (state) => {
             state.isBuilding = true
         },
-        buildComplete: (state, action: PayloadAction<{artefacts: Artefacts, patchPlayer: PatchPlayer | null}>) => {
+        buildSuccess: (state, action: PayloadAction<{artefacts: Artefacts, patchPlayer: PatchPlayer | null}>) => {
             ASSETS.artefacts = action.payload.artefacts
             ASSETS.patchPlayer = action.payload.patchPlayer
             state.isBuilding = false
