@@ -4,18 +4,22 @@ import {
     computePointsBoundingBox,
     computeRectangleDimensions,
     Point,
+    scalePoint,
 } from './math-utils'
+import { assertNonNullable } from './misc-utils'
 import { ControlModel } from './models'
 
-export const CONTAINER_PADDING = 0.5
-const GRID_DETECT_THRESHOLD_PX = 5
+export const CONTAINER_EXTRA_SPACE = { x: 7, y: 12 }
+const ATOM_HEIGHT_PD_PX = 15
+const MSG_HEIGHT_PD_PX = 15
+const DIGIT_WIDTH_PD_PX = 7
 
 interface Control {
     type: 'control'
     label: string | null
     control: ControlModel
     dimensions: Point
-    position: Point | null
+    position: Point
 }
 
 interface ControlContainer {
@@ -24,7 +28,7 @@ interface ControlContainer {
     control: ControlModel
     dimensions: Point
     children: Array<ControlView>
-    position: Point | null
+    position: Point
 }
 
 export type ControlView = Control | ControlContainer
@@ -32,15 +36,36 @@ export type ControlView = Control | ControlContainer
 export const createViews = (
     controls: Array<ControlModel>
 ): Array<ControlView> => {
+    return _moveToOrigin(_createViewsRecurs(controls))
+}
+
+export const _createViewsRecurs = (
+    controls: Array<ControlModel>
+): Array<ControlView> => {
     const controlsViews: Array<ControlView> = controls.map((control) => {
         if (control.type === 'container') {
-            const nestedViews = createViews(control.children)
+            const nestedViews = _moveToOrigin(
+                _createViewsRecurs(control.children)
+            )
+
+            console.log(
+                nestedViews
+                    .slice(0, 5)
+                    .map(
+                        (v) =>
+                            `${v.control.node.type}: ${v.dimensions.x},${v.dimensions.y}`
+                    )
+            )
+
             const view: ControlContainer = {
                 type: 'container',
-                label: typeof control.node.args[0] === 'string' ? control.node.args[0]: null,
+                label:
+                    typeof control.node.args[0] === 'string'
+                        ? control.node.args[0]
+                        : null,
                 control,
                 dimensions: sumPoints(
-                    { x: CONTAINER_PADDING * 2, y: CONTAINER_PADDING * 2 },
+                    CONTAINER_EXTRA_SPACE,
                     computeRectangleDimensions(
                         computePointsBoundingBox([
                             ...nestedViews.map((c) => c.position!),
@@ -52,202 +77,114 @@ export const createViews = (
                 ),
                 children: nestedViews,
                 position: {
-                    x: (control.node.layout!.x || 0) / 5,
-                    y: (control.node.layout!.y || 0) / 5,
+                    x: _quantizeSpace(_getLayout(control.node).x),
+                    y: _quantizeSpace(_getLayout(control.node).y),
                 },
             }
             return view
         } else {
-            const label = _getNodeLabel(control.node.layout)
-            const view: Control =  {
+            const view: Control = {
                 type: 'control',
-                label,
+                label: _getNodeLabel(control.node),
                 control,
-                dimensions: _getDimensionsGrid(
-                    control.node.type,
-                    control.node.args
-                ),
+                dimensions: _getDimensionsGrid(control.node),
                 position: {
-                    x: (control.node.layout!.x || 0) / 5,
-                    y: (control.node.layout!.y || 0) / 5,
+                    x: _quantizeSpace(_getLayout(control.node).x),
+                    y: _quantizeSpace(_getLayout(control.node).y),
                 },
             }
             return view
         }
     })
 
-    // _computeLayout(controlsViews).forEach((column) =>
-    //     column
-    //         .filter((cell) => !!cell.controlView)
-    //         .forEach(
-    //             (cell) => (cell.controlView.position = { x: cell.x, y: cell.y })
-    //         )
-    // )
-
-    return controlsViews.filter((controlView) => {
-        // Can happen if 2 controls overlap, then only one of them will be placed in the grid
-        if (!controlView.position) {
-            console.warn(
-                `control view "${controlView.label}" could not be assigned a position`
-            )
-        }
-        return !!controlView.position
-    })
+    return controlsViews
 }
 
-const _getDimensionsGrid = (
-    nodeType: PdJson.NodeType,
-    nodeArgs: PdJson.NodeArgs
-) => {
-    switch (nodeType) {
+const _moveToOrigin = (
+    controlViews: Array<ControlView>
+): Array<ControlView> => {
+    const nestedViewsBoundingBox = computePointsBoundingBox([
+        ...controlViews.map((v) => v.position!),
+        ...controlViews.map((v) => sumPoints(v.position!, v.dimensions)),
+    ])
+
+    // Apply offset to all the points so that the top-left-most control
+    // matches with the position (0, 0).
+    return controlViews.map((v) => ({
+        ...v,
+        position: sumPoints(
+            v.position,
+            scalePoint(nestedViewsBoundingBox.topLeft, -1)
+        ),
+    }))
+}
+
+const _getDimensionsGrid = (node: PdJson.Node) => {
+    if (node.nodeClass !== 'control') {
+        throw new Error(`Can only get dimension for control node`)
+    }
+
+    switch (node.type) {
         case 'floatatom':
         case 'symbolatom':
-            return { x: 4, y: 2 }
+            console.log('ATOM', node.type, _getLayout(node))
+            return {
+                x: _quantizeSpace(
+                    (_getLayout(node).widthInChars || 3) * DIGIT_WIDTH_PD_PX
+                ),
+                y: _quantizeSpace(ATOM_HEIGHT_PD_PX),
+            }
         case 'bng':
         case 'tgl':
-            return { x: 2, y: 2 }
-        case 'nbx':
-            return { x: 4, y: 2 }
-        case 'vradio':
-            return { x: 2, y: 2 * _assertNumber(nodeArgs[0]) }
-        case 'hradio':
-            return { x: 2 * _assertNumber(nodeArgs[0]), y: 2 }
-        case 'vsl':
-            return { x: 2, y: 8 }
-        case 'hsl':
-            return { x: 8, y: 2 }
-        case 'msg':
-            return { x: Math.round(nodeArgs.join(' ').length), y: 2 }
-        default:
-            throw new Error(`unsupported type ${nodeType}`)
-    }
-}
-
-export const _computeLayout = (controlsViews: Array<ControlView>) => {
-    const roughGrid = {
-        x: {
-            // controlsViews grouped by column
-            grouped: [] as Array<Array<ControlView>>,
-            // X for each column
-            coordinates: [] as Array<number>,
-            // width for each column
-            sizes: [] as Array<number>,
-        },
-        y: {
-            // controlsViews grouped by row
-            grouped: [] as Array<Array<ControlView>>,
-            // Y for each row
-            coordinates: [] as Array<number>,
-            // height for each column
-            sizes: [] as Array<number>,
-        },
-    }
-
-    // Start by creating a rough grid which groups the control views by rows
-    // and by columns.
-    ;(['x', 'y'] as const).forEach((axis) => {
-        const grouped = roughGrid[axis].grouped
-        const getCoordinate = (c: ControlView) => _assertNumber(c.control.node.layout![axis])
-        controlsViews.forEach((controlView) => {
-            const inserted = grouped.some((rowsOrColumns) => {
-                // Try to assign `controlView` to an existing row or column
-                if (
-                    rowsOrColumns.some(
-                        (otherControlView) =>
-                            Math.abs(
-                                getCoordinate(controlView) -
-                                    getCoordinate(otherControlView)
-                            ) < GRID_DETECT_THRESHOLD_PX
-                    )
-                ) {
-                    rowsOrColumns.push(controlView)
-                    return true
-                }
-            })
-
-            // If it could not be inserted to an existing one, we create a new rowOrColumn,
-            // and insert it in the right place in the list of rowsOrColumns.
-            if (!inserted) {
-                let i = 0
-                while (
-                    i < grouped.length &&
-                    getCoordinate(grouped[i][0]) < getCoordinate(controlView)
-                ) {
-                    i++
-                }
-                grouped.splice(i, 0, [controlView])
-            }
-
-            // Assigns the coordinate for the row or column by taking
-            // sizes of the largest controls in each column or row.
-            // and stacking these max sizes.
-            roughGrid[axis].sizes = grouped.map(
-                (rowOrCol) =>
-                    Math.max(
-                        ...rowOrCol.map(
-                            (controlView) => controlView.dimensions[axis]
-                        )
-                    ),
-                []
-            )
-
-            roughGrid[axis].coordinates = roughGrid[axis].sizes
-                .slice(0, -1)
-                .reduce(
-                    (coords, size) => [...coords, coords.slice(-1)[0] + size],
-                    [0]
-                )
-        })
-    })
-
-    // Create a grid by placing controlViews in cells (col, row).
-    const grid = roughGrid.x.grouped.map((column, colInd) =>
-        roughGrid.y.grouped.map((row, rowInd) => {
-            const controlView = row.filter((controlView) =>
-                column.includes(controlView)
-            )[0]
             return {
-                x: roughGrid.x.coordinates[colInd],
-                y: roughGrid.y.coordinates[rowInd],
-                width: controlView ? controlView.dimensions.x : 0,
-                controlView: controlView || null,
+                x: _quantizeSpace(_getLayout(node).size),
+                y: _quantizeSpace(_getLayout(node).size),
             }
-        })
-    )
-
-    // Pack the layout more compactly by moving left all columns
-    // that can be.
-    grid.forEach((column, colInd) => {
-        let dX = column[0].x
-        column.forEach((cell, rowInd) => {
-            if (cell.controlView === null) {
-                return
+        case 'nbx':
+            return {
+                x: _quantizeSpace(
+                    (_getLayout(node).widthInChars || 3) * DIGIT_WIDTH_PD_PX
+                ),
+                y: _quantizeSpace(_getLayout(node).height),
             }
-            grid.slice(0, colInd)
-                .map((otherColumn) => otherColumn[rowInd])
-                .forEach((otherCell) => {
-                    if (otherCell.controlView === null) {
-                        return
-                    }
-                    dX = Math.min(dX, cell.x - (otherCell.x + otherCell.width))
-                })
-        })
-        if (dX) {
-            grid.slice(colInd).forEach((column, j) => {
-                column.forEach((cell) => (cell.x -= dX))
-            })
-        }
-    })
-
-    return grid
+        case 'vradio':
+            return {
+                x: _quantizeSpace(_getLayout(node).size),
+                y: _quantizeSpace(
+                    _assertNumber(node.args[0]) *
+                        _assertNumber(_getLayout(node).size)
+                ),
+            }
+        case 'hradio':
+            return {
+                x: _quantizeSpace(
+                    _assertNumber(node.args[0]) *
+                        _assertNumber(_getLayout(node).size)
+                ),
+                y: _quantizeSpace(_getLayout(node).size),
+            }
+        case 'vsl':
+        case 'hsl':
+            return {
+                x: _quantizeSpace(_getLayout(node).width),
+                y: _quantizeSpace(_getLayout(node).height),
+            }
+        case 'msg':
+            return {
+                x: _quantizeSpace(
+                    node.args.join(' ').length * DIGIT_WIDTH_PD_PX
+                ),
+                y: _quantizeSpace(MSG_HEIGHT_PD_PX),
+            }
+        default:
+            throw new Error(`unsupported type ${node.type}`)
+    }
 }
 
-const _getNodeLabel = (layout: PdJson.ControlNode['layout']): string | null => {
-    if (!layout) {
-        throw new Error(`Node has no layout`)
-    }
+const _getNodeLabel = (node: PdJson.Node): string | null => {
+    const layout = _getLayout(node)
     const label = (layout as any).label as string
-    return label.length ? label: null
+    return label.length ? label : null
 }
 
 const _assertNumber = (val: PdJson.NodeArg) => {
@@ -256,3 +193,8 @@ const _assertNumber = (val: PdJson.NodeArg) => {
     }
     return val
 }
+
+const _quantizeSpace = (val?: number) => Math.round(_assertNumber(val) / 1) * 1
+
+const _getLayout = <N extends PdJson.Node>(node: N): NonNullable<N['layout']> =>
+    assertNonNullable(node.layout, 'expected node to have a layout')

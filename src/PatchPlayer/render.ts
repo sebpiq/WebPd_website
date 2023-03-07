@@ -1,14 +1,14 @@
+import { Point } from './math-utils'
 import { assertNonNullable } from './misc-utils'
 import { getControlValue, setControlValue } from './models'
-import {
-    PatchPlayer,
-} from './PatchPlayer'
-import { CONTAINER_PADDING, ControlView } from './views'
+import { PatchPlayer } from './PatchPlayer'
+import { CONTAINER_EXTRA_SPACE, ControlView } from './views'
 
-const GRID_SIZE_PX = 30
-const LABEL_HEIGHT_GRID = 0.6
-const SLIDER_SIZE_RATIO = 0.9
-const BUTTON_SIZE_RATIO = 0.8
+const FONT_FAMILY = 'Rajdhani'
+const GRID_SIZE_PX = 4
+const LABEL_HEIGHT_GRID = 4
+const SLIDER_SIZE_RATIO = 1.2
+
 const HTML_STRUCTURE = `
     <div id="splash-container">
         <div id="loading"></div>
@@ -62,70 +62,44 @@ export const renderStructure = (rootElem: HTMLDivElement) => {
 
 export const renderControlViews = (
     patchPlayer: PatchPlayer,
-    parent: HTMLElement,
-    controlsViews: Array<ControlView> | null = null
+    parentElem: HTMLElement
 ) => {
-    if (controlsViews === null) {
-        controlsViews = patchPlayer.controlsViews!
-    }
-    controlsViews.forEach((controlView) => {
+    return _renderControlViewsRecurs(
+        patchPlayer,
+        parentElem,
+        patchPlayer.controlsViews,
+        null
+    )
+}
+
+const _renderControlViewsRecurs = (
+    patchPlayer: PatchPlayer,
+    parentElem: HTMLElement,
+    children: Array<ControlView>,
+    parent: ControlView | null
+) => {
+    children.forEach((controlView) => {
         if (controlView.type === 'container') {
             const childrenContainerElem = _renderContainer(
                 patchPlayer,
-                parent,
+                parentElem,
                 controlView
             )
-            renderControlViews(
+            _renderControlViewsRecurs(
                 patchPlayer,
                 childrenContainerElem,
-                controlView.children
+                controlView.children,
+                controlView
             )
         } else if (controlView.type === 'control') {
-            _renderControl(patchPlayer, parent, controlView)
+            _renderControl(
+                patchPlayer,
+                parentElem,
+                controlView,
+                _getContainerPadding(parent ? _hasLabel(parent) : false)
+            )
         }
     })
-}
-
-const _renderControl = (
-    patchPlayer: PatchPlayer,
-    parent: HTMLElement,
-    controlView: ControlView
-) => {
-    const { node, patch } = controlView.control
-
-    const color = patchPlayer.settings.colorScheme.next()
-    const position = assertNonNullable(
-        controlView.position,
-        'point is not defined'
-    )
-
-    const div = document.createElement('div')
-    div.classList.add('control')
-    div.id = `control-${patch.id}-${node.id}`
-    div.style.left = `${
-        position.x * GRID_SIZE_PX + CONTAINER_PADDING * 0.5 * GRID_SIZE_PX
-    }px`
-    div.style.top = `${
-        position.y * GRID_SIZE_PX + CONTAINER_PADDING * 0.5 * GRID_SIZE_PX
-    }px`
-    div.style.width = `${controlView.dimensions.x * GRID_SIZE_PX}px`
-    div.style.height = `${controlView.dimensions.y * GRID_SIZE_PX}px`
-    parent.appendChild(div)
-
-    const labelDiv = _renderLabel(div, controlView.label || '')
-    labelDiv.style.color = color
-
-    const innerDiv = document.createElement('div')
-    div.appendChild(innerDiv)
-    const nexusElem = _renderNexus(patchPlayer, innerDiv, controlView)
-
-    nexusElem.colorize('accent', color)
-    nexusElem.colorize('fill', 'black')
-    nexusElem.colorize('dark', color)
-    nexusElem.colorize('mediumDark', '#222')
-    nexusElem.colorize('mediumLight', '#333')
-
-    return div
 }
 
 const _renderContainer = (
@@ -135,25 +109,79 @@ const _renderContainer = (
 ) => {
     const div = document.createElement('div')
     div.classList.add('controls-container')
-    const position = assertNonNullable(
-        controlView.position,
-        'point is not defined'
-    )
 
-    div.style.left = `${position.x * GRID_SIZE_PX}px`
-    div.style.top = `${position.y * GRID_SIZE_PX}px`
-    div.style.width = `${
-        (controlView.dimensions.x - CONTAINER_PADDING) * GRID_SIZE_PX
-    }px`
-    div.style.height = `${
-        (controlView.dimensions.y - CONTAINER_PADDING) * GRID_SIZE_PX
-    }px`
-    div.style.padding = `${CONTAINER_PADDING * 0.5 * GRID_SIZE_PX}px`
-    if (controlView.label) {
-        _renderLabel(div, controlView.label)
+    const containerPadding = _getContainerPadding(_hasLabel(controlView))
+
+    div.style.left = `${_scaleSpace(controlView.position.x)}px`
+    div.style.top = `${_scaleSpace(controlView.position.y)}px`
+    div.style.width = `${_scaleSpace(controlView.dimensions.x)}px`
+    div.style.height = `${_scaleSpace(controlView.dimensions.y)}px`
+    div.style.paddingTop = `${_scaleSpace(containerPadding.top)}px`
+    div.style.paddingBottom = `${_scaleSpace(containerPadding.bottom)}px`
+    div.style.paddingRight = `${_scaleSpace(containerPadding.right)}px`
+    div.style.paddingLeft = `${_scaleSpace(containerPadding.left)}px`
+
+    if (_hasLabel(controlView)) {
+        _renderLabel(div, controlView.label!)
     }
 
     parent.appendChild(div)
+    return div
+}
+
+const _renderControl = (
+    patchPlayer: PatchPlayer,
+    parent: HTMLElement,
+    controlView: ControlView,
+    containerPadding: ReturnType<typeof _getContainerPadding>
+) => {
+    const { node, patch } = controlView.control
+
+    const color = patchPlayer.settings.colorScheme.next()
+
+    const div = document.createElement('div')
+    div.classList.add('control')
+    div.classList.add(node.type)
+    div.id = `control-${patch.id}-${node.id}`
+    div.style.left = `${_scaleSpace(
+        controlView.position.x + containerPadding.left
+    )}px`
+    div.style.top = `${_scaleSpace(
+        controlView.position.y + containerPadding.top
+    )}px`
+    div.style.width = `${_scaleSpace(controlView.dimensions.x)}px`
+    div.style.height = `${_scaleSpace(controlView.dimensions.y)}px`
+    parent.appendChild(div)
+
+    if (_hasLabel(controlView)) {
+        const labelDiv = _renderLabel(div, controlView.label || '')
+        labelDiv.style.color = color
+    }
+
+    const innerDiv = document.createElement('div')
+    div.appendChild(innerDiv)
+
+    const nexusDimensions: Point = {
+        x: _scaleSpace(controlView.dimensions.x),
+        y: _scaleSpace(
+            controlView.dimensions.y -
+                (_hasLabel(controlView) ? LABEL_HEIGHT_GRID : 0)
+        ),
+    }
+    const nexusElem = _renderNexus(
+        patchPlayer,
+        innerDiv,
+        controlView,
+        nexusDimensions
+    )
+
+    nexusElem.colorize('accent', color)
+    nexusElem.colorize('fill', 'black')
+    nexusElem.colorize('dark', color)
+    nexusElem.colorize('mediumDark', '#222')
+    nexusElem.colorize('mediumLight', '#333')
+    nexusElem.element.style.fontFamily = FONT_FAMILY
+
     return div
 }
 
@@ -161,7 +189,7 @@ const _renderLabel = (parent: HTMLElement, label: string) => {
     const labelDiv = document.createElement('div')
     labelDiv.classList.add('label')
     labelDiv.innerHTML = label
-    labelDiv.style.height = `${LABEL_HEIGHT_GRID * GRID_SIZE_PX}px`
+    labelDiv.style.height = `${_scaleSpace(LABEL_HEIGHT_GRID)}px`
     parent.appendChild(labelDiv)
     return labelDiv
 }
@@ -169,11 +197,11 @@ const _renderLabel = (parent: HTMLElement, label: string) => {
 const _renderNexus = (
     patchPlayer: PatchPlayer,
     div: HTMLDivElement,
-    controlView: ControlView
+    controlView: ControlView,
+    dimensions: Point
 ) => {
+    let { x: width, y: height } = dimensions
     const { node } = controlView.control
-    let width = controlView.dimensions.x * GRID_SIZE_PX
-    let height = (controlView.dimensions.y - LABEL_HEIGHT_GRID) * GRID_SIZE_PX
     const storedValue = getControlValue(patchPlayer, controlView.control)
 
     let nexusElem
@@ -224,7 +252,7 @@ const _renderNexus = (
                         : node.type === 'nbx'
                         ? node.args[3]
                         : 0,
-                size: [width, height * BUTTON_SIZE_RATIO],
+                size: [width, height],
             })
             break
 
@@ -240,6 +268,24 @@ const _renderNexus = (
             throw new Error(`Not supported ${node.type}`)
     }
 
-    nexusElem.on('change', (v: number) => setControlValue(patchPlayer, controlView.control, v))
+    nexusElem.on('change', (v: number) =>
+        setControlValue(patchPlayer, controlView.control, v)
+    )
     return nexusElem
 }
+
+const _scaleSpace = (v: number) => v * GRID_SIZE_PX
+
+const _getContainerPadding = (hasLabel: boolean) => ({
+    top: hasLabel
+        ? CONTAINER_EXTRA_SPACE.y - CONTAINER_EXTRA_SPACE.x / 2
+        : CONTAINER_EXTRA_SPACE.y / 2,
+    left: CONTAINER_EXTRA_SPACE.x / 2,
+    right: CONTAINER_EXTRA_SPACE.x / 2,
+    bottom: hasLabel
+        ? CONTAINER_EXTRA_SPACE.x / 2
+        : CONTAINER_EXTRA_SPACE.y / 2,
+})
+
+const _hasLabel = (controlView: ControlView) =>
+    !!(controlView.label && controlView.label.length)

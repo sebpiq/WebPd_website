@@ -3121,7 +3121,17 @@ return /******/ (function(modules) { // webpackBootstrap
 	  _createClass(RadioButton, {
 	    buildFrame: {
 	      value: function buildFrame() {
+			var orientation = undefined;
+	        if (this.width > this.height) {
+	          orientation = "horizontal";
+	        } else {
+	          orientation = "vertical";
+	        }
+
 	        this.element = document.createElement("div");
+			this.element.style.display = 'flex'
+			this.element.style.flexDirection = orientation === 'horizontal' ? 'row': 'column'
+			this.element.style.justifyContent = 'space-between'
 	        this.parent.appendChild(this.element);
 	      }
 	    },
@@ -3151,9 +3161,10 @@ return /******/ (function(modules) { // webpackBootstrap
 	
 	        var buttonWidth = this.width / (orientation === "vertical" ? 1 : this._numberOfButtons);
 	        var buttonHeight = this.height / (orientation === "vertical" ? this._numberOfButtons : 1);
+			var buttonSize = Math.min(buttonWidth, buttonHeight)
 	
 	        for (var i = 0; i < this._numberOfButtons; i++) {
-	          this.buttons[i].resize(buttonWidth, buttonHeight);
+	          this.buttons[i].resize(buttonSize, buttonSize);
 	        }
 	      }
 	    },
