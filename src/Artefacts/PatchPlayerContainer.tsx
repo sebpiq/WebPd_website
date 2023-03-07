@@ -20,11 +20,11 @@ const Container = styled.div`
     width: 100%;
     height: 100%;
     overflow: auto;
-    background-color: ${theme.colors.bg1}dd;
+    background-color: ${theme.colors.bg1}f1;
 `
 
 const CloseButton = styled(Button)`
-    position: absolute;
+    position: fixed;
     right: ${theme.spacings.space1};
     top: ${theme.spacings.space1};
 `

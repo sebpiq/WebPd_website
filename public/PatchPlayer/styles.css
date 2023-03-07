@@ -63,9 +63,7 @@
     text-transform: uppercase;
 }
 
-#PatchPlayer #patch-controls {
-    padding: 1em;
-}
+#PatchPlayer #patch-controls {}
 
 #PatchPlayer #controls-root {
     position: relative;
@@ -75,6 +73,8 @@
     position: absolute;
     padding: 0.2em;
     background-color: var(--bg-color2);
+    border-radius: 0.3em;
+    box-shadow: 5px 7px 2px 0px rgba(34, 34, 34, 0.75);
 }
 
 #PatchPlayer .controls-container > .label {
@@ -103,6 +103,7 @@
 
 #PatchPlayer .comment {
     position: absolute;
+    color: var(--fg-color1);
 }
 
 #PatchPlayer .label {
