@@ -20,20 +20,27 @@ export interface ControlsValues {
     _valueTransforms: { [nodeId: string]: ValueTransform }
 }
 
-interface Control {
+export interface ControlModel {
     type: 'control'
     patch: PdJson.Patch
     node: PdJson.ControlNode
 }
 
-interface ControlContainer {
+export interface ContainerModel {
     type: 'container'
     patch: PdJson.Patch
     node: PdJson.Node
-    children: Array<ControlModel>
+    children: Array<ControlTreeModel>
 }
 
-export type ControlModel = Control | ControlContainer
+export type ControlTreeModel = ControlModel | ContainerModel
+
+export interface CommentModel {
+    type: 'comment'
+    patch: PdJson.Patch
+    node: PdJson.Node
+    text: string
+}
 
 export const getPdNode = (
     pdJson: PdJson.Pd,
@@ -43,26 +50,46 @@ export const getPdNode = (
 export const createModels = (
     controlsValues: ControlsValues,
     pdJson: PdJson.Pd
-) =>
+) => {
+    const rootPatch = pdJson.patches['0']
+
     // We make sure all controls are inside a container at top level for easier layout
-    _createModelsRecursive(controlsValues, pdJson, pdJson.patches['0']).map(
-        (control) => {
-            const controlContainer: ControlContainer = {
-                type: 'container',
-                patch: control.patch,
-                node: control.node,
-                children: [control],
-            }
-            return control.type === 'control' ? controlContainer : control
+    const controlsModels = _createModelsRecursive(
+        controlsValues,
+        pdJson,
+        rootPatch
+    ).map((control) => {
+        const controlContainer: ContainerModel = {
+            type: 'container',
+            patch: control.patch,
+            node: control.node,
+            children: [control],
         }
-    )
+        return control.type === 'control' ? controlContainer : control
+    })
+
+    return {
+        controls: controlsModels,
+        comments: Object.values(rootPatch.nodes)
+            .filter((node) => node.type === 'text')
+            .map((node) => {
+                const comment: CommentModel = {
+                    type: 'comment',
+                    patch: rootPatch,
+                    node,
+                    text: node.args[0]!.toString(),
+                }
+                return comment
+            }),
+    }
+}
 
 export const _createModelsRecursive = (
     controlsValues: ControlsValues,
     pdJson: PdJson.Pd,
     patch: PdJson.Patch,
     viewport: Rectangle | null = null
-) => {
+): Array<ControlModel | ContainerModel> => {
     if (viewport === null) {
         viewport = {
             topLeft: { x: -Infinity, y: -Infinity },
@@ -70,7 +97,7 @@ export const _createModelsRecursive = (
         }
     }
 
-    const controls: Array<ControlModel> = []
+    const controls: Array<ControlModel | ContainerModel> = []
     Object.values(patch.nodes).forEach((node) => {
         if (node.type === 'pd' && node.nodeClass === 'subpatch') {
             const subpatch = pdJson!.patches[node.patchId]
@@ -122,7 +149,7 @@ export const _createModelsRecursive = (
                 visibleSubpatchViewport
             )
 
-            const control: ControlContainer = {
+            const control: ContainerModel = {
                 type: 'container',
                 patch,
                 node,
@@ -146,7 +173,7 @@ export const _createModelsRecursive = (
                 return
             }
 
-            const control: Control = {
+            const control: ControlModel = {
                 type: 'control',
                 patch,
                 node,
@@ -181,10 +208,7 @@ export const setControlValue = (
     _setControlValue(patchPlayer, nodeId, valueTransform(rawValue)!)
 }
 
-export const getControlValue = (
-    patchPlayer: PatchPlayer,
-    control: ControlModel
-) => {
+export const getControlValue = (patchPlayer: PatchPlayer, control: ControlModel) => {
     const { node, patch } = control
     const nodeId = dspGraph.buildGraphNodeId(patch.id, node.id)
     return patchPlayer.controlsValues._values[nodeId]

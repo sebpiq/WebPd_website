@@ -2,7 +2,7 @@ import { Point } from './math-utils'
 import { assertNonNullable } from './misc-utils'
 import { getControlValue, setControlValue } from './models'
 import { PatchPlayer } from './PatchPlayer'
-import { CONTAINER_EXTRA_SPACE, ControlView } from './views'
+import { CONTAINER_EXTRA_SPACE, ControlTreeView, ControlView } from './views'
 
 const FONT_FAMILY = 'Rajdhani'
 const GRID_SIZE_PX = 4
@@ -64,7 +64,7 @@ export const renderControlViews = (
     patchPlayer: PatchPlayer,
     parentElem: HTMLElement
 ) => {
-    return _renderControlViewsRecurs(
+    _renderControlViewsRecurs(
         patchPlayer,
         parentElem,
         patchPlayer.controlsViews,
@@ -72,11 +72,25 @@ export const renderControlViews = (
     )
 }
 
+export const renderCommentsViews = (
+    patchPlayer: PatchPlayer,
+    parentElem: HTMLElement
+) => {
+    patchPlayer.commentsViews.forEach((commentView) => {
+        const div = document.createElement('div')
+        div.classList.add('comment')
+        div.innerHTML = commentView.text
+        parentElem.appendChild(div)
+        div.style.left = `${_scaleSpace(commentView.position.x)}px`
+        div.style.top = `${_scaleSpace(commentView.position.y)}px`
+    })
+}
+
 const _renderControlViewsRecurs = (
     patchPlayer: PatchPlayer,
     parentElem: HTMLElement,
-    children: Array<ControlView>,
-    parent: ControlView | null
+    children: Array<ControlTreeView>,
+    parent: ControlTreeView | null
 ) => {
     children.forEach((controlView) => {
         if (controlView.type === 'container') {
@@ -105,7 +119,7 @@ const _renderControlViewsRecurs = (
 const _renderContainer = (
     _: PatchPlayer,
     parent: HTMLElement,
-    controlView: ControlView
+    controlView: ControlTreeView
 ) => {
     const div = document.createElement('div')
     div.classList.add('controls-container')
@@ -287,5 +301,5 @@ const _getContainerPadding = (hasLabel: boolean) => ({
         : CONTAINER_EXTRA_SPACE.y / 2,
 })
 
-const _hasLabel = (controlView: ControlView) =>
+const _hasLabel = (controlView: ControlTreeView) =>
     !!(controlView.label && controlView.label.length)

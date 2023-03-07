@@ -95,13 +95,17 @@
     font-family: 'Rajdhani';
 }
 
-#PatchPlayer .label {
-    font-size: 75%;
-    text-transform: uppercase;
-}
-
 #PatchPlayer .control.bng, #PatchPlayer .control.tgl {
     display: flex;
     flex-direction: column;
     align-items: center;
+}
+
+#PatchPlayer .comment {
+    position: absolute;
+}
+
+#PatchPlayer .label {
+    font-size: 75%;
+    text-transform: uppercase;
 }

@@ -1,5 +1,5 @@
 import {
-    ControlModel,
+    ControlTreeModel,
     ControlsValues,
     createModels,
     initializeControlValues,
@@ -7,7 +7,7 @@ import {
 } from './models'
 import { createEngine } from './webpd-engine'
 import { createViews } from './views'
-import { renderControlViews, renderStructure } from './render'
+import { renderCommentsViews, renderControlViews, renderStructure } from './render'
 import { assertNonNullable, nextTick } from './misc-utils'
 import { PatchPlayer, Settings } from './PatchPlayer'
 import { Artefacts, DspGraph, dspGraph, runtime } from 'webpd'
@@ -31,7 +31,9 @@ export const create = (
         _valueTransforms: {},
     }
 
-    const controls = createModels(controlsValues, pdJson)
+    const {controls, comments} = createModels(controlsValues, pdJson)
+
+    const { controlsViews, commentsViews } = createViews(controls, comments)
 
     const audioContext = new AudioContext()
     audioContext.suspend()
@@ -43,7 +45,8 @@ export const create = (
         pdJson,
         controls,
         controlsValues,
-        controlsViews: createViews(controls),
+        controlsViews,
+        commentsViews,
         settings,
         inletCallerSpecs: _collectInletCallerSpecs(controls, dspGraph.graph),
     }
@@ -86,6 +89,7 @@ export const start = async (
     await nextTick()
 
     renderControlViews(patchPlayer, ELEMS.controlsRoot)
+    renderCommentsViews(patchPlayer, ELEMS.controlsRoot)
 
     await nextTick()
 
@@ -108,7 +112,7 @@ export const destroy = (patchPlayer: PatchPlayer) => {
 }
 
 const _collectInletCallerSpecs = (
-    controls: Array<ControlModel>,
+    controls: Array<ControlTreeModel>,
     graph: DspGraph.Graph,
     inletCallerSpecs: {
         [nodeId: string]: Array<DspGraph.PortletId>

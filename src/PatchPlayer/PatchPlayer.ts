@@ -1,6 +1,6 @@
 import { PdJson, Settings as WebPdSettings } from 'webpd'
-import { ControlModel, ControlsValues } from './models'
-import { ControlView } from './views'
+import { ControlTreeModel, ControlsValues } from './models'
+import { CommentView, ControlTreeView } from './views'
 
 export interface Settings {
     colorScheme: { next: () => string }
@@ -29,8 +29,9 @@ export interface PatchPlayer {
     audioContext: AudioContext
     webpdNode: any //runtime.WebPdWorkletNode | null
     pdJson: PdJson.Pd
-    controls: Array<ControlModel>
-    controlsViews: Array<ControlView>
+    controls: Array<ControlTreeModel>
+    controlsViews: Array<ControlTreeView>
+    commentsViews: Array<CommentView>
     controlsValues: ControlsValues
     inletCallerSpecs: NonNullable<WebPdSettings['inletCallerSpecs']>
     settings: Settings

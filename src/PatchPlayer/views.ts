@@ -7,14 +7,19 @@ import {
     scalePoint,
 } from './math-utils'
 import { assertNonNullable } from './misc-utils'
-import { ControlModel } from './models'
+import {
+    CommentModel,
+    ContainerModel,
+    ControlModel,
+    ControlTreeModel,
+} from './models'
 
 export const CONTAINER_EXTRA_SPACE = { x: 7, y: 12 }
 const ATOM_HEIGHT_PD_PX = 15
 const MSG_HEIGHT_PD_PX = 15
 const DIGIT_WIDTH_PD_PX = 7
 
-interface Control {
+export interface ControlView {
     type: 'control'
     label: string | null
     control: ControlModel
@@ -22,101 +27,127 @@ interface Control {
     position: Point
 }
 
-interface ControlContainer {
+export interface ContainerView {
     type: 'container'
     label: string | null
-    control: ControlModel
+    control: ContainerModel
     dimensions: Point
-    children: Array<ControlView>
+    children: Array<ControlTreeView>
     position: Point
 }
 
-export type ControlView = Control | ControlContainer
+export type ControlTreeView = ControlView | ContainerView
 
-export const createViews = (
-    controls: Array<ControlModel>
-): Array<ControlView> => {
-    return _moveToOrigin(_createViewsRecurs(controls))
+export interface CommentView {
+    type: 'comment'
+    text: string
+    position: Point
 }
 
-export const _createViewsRecurs = (
-    controls: Array<ControlModel>
-): Array<ControlView> => {
-    const controlsViews: Array<ControlView> = controls.map((control) => {
-        if (control.type === 'container') {
-            const nestedViews = _moveToOrigin(
-                _createViewsRecurs(control.children)
-            )
+export const createViews = (
+    controls: Array<ControlTreeModel>,
+    comments: Array<CommentModel>
+): {
+    controlsViews: Array<ControlTreeView>
+    commentsViews: Array<CommentView>
+} => {
+    const [controlsViews, offset] = _moveToOrigin(
+        _createControlsViewsRecurs(controls)
+    )
+    return {
+        controlsViews,
+        commentsViews: _createCommentsViews(comments).map((v) => ({
+            ...v,
+            position: sumPoints(v.position, offset),
+        })),
+    }
+}
 
-            console.log(
-                nestedViews
-                    .slice(0, 5)
-                    .map(
-                        (v) =>
-                            `${v.control.node.type}: ${v.dimensions.x},${v.dimensions.y}`
-                    )
-            )
+export const _createControlsViewsRecurs = (
+    controls: Array<ControlTreeModel>
+): Array<ControlTreeView> => {
+    const controlsViews: Array<ControlTreeView> = controls.map((control) => {
+        switch (control.type) {
+            case 'container':
+                const [nestedViews] = _moveToOrigin(
+                    _createControlsViewsRecurs(control.children)
+                )
 
-            const view: ControlContainer = {
-                type: 'container',
-                label:
-                    typeof control.node.args[0] === 'string'
-                        ? control.node.args[0]
-                        : null,
-                control,
-                dimensions: sumPoints(
-                    CONTAINER_EXTRA_SPACE,
-                    computeRectangleDimensions(
-                        computePointsBoundingBox([
-                            ...nestedViews.map((c) => c.position!),
-                            ...nestedViews.map((c) =>
-                                sumPoints(c.position!, c.dimensions)
-                            ),
-                        ])
-                    )
-                ),
-                children: nestedViews,
-                position: {
-                    x: _quantizeSpace(_getLayout(control.node).x),
-                    y: _quantizeSpace(_getLayout(control.node).y),
-                },
-            }
-            return view
-        } else {
-            const view: Control = {
-                type: 'control',
-                label: _getNodeLabel(control.node),
-                control,
-                dimensions: _getDimensionsGrid(control.node),
-                position: {
-                    x: _quantizeSpace(_getLayout(control.node).x),
-                    y: _quantizeSpace(_getLayout(control.node).y),
-                },
-            }
-            return view
+                const containerView: ContainerView = {
+                    type: 'container',
+                    label:
+                        typeof control.node.args[0] === 'string'
+                            ? control.node.args[0]
+                            : null,
+                    control,
+                    dimensions: sumPoints(
+                        CONTAINER_EXTRA_SPACE,
+                        computeRectangleDimensions(
+                            computePointsBoundingBox([
+                                ...nestedViews.map((c) => c.position!),
+                                ...nestedViews.map((c) =>
+                                    sumPoints(c.position!, c.dimensions)
+                                ),
+                            ])
+                        )
+                    ),
+                    children: nestedViews,
+                    position: {
+                        x: _quantizeSpace(_getLayout(control.node).x),
+                        y: _quantizeSpace(_getLayout(control.node).y),
+                    },
+                }
+                return containerView
+
+            case 'control':
+                const controlView: ControlView = {
+                    type: 'control',
+                    label: _getNodeLabel(control.node),
+                    control,
+                    dimensions: _getDimensionsGrid(control.node),
+                    position: {
+                        x: _quantizeSpace(_getLayout(control.node).x),
+                        y: _quantizeSpace(_getLayout(control.node).y),
+                    },
+                }
+                return controlView
         }
     })
 
     return controlsViews
 }
 
+const _createCommentsViews = (
+    comments: Array<CommentModel>
+): Array<CommentView> =>
+    comments.map((comment) => ({
+        type: 'comment',
+        text: comment.text,
+        position: {
+            x: _quantizeSpace(_getLayout(comment.node).x),
+            y: _quantizeSpace(_getLayout(comment.node).y),
+        },
+    }))
+
 const _moveToOrigin = (
-    controlViews: Array<ControlView>
-): Array<ControlView> => {
+    controlViews: Array<ControlTreeView>
+): [Array<ControlTreeView>, Point] => {
     const nestedViewsBoundingBox = computePointsBoundingBox([
         ...controlViews.map((v) => v.position!),
         ...controlViews.map((v) => sumPoints(v.position!, v.dimensions)),
     ])
 
+    const offset = scalePoint(nestedViewsBoundingBox.topLeft, -1)
+
     // Apply offset to all the points so that the top-left-most control
     // matches with the position (0, 0).
-    return controlViews.map((v) => ({
-        ...v,
-        position: sumPoints(
-            v.position,
-            scalePoint(nestedViewsBoundingBox.topLeft, -1)
-        ),
-    }))
+    return [
+        controlViews.map((v) => ({
+            ...v,
+            position: sumPoints(v.position, offset),
+        })),
+        offset,
+    ]
 }
 
 const _getDimensionsGrid = (node: PdJson.Node) => {
@@ -127,7 +158,6 @@ const _getDimensionsGrid = (node: PdJson.Node) => {
     switch (node.type) {
         case 'floatatom':
         case 'symbolatom':
-            console.log('ATOM', node.type, _getLayout(node))
             return {
                 x: _quantizeSpace(
                     (_getLayout(node).widthInChars || 3) * DIGIT_WIDTH_PD_PX
