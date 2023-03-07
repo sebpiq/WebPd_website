@@ -28,6 +28,7 @@ const CloseButton = styled(Button)`
     position: fixed;
     right: ${theme.spacings.space1};
     top: ${theme.spacings.space1};
+    z-index: ${theme.zIndexes.closeButton};
 `
 
 const PatchPlayerContainer: React.FunctionComponent<Props> = ({
@@ -56,7 +57,8 @@ const PatchPlayerContainer: React.FunctionComponent<Props> = ({
             },
         )
         return () => {
-            patchPlayerPromise.then(() => destroy(patchPlayer))
+            console.log('DESTROY')
+            patchPlayerPromise.then((startedPatchPlayer) => destroy(startedPatchPlayer))
         }
     }, [artefacts, patchPlayer])
 

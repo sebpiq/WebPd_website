@@ -44,12 +44,12 @@ export type AppDispatch = typeof store.dispatch
 export const useAppDispatch: () => AppDispatch = useDispatch
 export const useAppSelector: TypedUseSelectorHook<RootState> = useSelector
 
-function* rootSaga() {
+// Redux-sagas for side-effects.
+sagaMiddleware.run(function* rootSaga() {
     yield all([initializeApp(), watchSetUrl(), watchStartBuild()])
-}
+})
 
-sagaMiddleware.run(rootSaga)
-
+// Allows auto synchronization between redux state and url search params.
 ReduxQuerySync({
     store,
     params: {
@@ -83,5 +83,6 @@ ReduxQuerySync({
             valueToString: (value: PatchPlayerValues) => JSON.stringify(value),
         }
     },
+    replaceState: true,
     initialTruth: 'location',
 })

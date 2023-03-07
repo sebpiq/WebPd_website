@@ -1,12 +1,20 @@
 import { call, put, select, takeLatest } from 'redux-saga/effects'
-import { build, NODE_BUILDERS, NODE_IMPLEMENTATIONS } from 'webpd'
+import {
+    AbstractionLoader,
+    build,
+    NODE_BUILDERS,
+    NODE_IMPLEMENTATIONS,
+    PdJson,
+} from 'webpd'
 import { create } from '../PatchPlayer/main'
 import { PatchPlayer } from '../PatchPlayer/types'
 import artefacts from './artefacts'
-import { selectBuildInputArtefacts } from './build-input-selectors'
+import {
+    selectBuildInputArtefacts,
+    selectBuildInputUrl,
+} from './build-input-selectors'
 import { selectBuildOutputFormat } from './build-output-selectors'
 import { selectBuildSteps } from './shared-selectors'
-import { theme } from '../theme'
 import { BIT_DEPTH } from '../types'
 
 export function* watchStartBuild() {
@@ -22,8 +30,10 @@ function* makeBuild() {
     const outFormat: ReturnType<typeof selectBuildOutputFormat> = yield select(
         selectBuildOutputFormat
     )
+    const url: ReturnType<typeof selectBuildInputUrl> = yield select(
+        selectBuildInputUrl
+    )
 
-    console.log('SAGA makeBuild', buildSteps, inputArtefacts)
     if (!inputArtefacts || !buildSteps) {
         return
     }
@@ -46,7 +56,9 @@ function* makeBuild() {
                     : {},
                 nodeBuilders: NODE_BUILDERS,
                 nodeImplementations: NODE_IMPLEMENTATIONS,
-                abstractionLoader: async () => null,
+                abstractionLoader: url
+                    ? makeUrlAbstractionLoader(url)
+                    : localAbstractionLoader,
             })
 
         const errors = result.status === 1 ? result.errors : undefined
@@ -72,3 +84,27 @@ function* makeBuild() {
         })
     )
 }
+
+const makeUrlAbstractionLoader = (rootPatchUrl: string) => {
+    const parsedUrl = new URL(rootPatchUrl)
+    const rootUrl =
+        parsedUrl.origin + parsedUrl.pathname.split('/').slice(0, -1).join('/')
+    return build.makeAbstractionLoader(async (nodeType: PdJson.NodeType) => {
+        const url =
+            rootUrl + '/' + (nodeType.endsWith('.pd') ? nodeType : `${nodeType}.pd`)
+        console.log('LOADING ABSTRACTION', url)
+        const response = await fetch(url)
+        if (!response.ok) {
+            console.log('ERROR LOADING ABSTRACTION', url)
+            throw new build.UnknownNodeTypeError(nodeType)
+        }
+        return await response.text()
+    })
+}
+
+/** Always fails, because locally we don't load any abstractions */
+const localAbstractionLoader = build.makeAbstractionLoader(
+    async (nodeType: PdJson.NodeType) => {
+        throw new build.UnknownNodeTypeError(nodeType)
+    }
+)

@@ -278,6 +278,22 @@ const _renderNexus = (
             })
             break
 
+        case 'symbolatom':
+            nexusElem = new Nexus.TextButton(div, {
+                size: [width, height],
+                state: false,
+                text: 'SYMBOLATOM NOT SUPPORTED',
+            })
+            break
+
+        case 'cnv':
+            nexusElem = new Nexus.TextButton(div, {
+                size: [width, height],
+                state: false,
+                text: 'CNV NOT SUPPORTED',
+            })
+            break
+
         default:
             throw new Error(`Not supported ${node.type}`)
     }

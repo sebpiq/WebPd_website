@@ -12,7 +12,11 @@ export const BUILD_STATUS = {
     ERRORED: 3,
 }
 
-type BuildStatus = typeof BUILD_STATUS.INIT | typeof BUILD_STATUS.IN_PROGRESS | typeof BUILD_STATUS.SUCCESS | typeof BUILD_STATUS.ERRORED
+type BuildStatus =
+    | typeof BUILD_STATUS.INIT
+    | typeof BUILD_STATUS.IN_PROGRESS
+    | typeof BUILD_STATUS.SUCCESS
+    | typeof BUILD_STATUS.ERRORED
 
 // We need to kep these out of state
 // because these complex, non-serializable values
@@ -20,7 +24,7 @@ type BuildStatus = typeof BUILD_STATUS.INIT | typeof BUILD_STATUS.IN_PROGRESS | 
 export const ASSETS: {
     artefacts: Artefacts
 } = {
-    artefacts: build.createArtefacts()
+    artefacts: build.createArtefacts(),
 }
 
 interface ArtefactsState {
@@ -40,7 +44,13 @@ export default createSlice({
         startBuild: (state) => {
             state.buildStatus = BUILD_STATUS.IN_PROGRESS
         },
-        buildSuccess: (state, action: PayloadAction<{artefacts: Artefacts, patchPlayer: PatchPlayer | null}>) => {
+        buildSuccess: (
+            state,
+            action: PayloadAction<{
+                artefacts: Artefacts
+                patchPlayer: PatchPlayer | null
+            }>
+        ) => {
             ASSETS.artefacts = action.payload.artefacts
             state.buildStatus = BUILD_STATUS.SUCCESS
         },
@@ -58,7 +68,7 @@ export default createSlice({
             if (action.payload.status === 1) {
                 state.buildStatus = BUILD_STATUS.ERRORED
             }
-        }
+        },
     },
     extraReducers(builder) {
         const reset = () => {

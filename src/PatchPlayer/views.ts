@@ -206,6 +206,10 @@ const _getDimensionsGrid = (node: PdJson.Node) => {
                 ),
                 y: _quantizeSpace(MSG_HEIGHT_PD_PX),
             }
+        case 'cnv':
+            return {
+                x: 0, y: 0
+            }
         default:
             throw new Error(`unsupported type ${node.type}`)
     }

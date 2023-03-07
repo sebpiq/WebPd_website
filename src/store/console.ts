@@ -25,6 +25,9 @@ export default createSlice({
         ) => {
             if (action.payload.warnings) {
                 state.warnings = [...(state.warnings || []), ...action.payload.warnings]
+                if (state.warnings.length === 0) {
+                    state.warnings = null
+                }
             }
             if (action.payload.errors) {
                 state.errors = [...(state.errors || []), ...action.payload.errors]

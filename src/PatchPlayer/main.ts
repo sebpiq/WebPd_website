@@ -110,6 +110,8 @@ export const start = async (
 
     ELEMS.loadingLabel.style.display = 'none'
     ELEMS.startButton.style.display = 'block'
+
+    return patchPlayer
 }
 
 export const destroy = (patchPlayer: PatchPlayer) => {

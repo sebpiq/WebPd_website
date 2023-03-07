@@ -72,6 +72,10 @@ const theme = {
 
     controls: {
         gridSize: 50
+    },
+
+    zIndexes: {
+        closeButton: 2,
     }
 }
 
