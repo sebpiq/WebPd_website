@@ -1,6 +1,6 @@
 import { DspGraph, Message } from 'webpd'
 import { PORTLET_ID } from './constants'
-import { PatchPlayer } from './PatchPlayer'
+import { PatchPlayer } from './types'
 
 export const nextTick = () => new Promise((resolve) => setTimeout(resolve, 1))
 

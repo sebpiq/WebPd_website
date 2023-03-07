@@ -7,7 +7,7 @@ import { selectBuildInputArtefacts } from '../store/build-input-selectors'
 import { selectBuildOutputFormat } from '../store/build-output-selectors'
 import artefacts, { BUILD_STATUS } from '../store/artefacts'
 import { theme } from '../theme'
-import { selectBuildOutputHasExtraOptions } from '../store/combined-selectors'
+import { selectBuildOutputHasExtraOptions } from '../store/shared-selectors'
 import { selectArtefactsBuildStatus } from '../store/artefacts-selectors'
 
 const Container = styled(Box)``

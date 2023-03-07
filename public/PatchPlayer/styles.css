@@ -71,10 +71,13 @@
 
 #PatchPlayer .controls-container {
     position: absolute;
+}
+
+#PatchPlayer .controls-container, #PatchPlayer .comment {
     padding: 0.2em;
     background-color: var(--bg-color2);
     border-radius: 0.3em;
-    box-shadow: 5px 7px 2px 0px rgba(34, 34, 34, 0.75);
+    box-shadow: 5px 6px 2px 0px rgba(34, 34, 34, 0.75);
 }
 
 #PatchPlayer .controls-container > .label {

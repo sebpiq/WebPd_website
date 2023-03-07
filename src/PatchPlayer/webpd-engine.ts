@@ -1,5 +1,5 @@
 import { runtime, Artefacts } from 'webpd'
-import { PatchPlayer } from './PatchPlayer'
+import { PatchPlayer } from './types'
 
 export const createEngine = async (
     patchPlayer: PatchPlayer,

@@ -8,16 +8,16 @@ import {
     Rectangle,
     round,
 } from './math-utils'
-import { sendMsgToWebPd } from './misc-utils'
-import { PatchPlayer } from './PatchPlayer'
+import { sendMsgToWebPd, throttled } from './misc-utils'
+import { PatchPlayerWithSettings } from './types'
 
 export const PORTLET_ID = '0'
 
 export type ValueTransform = (v: number) => string | number
 
 export interface ControlsValues {
-    _values: { [nodeId: string]: string | number }
-    _valueTransforms: { [nodeId: string]: ValueTransform }
+    values: { [nodeId: string]: string | number }
+    transforms: { [nodeId: string]: ValueTransform }
 }
 
 export interface ControlModel {
@@ -195,27 +195,30 @@ export const _createModelsRecursive = (
 }
 
 export const setControlValue = (
-    patchPlayer: PatchPlayer,
+    patchPlayer: PatchPlayerWithSettings,
     control: ControlModel,
     rawValue: number
 ) => {
     const { node, patch } = control
     const nodeId = dspGraph.buildGraphNodeId(patch.id, node.id)
-    const valueTransform = patchPlayer.controlsValues._valueTransforms[nodeId]
+    const valueTransform = patchPlayer.controlsValues.transforms[nodeId]
     if (!valueTransform) {
         throw new Error(`no value transform for ${nodeId}`)
     }
     _setControlValue(patchPlayer, nodeId, valueTransform(rawValue)!)
 }
 
-export const getControlValue = (patchPlayer: PatchPlayer, control: ControlModel) => {
+export const getControlValue = (
+    patchPlayer: PatchPlayerWithSettings,
+    control: ControlModel
+) => {
     const { node, patch } = control
     const nodeId = dspGraph.buildGraphNodeId(patch.id, node.id)
-    return patchPlayer.controlsValues._values[nodeId]
+    return patchPlayer.controlsValues.values[nodeId]
 }
 
-export const initializeControlValues = (patchPlayer: PatchPlayer) => {
-    Object.entries(patchPlayer.controlsValues._values).forEach(
+export const initializeControlValues = (patchPlayer: PatchPlayerWithSettings) => {
+    Object.entries(patchPlayer.controlsValues.values).forEach(
         ([nodeId, value]) => {
             _setControlValue(patchPlayer, nodeId, value)
         }
@@ -229,28 +232,30 @@ const _registerControlValue = (
 ) => {
     const { node, patch } = control
     const nodeId = dspGraph.buildGraphNodeId(patch.id, node.id)
-    controlsValues._valueTransforms[nodeId] = valueTransform
+    controlsValues.transforms[nodeId] = valueTransform
 }
 
 const _setControlValue = (
-    patchPlayer: PatchPlayer,
+    patchPlayer: PatchPlayerWithSettings,
     nodeId: DspGraph.NodeId,
     value: string | number
 ) => {
-    patchPlayer.controlsValues._values[nodeId] = value
-    // TODO
-    // const url = new URL(window.location)
-    Object.entries(patchPlayer.controlsValues._values).forEach(
-        ([nodeId, value]) => {
-            const paramValue = typeof value === 'number' ? round(value) : value
-            // TODO
-            // url.searchParams.set(nodeId, JSON.stringify(paramValue))
-        }
-    )
-    // TODO
-    // window.history.replaceState({}, document.title, url)
+    patchPlayer.controlsValues.values[nodeId] = value
+    if (patchPlayer.settings.valuesUpdatedCallback) {
+        _sendUpdatedControlValues(patchPlayer)
+    }
     sendMsgToWebPd(patchPlayer, nodeId, [value])
 }
+
+const _sendUpdatedControlValues = throttled(300, (patchPlayer: PatchPlayerWithSettings) => {
+    const values: ControlsValues['values'] = {}
+    Object.entries(patchPlayer.controlsValues.values).forEach(
+        ([nodeId, value]) => {
+            values[nodeId] = typeof value === 'number' ? round(value) : value
+        }
+    )
+    patchPlayer.settings.valuesUpdatedCallback!(values)
+})
 
 const _assertNodeLayout = (layout: PdJson.Node['layout']) => {
     if (!layout) {

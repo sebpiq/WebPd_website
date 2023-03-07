@@ -1,11 +1,11 @@
 import { call, put, select, takeLatest } from 'redux-saga/effects'
 import { build, NODE_BUILDERS, NODE_IMPLEMENTATIONS } from 'webpd'
 import { create } from '../PatchPlayer/main'
-import { PatchPlayer } from '../PatchPlayer/PatchPlayer'
+import { PatchPlayer } from '../PatchPlayer/types'
 import artefacts from './artefacts'
 import { selectBuildInputArtefacts } from './build-input-selectors'
 import { selectBuildOutputFormat } from './build-output-selectors'
-import { selectBuildSteps } from './combined-selectors'
+import { selectBuildSteps } from './shared-selectors'
 import { theme } from '../theme'
 import { BIT_DEPTH } from '../types'
 
@@ -62,10 +62,7 @@ function* makeBuild() {
         }
 
         if (step === 'dspGraph' && outFormat === 'patchPlayer') {
-            patchPlayer = create(tempArtefacts, {
-                colorScheme: theme.colors.colorScheme,
-                showCredits: false,
-            })
+            patchPlayer = create(tempArtefacts)
         }
     }
     yield put(

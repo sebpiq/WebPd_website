@@ -5,9 +5,10 @@ import { Artefacts } from 'webpd'
 import { Button } from '../components'
 import { destroy, start } from '../PatchPlayer/main'
 import { useAppDispatch, useAppSelector } from '../store'
-import artefactsSlice from '../store/artefacts'
-import { selectArtefactsPatchPlayer } from '../store/artefacts-selectors'
 import { theme } from '../theme'
+import patchPlayerSlice from '../store/patch-player'
+import { selectPatchPlayer, selectPatchPlayerValues } from '../store/patch-player-selectors'
+import { actionCleanBuild } from '../store/shared-action'
 
 interface Props {
     artefacts: Artefacts
@@ -34,16 +35,25 @@ const PatchPlayerContainer: React.FunctionComponent<Props> = ({
 }) => {
     const rootElem = useRef<HTMLDivElement>(null)
     const dispatch = useAppDispatch()
-    const patchPlayer = useAppSelector(selectArtefactsPatchPlayer)
+    const patchPlayer = useAppSelector(selectPatchPlayer)
+    const patchPlayerValues = useAppSelector(selectPatchPlayerValues)
 
     useEffect(() => {
         if (!patchPlayer) {
             return
         }
         const patchPlayerPromise = start(
+            artefacts,
             patchPlayer,
-            rootElem.current!,
-            artefacts
+            {
+                container: rootElem.current!, 
+                colorScheme: theme.colors.colorScheme,
+                showCredits: false,
+                initialValues: patchPlayerValues,
+                valuesUpdatedCallback: (values) => {
+                    dispatch(patchPlayerSlice.actions.valuesChanged(values))
+                }
+            },
         )
         return () => {
             patchPlayerPromise.then(() => destroy(patchPlayer))
@@ -51,7 +61,7 @@ const PatchPlayerContainer: React.FunctionComponent<Props> = ({
     }, [artefacts, patchPlayer])
 
     const onClose = () => {
-        dispatch(artefactsSlice.actions.clean())
+        dispatch(actionCleanBuild())
     }
 
     return (

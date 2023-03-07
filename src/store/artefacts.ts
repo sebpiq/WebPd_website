@@ -1,8 +1,9 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit'
 import { Artefacts, build, BuildFormat } from 'webpd'
-import { PatchPlayer } from '../PatchPlayer/PatchPlayer'
+import { PatchPlayer } from '../PatchPlayer/types'
 import buildInput from './build-input'
 import buildOutput from './build-output'
+import { actionCleanBuild } from './shared-action'
 
 export const BUILD_STATUS = {
     INIT: 0,
@@ -18,10 +19,8 @@ type BuildStatus = typeof BUILD_STATUS.INIT | typeof BUILD_STATUS.IN_PROGRESS | 
 // cause errors with immer and RTK.
 export const ASSETS: {
     artefacts: Artefacts
-    patchPlayer: PatchPlayer | null
 } = {
-    artefacts: build.createArtefacts(),
-    patchPlayer: null,
+    artefacts: build.createArtefacts()
 }
 
 interface ArtefactsState {
@@ -43,7 +42,6 @@ export default createSlice({
         },
         buildSuccess: (state, action: PayloadAction<{artefacts: Artefacts, patchPlayer: PatchPlayer | null}>) => {
             ASSETS.artefacts = action.payload.artefacts
-            ASSETS.patchPlayer = action.payload.patchPlayer
             state.buildStatus = BUILD_STATUS.SUCCESS
         },
         startStep: (state, action: PayloadAction<BuildFormat>) => {
@@ -60,10 +58,6 @@ export default createSlice({
             if (action.payload.status === 1) {
                 state.buildStatus = BUILD_STATUS.ERRORED
             }
-        },
-        clean: () => {
-            ASSETS.artefacts = build.createArtefacts()
-            return initialState
         }
     },
     extraReducers(builder) {
@@ -71,6 +65,7 @@ export default createSlice({
             ASSETS.artefacts = build.createArtefacts()
             return initialState
         }
+        builder.addCase(actionCleanBuild, reset)
         builder.addCase(buildOutput.actions.setFormat, reset)
         builder.addCase(buildInput.actions.setLocalFile, reset)
         builder.addCase(buildInput.actions.setUrlFile, reset)

@@ -1,7 +1,7 @@
 import { Point } from './math-utils'
 import { assertNonNullable } from './misc-utils'
 import { getControlValue, setControlValue } from './models'
-import { PatchPlayer } from './PatchPlayer'
+import { PatchPlayerWithSettings } from './types'
 import { CONTAINER_EXTRA_SPACE, ControlTreeView, ControlView } from './views'
 
 const FONT_FAMILY = 'Rajdhani'
@@ -61,7 +61,7 @@ export const renderStructure = (rootElem: HTMLDivElement) => {
 }
 
 export const renderControlViews = (
-    patchPlayer: PatchPlayer,
+    patchPlayer: PatchPlayerWithSettings,
     parentElem: HTMLElement
 ) => {
     _renderControlViewsRecurs(
@@ -73,7 +73,7 @@ export const renderControlViews = (
 }
 
 export const renderCommentsViews = (
-    patchPlayer: PatchPlayer,
+    patchPlayer: PatchPlayerWithSettings,
     parentElem: HTMLElement
 ) => {
     patchPlayer.commentsViews.forEach((commentView) => {
@@ -87,7 +87,7 @@ export const renderCommentsViews = (
 }
 
 const _renderControlViewsRecurs = (
-    patchPlayer: PatchPlayer,
+    patchPlayer: PatchPlayerWithSettings,
     parentElem: HTMLElement,
     children: Array<ControlTreeView>,
     parent: ControlTreeView | null
@@ -117,7 +117,7 @@ const _renderControlViewsRecurs = (
 }
 
 const _renderContainer = (
-    _: PatchPlayer,
+    _: PatchPlayerWithSettings,
     parent: HTMLElement,
     controlView: ControlTreeView
 ) => {
@@ -144,7 +144,7 @@ const _renderContainer = (
 }
 
 const _renderControl = (
-    patchPlayer: PatchPlayer,
+    patchPlayer: PatchPlayerWithSettings,
     parent: HTMLElement,
     controlView: ControlView,
     containerPadding: ReturnType<typeof _getContainerPadding>
@@ -209,7 +209,7 @@ const _renderLabel = (parent: HTMLElement, label: string) => {
 }
 
 const _renderNexus = (
-    patchPlayer: PatchPlayer,
+    patchPlayer: PatchPlayerWithSettings,
     div: HTMLDivElement,
     controlView: ControlView,
     dimensions: Point

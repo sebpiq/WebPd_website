@@ -7,15 +7,16 @@ import {
 } from './models'
 import { createEngine } from './webpd-engine'
 import { createViews } from './views'
-import { renderCommentsViews, renderControlViews, renderStructure } from './render'
+import {
+    renderCommentsViews,
+    renderControlViews,
+    renderStructure,
+} from './render'
 import { assertNonNullable, nextTick } from './misc-utils'
-import { PatchPlayer, Settings } from './PatchPlayer'
+import { PatchPlayer, PatchPlayerWithSettings, Settings } from './types'
 import { Artefacts, DspGraph, dspGraph, runtime } from 'webpd'
 
-export const create = (
-    artefacts: Artefacts,
-    settings: Settings
-): PatchPlayer => {
+export const create = (artefacts: Artefacts): PatchPlayer => {
     const pdJson = assertNonNullable(
         artefacts.pdJson,
         'artefacts.pdJson not defined'
@@ -27,11 +28,11 @@ export const create = (
     )
 
     const controlsValues: ControlsValues = {
-        _values: {},
-        _valueTransforms: {},
+        values: {},
+        transforms: {},
     }
 
-    const {controls, comments} = createModels(controlsValues, pdJson)
+    const { controls, comments } = createModels(controlsValues, pdJson)
 
     const { controlsViews, commentsViews } = createViews(controls, comments)
 
@@ -47,18 +48,28 @@ export const create = (
         controlsValues,
         controlsViews,
         commentsViews,
-        settings,
+        settings: null,
         inletCallerSpecs: _collectInletCallerSpecs(controls, dspGraph.graph),
     }
 }
 
 export const start = async (
-    patchPlayer: PatchPlayer,
-    container: HTMLDivElement,
-    artefacts: Artefacts
+    artefacts: Artefacts,
+    patchPlayerWithoutSettings: PatchPlayer,
+    settings: Settings
 ) => {
+    const patchPlayer: PatchPlayerWithSettings = {
+        ...patchPlayerWithoutSettings,
+        controlsValues: {
+            ...patchPlayerWithoutSettings.controlsValues,
+            values: settings.initialValues ? {...settings.initialValues} : {},
+        },
+        settings,
+    }
+
     const rootElem = document.createElement('div')
-    container.appendChild(rootElem)
+
+    patchPlayer.settings.container.appendChild(rootElem)
     // TODO
     // loadStateFromUrl()
     const ELEMS = renderStructure(rootElem)
@@ -141,7 +152,7 @@ const _collectInletCallerSpecs = (
     return inletCallerSpecs
 }
 
-const _startSound = (patchPlayer: PatchPlayer) => {
+const _startSound = (patchPlayer: PatchPlayerWithSettings) => {
     // https://github.com/WebAudio/web-audio-api/issues/345
     if (patchPlayer.audioContext.state === 'suspended') {
         patchPlayer.audioContext.resume()

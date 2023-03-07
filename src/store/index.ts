@@ -12,11 +12,14 @@ import {
 } from './build-output-selectors'
 import { selectBuildInputUrl } from './build-input-selectors'
 import createSagaMiddleware from 'redux-saga'
-import { all, call } from 'redux-saga/effects'
+import { all } from 'redux-saga/effects'
 import { watchSetUrl } from './build-input-sagas'
 import { watchStartBuild } from './artefacts-sagas'
 import { selectAppWillBuildOnLoad } from './app-selectors'
 import { initializeApp } from './app-sagas'
+import patchPlayer from './patch-player'
+import { PatchPlayerValues } from '../PatchPlayer/types'
+import { selectPatchPlayerValues } from './patch-player-selectors'
 const sagaMiddleware = createSagaMiddleware()
 
 export const store = configureStore({
@@ -25,7 +28,8 @@ export const store = configureStore({
         buildInput: buildInput.reducer,
         buildOutput: buildOutput.reducer,
         artefacts: artefacts.reducer,
-        console: console_.reducer
+        console: console_.reducer,
+        patchPlayer: patchPlayer.reducer,
     },
     // Needed because we pass ArrayBuffers and other nice things
     // in actions
@@ -71,6 +75,13 @@ ReduxQuerySync({
             stringToValue: (str: string) => str === '1',
             valueToString: (value: boolean) => value ? '1': '0',
         },
+        pp: {
+            selector: selectPatchPlayerValues,
+            action: patchPlayer.actions.valuesChanged,
+            defaultValue: patchPlayer.getInitialState().values,
+            stringToValue: (str: string) => JSON.parse(str),
+            valueToString: (value: PatchPlayerValues) => JSON.stringify(value),
+        }
     },
     initialTruth: 'location',
 })
