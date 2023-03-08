@@ -14,10 +14,10 @@ export const selectBuildInputFormat = createSelector(
     selectBuildInputUrl,
     selectBuildInputFilepath,
     (url, filepath) => {
-        if (url) {
-            return build.guessFormat(url)
-        } else if (filepath) {
-            return build.guessFormat(filepath)
+        let filepathOrUrl = url || filepath
+        if (filepathOrUrl) {
+            return build.guessFormat(filepathOrUrl) || 'pd'
+
         } else {
             return null
         }

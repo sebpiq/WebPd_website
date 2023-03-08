@@ -2,21 +2,30 @@ import styled from 'styled-components'
 import { theme } from './theme'
 
 export const H1 = styled.h1`
-    font-size: 400%;
+    font-size: 500%;
+    font-family: ${theme.fonts.title};
     color: ${theme.colors.colorScheme.next()};
     margin: 0;
     padding: 0;
     margin-bottom: ${theme.spacings.space1};
 `
 
-export const h2Mixin = `
+export const h3Mixin = `
     text-transform: uppercase;
     font-size: 110%;
     font-weight: bold;
 `
 
 export const H2 = styled.h2`
-    ${h2Mixin}
+    font-family: ${theme.fonts.title};
+    color: ${theme.colors.colorScheme.next()};
+    margin: 0;
+    padding: 0;    
+`
+
+export const H3 = styled.h3`
+    ${h3Mixin}
+    font-family: ${theme.fonts.title};
     margin: 0;
     padding: 0;
     margin-bottom: ${theme.spacings.space1};
@@ -30,6 +39,7 @@ export const Box = styled.div`
 `
 
 export const Button = styled.button`
+    font-family: ${theme.fonts.title};
     border: none;
     cursor: pointer;
     background-color: ${theme.colors.bg3};
@@ -38,11 +48,6 @@ export const Button = styled.button`
 
 export const ButtonActive = styled(Button)`
     background-color: ${() => theme.colors.colorScheme.next()};
-`
-
-export const ButtonIconInline = styled(Button)`
-    background: none;
-    color: ${() => theme.colors.colorScheme.next()};
 `
 
 export const Select = styled.select`

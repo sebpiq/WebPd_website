@@ -1,5 +1,5 @@
 import styled from 'styled-components'
-import { Box, H2 } from './components'
+import { Box, H3 } from './components'
 import { useAppSelector } from './store'
 import { selectConsoleErrors, selectConsoleWarnings } from './store/console-selectors'
 
@@ -24,7 +24,7 @@ const Console: React.FunctionComponent = () => {
 
     return (
         <Container>
-            <H2>Output messages :</H2>
+            <H3>Output messages :</H3>
             {warnings ? warnings.map((warning, i) => (
                 <WarningContainer key={i}>WARNING : {warning}</WarningContainer>
             )): null}

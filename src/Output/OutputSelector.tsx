@@ -1,6 +1,6 @@
-import styled from 'styled-components'
+import styled from 'styled-components/macro'
 import { BUILD_FORMATS } from 'webpd'
-import { Button, Or, h2Mixin } from '../components'
+import { Button, Or, h3Mixin } from '../components'
 import { useAppDispatch, useAppSelector } from '../store'
 import buildOutput from '../store/build-output'
 import {
@@ -14,19 +14,46 @@ const BUILD_WEBSITE_FORMATS = {
     patchPlayer: { description: 'Patch player' },
 }
 
-const Container = styled.div`
+const BUILD_WEBSITE_FORMATS_INFO: {
+    [Property in keyof typeof BUILD_WEBSITE_FORMATS]: { info: string }
+} = {
+    pd: { info: 'Pure Data file (.pd) in text format.' },
+    pdJson: { info: 'A JSON representation of a pure data file.' },
+    dspGraph: {
+        info: 'A DSP graph that is used internally by the WebPd compiler to generate the audio output.',
+    },
+    compiledJs: {
+        info: 'A copmiled JavaScript function for generating audio.',
+    },
+    compiledAsc: {
+        info: 'An AssemblyScript function which can then be compiled to Web Assembly.',
+    },
+    wasm: { info: 'A Web Assembly module compiled from your patch.' },
+    wav: { info: 'An audio preview of your patch.' },
+    patchPlayer: {
+        info: 'An interactive interface, allowing to play with your patch online.',
+    },
+}
+
+const Container = styled.div``
+
+const FormatSelector = styled.div`
     width: 100%;
     display: flex;
     flex-direction: row;
     justify-content: space-between;
 `
 
+const FormatInfo = styled.div`
+    margin-top: ${theme.spacings.space1};
+`
+
 const ButtonInit = styled(Button)`
-    ${h2Mixin}
+    ${h3Mixin}
 `
 
 const ButtonActive = styled(Button)`
-    ${h2Mixin}
+    ${h3Mixin}
     background: none;
 `
 
@@ -44,29 +71,36 @@ const OutputSelector = () => {
 
     return (
         <Container>
-            {outFormats.flatMap((outFormatOption, i) => {
-                const ButtonComponent =
-                    outFormatOption === outFormat
-                        ? ButtonActive
-                        : !!outFormat
-                        ? ButtonInactive
-                        : ButtonInit
-                return [
-                    <ButtonComponent
-                        key={outFormatOption}
-                        onClick={() =>
-                            dispatch(
-                                buildOutput.actions.setFormat(outFormatOption)
-                            )
-                        }
-                    >
-                        {BUILD_WEBSITE_FORMATS[outFormatOption].description}
-                    </ButtonComponent>,
-                    i < outFormats.length - 1 ? (
-                        <Or key={outFormatOption + 'OR'}>OR</Or>
-                    ) : null,
-                ]
-            })}
+            <FormatSelector>
+                {outFormats.flatMap((outFormatOption, i) => {
+                    const ButtonComponent =
+                        outFormatOption === outFormat
+                            ? ButtonActive
+                            : !!outFormat
+                            ? ButtonInactive
+                            : ButtonInit
+                    return [
+                        <ButtonComponent
+                            key={outFormatOption}
+                            onClick={() =>
+                                dispatch(
+                                    buildOutput.actions.setFormat(
+                                        outFormatOption
+                                    )
+                                )
+                            }
+                        >
+                            {BUILD_WEBSITE_FORMATS[outFormatOption].description}
+                        </ButtonComponent>,
+                        i < outFormats.length - 1 ? (
+                            <Or key={outFormatOption + 'OR'}>OR</Or>
+                        ) : null,
+                    ]
+                })}
+            </FormatSelector>
+            {outFormat ? <FormatInfo>
+                {'→ ' + BUILD_WEBSITE_FORMATS_INFO[outFormat].info}
+            </FormatInfo>: null}
         </Container>
     )
 }

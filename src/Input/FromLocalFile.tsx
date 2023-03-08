@@ -6,21 +6,18 @@ import buildInput from '../store/build-input'
 import { selectBuildInputFilepath } from '../store/build-input-selectors'
 import { theme } from '../theme'
 
-interface Props {
-    isActive: boolean
-}
+interface Props {}
 
 const Container = styled.span`
     padding: ${theme.spacings.space0p1} 0;
     cursor: pointer;
 `
 
-const Span = styled.span<{ isActive: boolean }>`
-    color: ${(props) =>
-        props.isActive ? theme.colors.colorScheme.next() : theme.colors.fg2};
+const Span = styled.span`
+    color: ${theme.colors.fg1};
 `
 
-const FromLocalFile: React.FunctionComponent<Props> = ({ isActive }) => {
+const FromLocalFile: React.FunctionComponent<Props> = () => {
     const filepath = useAppSelector(selectBuildInputFilepath)
     const dispatch = useAppDispatch()
 
@@ -48,9 +45,9 @@ const FromLocalFile: React.FunctionComponent<Props> = ({ isActive }) => {
         <Container {...getRootProps()}>
             <input {...getInputProps()} />
             {isDragActive ? (
-                <Span isActive={isActive || false}>Drop the file here ...</Span>
+                <Span>Drop the file here ...</Span>
             ) : (
-                <Span isActive={isActive || false}>{filepath ? 'Choose a different file': 'Upload a file from your computer'}</Span>
+                <Span>{filepath ? 'Choose a different file': 'Upload a file from your computer'}</Span>
             )}
         </Container>
     )

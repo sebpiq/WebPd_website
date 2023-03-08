@@ -21,7 +21,7 @@ const Container = styled.div`
     width: 100%;
     height: 100%;
     overflow: auto;
-    background-color: ${theme.colors.bg1}f1;
+    background-color: ${theme.colors.bg1};
 `
 
 const CloseButton = styled(Button)`

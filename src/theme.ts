@@ -46,6 +46,7 @@ const theme = {
     },
 
     fonts: {
+        title: 'SilkScreen',
         default: 'Rajdhani',
     },
 
@@ -55,11 +56,11 @@ const theme = {
     },
 
     colors: {
-        bg1: '#111111',
+        bg1: '#333333',
         bg1p5: '#222222',
         bg2: '#1a1a1a',
         bg3: '#444444',
-        fg1: '#eeeeee',
+        fg1: '#d1d1d1',
         fg2: '#555555',
         colorScheme: COLOR_SCHEME,
     },

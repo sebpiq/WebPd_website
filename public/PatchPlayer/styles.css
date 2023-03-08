@@ -6,8 +6,9 @@
     box-sizing: border-box;
     --bg-color1: #111;
     --bg-color2: #2C2C2C;
-    --fg-color1: #646464;
+    --fg-color1: #515151;
     --fg-color2: #aaa;
+    --fg-color3: white;
     color: var(--fg-color2);
     text-transform: uppercase;
 }
@@ -80,7 +81,7 @@
 }
 
 #PatchPlayer .controls-container > .label {
-    color: var(--fg-color1);
+    color: var(--fg-color3);
     font-size: 100%;
     position: absolute;
     top: 0.3rem;
@@ -105,7 +106,7 @@
 
 #PatchPlayer .comment {
     position: absolute;
-    color: var(--fg-color1);
+    color: var(--fg-color3);
 }
 
 #PatchPlayer .label {

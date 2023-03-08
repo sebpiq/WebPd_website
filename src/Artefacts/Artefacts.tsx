@@ -1,5 +1,5 @@
 import styled from 'styled-components'
-import { Box, H2 } from '../components'
+import { Box, H3 } from '../components'
 import { useAppSelector } from '../store'
 import { BUILD_STATUS } from '../store/artefacts'
 import {
@@ -28,7 +28,7 @@ const Artefacts = () => {
     return (
         <Container>
             {buildStatus === BUILD_STATUS.IN_PROGRESS && (
-                <H2>Building {buildStep} ...</H2>
+                <H3>Building {buildStep} ...</H3>
             )}
             {buildStatus === BUILD_STATUS.SUCCESS ? (
                 outFormat !== 'patchPlayer' ? (

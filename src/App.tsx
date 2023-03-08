@@ -9,6 +9,7 @@ import { selectAppIsInitialized } from './store/app-selectors'
 import Introduction from './Introduction'
 import Console from './Console'
 import { Box } from './components'
+import CompilerTitle from './CompilerTitle'
 
 const GlobalStyle = createGlobalStyle`
     @font-face {
@@ -59,6 +60,7 @@ const AppInner = () => {
     return (
         <>
             <Introduction />
+            <CompilerTitle />
             <Input />
             <Output />
             <Console />

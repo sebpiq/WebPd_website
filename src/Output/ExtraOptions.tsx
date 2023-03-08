@@ -11,12 +11,19 @@ interface Props {}
 const Container = styled.div`
     margin-top: ${theme.spacings.space2};
     margin-bottom: ${theme.spacings.space2};
+    display: flex;
+    flex-direction: row;
+    align-items: flex-start;
+    justify-content: space-between;
 `
 
-const OptionContainer = styled.div`
-    &> label {
-        margin-right ${theme.spacings.space1};
-    }
+const CodeTargetSelect = styled(Select)`
+    min-width: 8em;
+    margin-right: ${theme.spacings.space1};
+`
+
+const CodeTargetInfo = styled.div`
+    
 `
 
 const ExtraOptions: React.FunctionComponent<Props> = () => {
@@ -34,18 +41,19 @@ const ExtraOptions: React.FunctionComponent<Props> = () => {
 
     return (
         <Container>
-            <OptionContainer>
-                <label>Compilation target</label>
-                <Select value={codeTarget} onChange={onTargetChange}>
-                    {Object.entries(CODE_TARGETS).map(
-                        ([target, { display }]) => (
-                            <option value={target} key={target}>
-                                {display}
-                            </option>
-                        )
-                    )}
-                </Select>
-            </OptionContainer>
+            <label>Compilation target</label>
+            <CodeTargetSelect value={codeTarget} onChange={onTargetChange}>
+                {Object.entries(CODE_TARGETS).map(
+                    ([target, { display }]) => (
+                        <option value={target} key={target}>
+                            {display}
+                        </option>
+                    )
+                )}
+            </CodeTargetSelect>
+            <CodeTargetInfo>
+                {CODE_TARGETS[codeTarget].info}
+            </CodeTargetInfo>
         </Container>
     )
 }

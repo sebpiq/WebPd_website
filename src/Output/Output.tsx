@@ -14,6 +14,12 @@ const Container = styled(Box)``
 
 const ButtonContainer = styled.div`
     margin-top: ${theme.spacings.space1};
+    text-align: right;
+`
+
+const ButtonGo = styled(ButtonActive)`
+    font-size: 150%;
+    padding: 0.1em 0.5em;
 `
 
 const BuildConfig = () => {
@@ -37,7 +43,7 @@ const BuildConfig = () => {
             {outFormat && hasExtraOptions ? <ExtraOptions />: null}
             {outFormat && buildStatus === BUILD_STATUS.INIT ? (
                 <ButtonContainer>
-                    <ButtonActive onClick={onGo}>Go !</ButtonActive>
+                    <ButtonGo onClick={onGo}>Go !</ButtonGo>
                 </ButtonContainer>
             ) : null}
         </Container>

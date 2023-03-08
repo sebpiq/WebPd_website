@@ -1,5 +1,6 @@
 {
   "name": "webpd_website",
+  "homepage": "./",
   "version": "0.1.0",
   "private": true,
   "dependencies": {
@@ -14,6 +15,7 @@
     "@types/styled-components": "^5.1.26",
     "@webpd/dev": "file:../WebPd_dev",
     "filesize": "^10.0.6",
+    "markdown-loader": "^8.0.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-dropzone": "^14.2.3",
