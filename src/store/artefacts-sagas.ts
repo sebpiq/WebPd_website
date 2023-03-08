@@ -1,6 +1,5 @@
 import { call, put, select, takeLatest } from 'redux-saga/effects'
 import {
-    AbstractionLoader,
     build,
     NODE_BUILDERS,
     NODE_IMPLEMENTATIONS,
@@ -34,6 +33,7 @@ function* makeBuild() {
         selectBuildInputUrl
     )
 
+    console.log('BUILD ?', inputArtefacts, buildSteps, !inputArtefacts || !buildSteps)
     if (!inputArtefacts || !buildSteps) {
         return
     }
@@ -41,6 +41,7 @@ function* makeBuild() {
     let tempArtefacts = { ...inputArtefacts }
     let patchPlayer: PatchPlayer | null = null
     for (let step of buildSteps) {
+        console.log('BUILD STEP START', step)
         yield put(artefacts.actions.startStep(step))
         const result: Awaited<ReturnType<typeof build.performBuildStep>> =
             yield call(build.performBuildStep, tempArtefacts, step, {

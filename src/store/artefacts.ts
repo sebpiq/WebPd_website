@@ -78,6 +78,6 @@ export default createSlice({
         builder.addCase(actionCleanBuild, reset)
         builder.addCase(buildOutput.actions.setFormat, reset)
         builder.addCase(buildInput.actions.setLocalFile, reset)
-        builder.addCase(buildInput.actions.setUrlFile, reset)
+        builder.addCase(buildInput.actions.fetchUrlSuccess, reset)
     },
 })

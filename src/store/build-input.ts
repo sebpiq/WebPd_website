@@ -23,7 +23,7 @@ export default createSlice({
             state.focusOn = 'url'
         },
         fetchUrlError: (_, __: PayloadAction<string>) => {},
-        setUrlFile: (state, action: PayloadAction<{url: string, arrayBuffer: ArrayBuffer}>) => {
+        fetchUrlSuccess: (state, action: PayloadAction<{url: string, arrayBuffer: ArrayBuffer}>) => {
             state.filepath = null
             state.url = action.payload.url
             state.arrayBuffer = action.payload.arrayBuffer

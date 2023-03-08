@@ -1,16 +1,34 @@
 import styled from 'styled-components'
-import { Box, H1 } from './components'
-import { theme } from './theme'
+import { Box } from './components'
 // eslint-disable-next-line import/no-webpack-loader-syntax
 import introUrl from '!!markdown-loader?modules!webpd/README.md'
 import { useEffect, useState } from 'react'
+import { theme } from './theme'
 
 const Container = styled(Box)`
-    background: rgb(0,0,0);
-    background: linear-gradient(180deg, rgba(0,0,0,0) 0%, ${theme.colors.bg2} 50%, ${theme.colors.bg2} 67%); 
+    background: linear-gradient(180deg, rgba(0,0,0,0) 10%, ${theme.colors.bg2} 50%, ${theme.colors.bg2} 67%); 
 `
 
-const RenderedMarkdownContainer = styled.div``
+const H1 = styled.h1`
+    position: relative;
+    bottom: 0.15em;
+    right: 0.08em;
+    font-size: 600%;
+    font-family: ${theme.fonts.title};
+    color: ${theme.colors.colorScheme.next()};
+    margin: 0;
+    padding: 0;
+    margin-bottom: ${theme.spacings.space2};
+    line-height: 100%;
+    letter-spacing: 0.3em;
+    text-align: center;
+`
+
+const RenderedMarkdownContainer = styled.div`
+    & > *:last-child {
+        margin-bottom: 0;
+    }
+`
 
 const Introduction = () => {
     const [mdText, setMdText] = useState<string | null>(null)

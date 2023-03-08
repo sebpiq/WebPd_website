@@ -15,6 +15,7 @@ const Container = styled.div`
 `
 
 const Pre = styled.pre`
+    letter-spacing: 0.1em;
     max-height: 10em;
     overflow: auto;
     margin: 0;

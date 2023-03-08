@@ -11,7 +11,7 @@ export function* fetchUrl(
     const url = action.payload
     try {
         const arrayBuffer: ArrayBuffer = yield call(makeRequest, url)
-        yield put(buildInput.actions.setUrlFile({ arrayBuffer, url }))
+        yield put(buildInput.actions.fetchUrlSuccess({ arrayBuffer, url }))
     } catch (err: any) {
         yield put(buildInput.actions.fetchUrlError(err.message))
     }

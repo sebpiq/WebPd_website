@@ -45,18 +45,22 @@ export const useAppDispatch: () => AppDispatch = useDispatch
 export const useAppSelector: TypedUseSelectorHook<RootState> = useSelector
 
 // Redux-sagas for side-effects.
+// Important to start this after all the other, to be sure our 
+// store is initialized and synced with url state.
 sagaMiddleware.run(function* rootSaga() {
     yield all([initializeApp(), watchSetUrl(), watchStartBuild()])
 })
 
 // Allows auto synchronization between redux state and url search params.
+// NOTE: this seems to sync the state synchronously on load of the page,
+// so no need to worry about race conditions. 
 ReduxQuerySync({
     store,
     params: {
         jsOrAsc: {
             selector: selectBuildOutputCodeTarget,
             action: buildOutput.actions.setCodeTarget,
-            defaultValue: buildOutput.getInitialState().codeTarget
+            defaultValue: buildOutput.getInitialState().codeTarget,
         },
         target: {
             selector: selectBuildOutputFormat,
@@ -73,7 +77,7 @@ ReduxQuerySync({
             action: app.actions.setWillBuildOnLoad,
             defaultValue: app.getInitialState().willBuildOnLoad,
             stringToValue: (str: string) => str === '1',
-            valueToString: (value: boolean) => value ? '1': '0',
+            valueToString: (value: boolean) => (value ? '1' : '0'),
         },
         pp: {
             selector: selectPatchPlayerValues,
@@ -81,7 +85,7 @@ ReduxQuerySync({
             defaultValue: patchPlayer.getInitialState().values,
             stringToValue: (str: string) => JSON.parse(str),
             valueToString: (value: PatchPlayerValues) => JSON.stringify(value),
-        }
+        },
     },
     replaceState: true,
     initialTruth: 'location',

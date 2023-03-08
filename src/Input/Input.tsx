@@ -5,7 +5,6 @@ import { useAppSelector } from '../store'
 import {
     selectBuildInputArtefacts,
     selectBuildInputFilepath,
-    selectBuildInputFocusOn,
     selectBuildInputFormat,
     selectBuildInputUrl,
 } from '../store/build-input-selectors'
@@ -18,7 +17,12 @@ const Container = styled(Box)`
     justify-content: space-between;
 `
 
-const Left = styled.div``
+const Left = styled.div`
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;    
+`
+
 const Right = styled.div`
     max-width: 50%;
 `
@@ -26,6 +30,9 @@ const Right = styled.div`
 const InputContainer = styled.div`
     display: flex;
     flex-direction: column;
+    justify-content: space-between;
+    flex: auto;
+    margin-top: 1rem;
     & > * {
         display: inline-block;
     }
@@ -51,7 +58,7 @@ const Input = () => {
     return (
         <Container>
             <Left>
-                <H3>Input</H3>
+                <H3>1. Choose input</H3>
                 <InputContainer>
                     <FromLocalFile /> <Or>OR</Or>{' '}
                     <FromUrl />

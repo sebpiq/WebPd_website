@@ -1,15 +1,6 @@
 import styled from 'styled-components'
 import { theme } from './theme'
 
-export const H1 = styled.h1`
-    font-size: 500%;
-    font-family: ${theme.fonts.title};
-    color: ${theme.colors.colorScheme.next()};
-    margin: 0;
-    padding: 0;
-    margin-bottom: ${theme.spacings.space1};
-`
-
 export const h3Mixin = `
     text-transform: uppercase;
     font-size: 110%;
@@ -60,7 +51,7 @@ const FilenameContainer = styled.span`
     position: absolute;
     top: ${theme.spacings.space0p1};
     right: ${theme.spacings.space0p1};
-    color: ${theme.colors.fg2};
+    color: ${theme.colors.fg1p5};
 `
 
 export const Filename: React.FunctionComponent<{ filename: string }> = ({

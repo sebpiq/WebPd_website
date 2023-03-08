@@ -61,6 +61,7 @@ const theme = {
         bg2: '#1a1a1a',
         bg3: '#444444',
         fg1: '#d1d1d1',
+        fg1p5: '#a1a1a1',
         fg2: '#555555',
         colorScheme: COLOR_SCHEME,
     },
