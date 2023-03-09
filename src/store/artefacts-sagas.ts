@@ -40,6 +40,7 @@ function* makeBuild() {
         console.log('BUILD STEP START', step)
         yield put(artefacts.actions.startStep(step))
         try {
+            console.log('tempArtefacts.dspGraph', tempArtefacts.dspGraph)
             const result: Awaited<ReturnType<typeof Build.performBuildStep>> =
                 yield call(Build.performBuildStep, tempArtefacts, step, {
                     audioSettings: {
@@ -49,9 +50,6 @@ function* makeBuild() {
                         blockSize: 4096,
                         previewDurationSeconds: 15,
                     },
-                    inletCallerSpecs: patchPlayer
-                        ? patchPlayer.inletCallerSpecs
-                        : {},
                     nodeBuilders: Build.NODE_BUILDERS,
                     nodeImplementations: Build.NODE_IMPLEMENTATIONS,
                     abstractionLoader: url

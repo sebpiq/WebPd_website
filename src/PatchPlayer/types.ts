@@ -1,4 +1,4 @@
-import { AppGenerator, PdJson, Build } from 'webpd'
+import { AppGenerator, PdJson } from 'webpd'
 import { ControlsValues } from './models'
 import { CommentView, ControlTreeView } from './views'
 
@@ -21,7 +21,6 @@ export interface PatchPlayer {
     controlsViews: Array<ControlTreeView>
     commentsViews: Array<CommentView>
     controlsValues: ControlsValues
-    inletCallerSpecs: NonNullable<Build.Settings['inletCallerSpecs']>
     settings: Settings | null
 }
 

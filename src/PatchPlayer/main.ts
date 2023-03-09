@@ -8,17 +8,12 @@ import {
 } from './render'
 import { assertNonNullable, nextTick } from './misc-utils'
 import { PatchPlayer, PatchPlayerWithSettings, Settings } from './types'
-import { AppGenerator, Runtime, Build } from 'webpd'
+import { Runtime, Build } from 'webpd'
 
 export const create = (artefacts: Build.Artefacts): PatchPlayer => {
     const pdJson = assertNonNullable(
         artefacts.pdJson,
         'artefacts.pdJson not defined'
-    )
-
-    const dspGraph = assertNonNullable(
-        artefacts.dspGraph,
-        'artefacts missing dspGraph'
     )
 
     const controlsValues: ControlsValues = {
@@ -43,10 +38,6 @@ export const create = (artefacts: Build.Artefacts): PatchPlayer => {
         controlsViews,
         commentsViews,
         settings: null,
-        inletCallerSpecs: AppGenerator.collectGuiControlsInletCallerSpecs(
-            controls,
-            dspGraph.graph
-        ),
     }
 }
 
