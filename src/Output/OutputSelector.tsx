@@ -1,6 +1,6 @@
 import styled from 'styled-components/macro'
 import { BUILD_FORMATS } from 'webpd'
-import { Button, Or, h3Mixin } from '../components'
+import { Button, Or, Hint } from '../components'
 import { useAppDispatch, useAppSelector } from '../store'
 import buildOutput from '../store/build-output'
 import {
@@ -17,21 +17,21 @@ const BUILD_WEBSITE_FORMATS = {
 const BUILD_WEBSITE_FORMATS_INFO: {
     [Property in keyof typeof BUILD_WEBSITE_FORMATS]: { info: string }
 } = {
-    pd: { info: 'Pure Data file (.pd) in text format.' },
-    pdJson: { info: 'A JSON representation of a pure data file.' },
+    pd: { info: 'A Pure Data file (.pd) in text format.' },
+    pdJson: { info: 'Will compile a JSON representation of a pure data file.' },
     dspGraph: {
-        info: 'A DSP graph that is used internally by the WebPd compiler to generate the audio output.',
+        info: 'Will compile a DSP graph that is used internally by the WebPd compiler to generate the audio output.',
     },
     compiledJs: {
-        info: 'A copmiled JavaScript function for generating audio.',
+        info: 'Will compile a JavaScript function for generating audio.',
     },
     compiledAsc: {
-        info: 'An AssemblyScript function which can then be compiled to Web Assembly.',
+        info: 'Will compile an AssemblyScript function which can then be compiled to Web Assembly.',
     },
-    wasm: { info: 'A Web Assembly module compiled from your patch.' },
-    wav: { info: 'An audio preview of your patch.' },
+    wasm: { info: 'Will generate a Web Assembly module from your patch. This module can be loaded again here at a later time to play your patch.' },
+    wav: { info: 'Will generate an audio preview of your patch.' },
     patchPlayer: {
-        info: 'An interactive interface, allowing to play with your patch online.',
+        info: 'Will render a interactive interface, allowing to play your patch online.',
     },
 }
 
@@ -44,21 +44,19 @@ const FormatSelector = styled.div`
     justify-content: space-between;
 `
 
-const FormatInfo = styled.div`
-    margin-top: ${theme.spacings.space1};
+const FormatHint = styled(Hint)`
+    margin-top: ${theme.spacings.space0p1};
 `
 
 const ButtonInit = styled(Button)`
-    ${h3Mixin}
 `
 
 const ButtonActive = styled(Button)`
-    ${h3Mixin}
-    background: none;
+    background-color: ${theme.colors.bg1p5};
 `
 
 const ButtonInactive = styled(Button)`
-    background-color: ${theme.colors.bg2};
+    background-color: ${theme.colors.bg1p5};
     color: ${theme.colors.fg2};
 `
 
@@ -98,9 +96,11 @@ const OutputSelector = () => {
                     ]
                 })}
             </FormatSelector>
-            {outFormat ? <FormatInfo>
-                {'→ ' + BUILD_WEBSITE_FORMATS_INFO[outFormat].info}
-            </FormatInfo>: null}
+            {outFormat ? (
+                <FormatHint>
+                    {BUILD_WEBSITE_FORMATS_INFO[outFormat].info}
+                </FormatHint>
+            ) : null}
         </Container>
     )
 }

@@ -12,7 +12,7 @@ import { selectConsoleErrors } from '../store/console-selectors'
 import ArtefactViewer from './ArtefactViewer'
 import PatchPlayerContainer from './PatchPlayerContainer'
 
-const Container = styled(Box)``
+const Container = styled.div``
 
 const Artefacts = () => {
     const outFormat = useAppSelector(selectBuildOutputFormat)

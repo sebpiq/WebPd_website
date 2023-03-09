@@ -1,5 +1,5 @@
 import styled from 'styled-components'
-import { Select } from '../components'
+import { Hint, Select } from '../components'
 import { useAppDispatch, useAppSelector } from '../store'
 import buildOutput from '../store/build-output'
 import { selectBuildOutputCodeTarget } from '../store/build-output-selectors'
@@ -10,20 +10,15 @@ interface Props {}
 
 const Container = styled.div`
     margin-top: ${theme.spacings.space2};
-    margin-bottom: ${theme.spacings.space2};
-    display: flex;
-    flex-direction: row;
-    align-items: flex-start;
-    justify-content: space-between;
 `
 
 const CodeTargetSelect = styled(Select)`
     min-width: 8em;
-    margin-right: ${theme.spacings.space1};
+    margin-left: ${theme.spacings.space1};
 `
 
-const CodeTargetInfo = styled.div`
-    
+const CodeTargetHint = styled(Hint)`
+    margin-top: ${theme.spacings.space0p1};
 `
 
 const ExtraOptions: React.FunctionComponent<Props> = () => {
@@ -51,9 +46,9 @@ const ExtraOptions: React.FunctionComponent<Props> = () => {
                     )
                 )}
             </CodeTargetSelect>
-            <CodeTargetInfo>
+            <CodeTargetHint>
                 {CODE_TARGETS[codeTarget].info}
-            </CodeTargetInfo>
+            </CodeTargetHint>
         </Container>
     )
 }

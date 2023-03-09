@@ -53,8 +53,9 @@ const Volume = styled.div``
 const Player = styled.div`
     display: flex;
     flex-direction: row;
-    justify-content: center;
+    justify-content: flex-start;
     align-items: center;
+    flex: auto;
 `
 
 const Wav: React.FunctionComponent<Props> = ({ wav, showDownloadButton }) => {

@@ -64,7 +64,6 @@ const AppInner = () => {
             <Input />
             <Output />
             <Console />
-            <Artefacts />
         </>
     )
 }
