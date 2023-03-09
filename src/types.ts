@@ -1,4 +1,4 @@
-import { BuildFormat } from "webpd"
+import { Build } from "webpd"
 
 export const BIT_DEPTH = 64
 
@@ -17,4 +17,4 @@ export type BitDepth = typeof BIT_DEPTH
 
 export type CodeTarget = keyof typeof CODE_TARGETS
 
-export type BuildFormatWebSite = BuildFormat | 'patchPlayer'
+export type BuildFormatWebSite = Build.BuildFormat | 'patchPlayer'

@@ -1,5 +1,5 @@
 import { delay, put, select, take } from 'redux-saga/effects'
-import { build } from 'webpd'
+import { Build } from 'webpd'
 import app from './app'
 import { selectAppWillBuildOnLoad } from './app-selectors'
 import artefacts from './artefacts'
@@ -14,7 +14,7 @@ export function* initializeApp() {
     while (!window.asc) {
         yield delay(100)
     }
-    build.setAsc(window.asc)
+    Build.setAsc(window.asc)
 
     // Input from an url needs to be fetched before we continue
     const url: ReturnType<typeof selectBuildInputUrl> = yield select(

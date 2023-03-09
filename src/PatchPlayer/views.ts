@@ -1,4 +1,4 @@
-import { PdJson } from 'webpd'
+import { PdJson, AppGenerator } from 'webpd'
 import {
     sumPoints,
     computePointsBoundingBox,
@@ -7,12 +7,6 @@ import {
     scalePoint,
 } from './math-utils'
 import { assertNonNullable } from './misc-utils'
-import {
-    CommentModel,
-    ContainerModel,
-    ControlModel,
-    ControlTreeModel,
-} from './models'
 
 export const CONTAINER_EXTRA_SPACE = { x: 7, y: 12 }
 const ATOM_HEIGHT_PD_PX = 15
@@ -22,7 +16,7 @@ const DIGIT_WIDTH_PD_PX = 7
 export interface ControlView {
     type: 'control'
     label: string | null
-    control: ControlModel
+    control: AppGenerator.Control
     dimensions: Point
     position: Point
 }
@@ -30,7 +24,7 @@ export interface ControlView {
 export interface ContainerView {
     type: 'container'
     label: string | null
-    control: ContainerModel
+    control: AppGenerator.ControlContainer
     dimensions: Point
     children: Array<ControlTreeView>
     position: Point
@@ -45,8 +39,8 @@ export interface CommentView {
 }
 
 export const createViews = (
-    controls: Array<ControlTreeModel>,
-    comments: Array<CommentModel>
+    controls: Array<AppGenerator.ControlTree>,
+    comments: Array<AppGenerator.Comment>
 ): {
     controlsViews: Array<ControlTreeView>
     commentsViews: Array<CommentView>
@@ -64,7 +58,7 @@ export const createViews = (
 }
 
 export const _createControlsViewsRecurs = (
-    controls: Array<ControlTreeModel>
+    controls: Array<AppGenerator.ControlTree>
 ): Array<ControlTreeView> => {
     const controlsViews: Array<ControlTreeView> = controls.map((control) => {
         switch (control.type) {
@@ -121,7 +115,7 @@ export const _createControlsViewsRecurs = (
 }
 
 const _createCommentsViews = (
-    comments: Array<CommentModel>
+    comments: Array<AppGenerator.Comment>
 ): Array<CommentView> =>
     comments.map((comment) => ({
         type: 'comment',

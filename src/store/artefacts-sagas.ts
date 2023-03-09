@@ -1,5 +1,5 @@
 import { call, delay, put, select, takeLatest } from 'redux-saga/effects'
-import { build, NODE_BUILDERS, NODE_IMPLEMENTATIONS, PdJson } from 'webpd'
+import { Build, PdJson } from 'webpd'
 import { create } from '../PatchPlayer/main'
 import { PatchPlayer } from '../PatchPlayer/types'
 import artefacts from './artefacts'
@@ -40,8 +40,8 @@ function* makeBuild() {
         console.log('BUILD STEP START', step)
         yield put(artefacts.actions.startStep(step))
         try {
-            const result: Awaited<ReturnType<typeof build.performBuildStep>> =
-                yield call(build.performBuildStep, tempArtefacts, step, {
+            const result: Awaited<ReturnType<typeof Build.performBuildStep>> =
+                yield call(Build.performBuildStep, tempArtefacts, step, {
                     audioSettings: {
                         channelCount: { in: 2, out: 2 },
                         bitDepth: BIT_DEPTH,
@@ -52,8 +52,8 @@ function* makeBuild() {
                     inletCallerSpecs: patchPlayer
                         ? patchPlayer.inletCallerSpecs
                         : {},
-                    nodeBuilders: NODE_BUILDERS,
-                    nodeImplementations: NODE_IMPLEMENTATIONS,
+                    nodeBuilders: Build.NODE_BUILDERS,
+                    nodeImplementations: Build.NODE_IMPLEMENTATIONS,
                     abstractionLoader: url
                         ? makeUrlAbstractionLoader(url)
                         : localAbstractionLoader,
@@ -96,7 +96,7 @@ const makeUrlAbstractionLoader = (rootPatchUrl: string) => {
     const parsedUrl = new URL(rootPatchUrl)
     const rootUrl =
         parsedUrl.origin + parsedUrl.pathname.split('/').slice(0, -1).join('/')
-    return build.makeAbstractionLoader(async (nodeType: PdJson.NodeType) => {
+    return Build.makeAbstractionLoader(async (nodeType: PdJson.NodeType) => {
         const url =
             rootUrl +
             '/' +
@@ -105,15 +105,15 @@ const makeUrlAbstractionLoader = (rootPatchUrl: string) => {
         const response = await fetch(url)
         if (!response.ok) {
             console.log('ERROR LOADING ABSTRACTION', url)
-            throw new build.UnknownNodeTypeError(nodeType)
+            throw new Build.UnknownNodeTypeError(nodeType)
         }
         return await response.text()
     })
 }
 
 /** Always fails, because locally we don't load any abstractions */
-const localAbstractionLoader = build.makeAbstractionLoader(
+const localAbstractionLoader = Build.makeAbstractionLoader(
     async (nodeType: PdJson.NodeType) => {
-        throw new build.UnknownNodeTypeError(nodeType)
+        throw new Build.UnknownNodeTypeError(nodeType)
     }
 )

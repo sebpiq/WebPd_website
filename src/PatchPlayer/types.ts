@@ -1,5 +1,5 @@
-import { PdJson, Settings as WebPdSettings } from 'webpd'
-import { ControlTreeModel, ControlsValues } from './models'
+import { AppGenerator, PdJson, Build } from 'webpd'
+import { ControlsValues } from './models'
 import { CommentView, ControlTreeView } from './views'
 
 export type PatchPlayerValues = ControlsValues['values']
@@ -17,11 +17,11 @@ export interface PatchPlayer {
     audioContext: AudioContext
     webpdNode: any // runtime.WebPdWorkletNode | null
     pdJson: PdJson.Pd
-    controls: Array<ControlTreeModel>
+    controls: Array<AppGenerator.ControlTree>
     controlsViews: Array<ControlTreeView>
     commentsViews: Array<CommentView>
     controlsValues: ControlsValues
-    inletCallerSpecs: NonNullable<WebPdSettings['inletCallerSpecs']>
+    inletCallerSpecs: NonNullable<Build.Settings['inletCallerSpecs']>
     settings: Settings | null
 }
 

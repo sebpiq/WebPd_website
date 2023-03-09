@@ -1,10 +1,4 @@
-import {
-    ControlTreeModel,
-    ControlsValues,
-    createModels,
-    initializeControlValues,
-    PORTLET_ID,
-} from './models'
+import { ControlsValues, createModels, initializeControlValues } from './models'
 import { createEngine } from './webpd-engine'
 import { createViews } from './views'
 import {
@@ -14,9 +8,9 @@ import {
 } from './render'
 import { assertNonNullable, nextTick } from './misc-utils'
 import { PatchPlayer, PatchPlayerWithSettings, Settings } from './types'
-import { Artefacts, DspGraph, dspGraph, runtime } from 'webpd'
+import { AppGenerator, Runtime, Build } from 'webpd'
 
-export const create = (artefacts: Artefacts): PatchPlayer => {
+export const create = (artefacts: Build.Artefacts): PatchPlayer => {
     const pdJson = assertNonNullable(
         artefacts.pdJson,
         'artefacts.pdJson not defined'
@@ -32,7 +26,7 @@ export const create = (artefacts: Artefacts): PatchPlayer => {
         transforms: {},
     }
 
-    const { controls, comments } = createModels(controlsValues, pdJson)
+    const { controls, comments } = createModels(pdJson, controlsValues)
 
     const { controlsViews, commentsViews } = createViews(controls, comments)
 
@@ -49,12 +43,15 @@ export const create = (artefacts: Artefacts): PatchPlayer => {
         controlsViews,
         commentsViews,
         settings: null,
-        inletCallerSpecs: _collectInletCallerSpecs(controls, dspGraph.graph),
+        inletCallerSpecs: AppGenerator.collectGuiControlsInletCallerSpecs(
+            controls,
+            dspGraph.graph
+        ),
     }
 }
 
 export const start = async (
-    artefacts: Artefacts,
+    artefacts: Build.Artefacts,
     patchPlayerWithoutSettings: PatchPlayer,
     settings: Settings
 ) => {
@@ -62,7 +59,7 @@ export const start = async (
         ...patchPlayerWithoutSettings,
         controlsValues: {
             ...patchPlayerWithoutSettings.controlsValues,
-            values: settings.initialValues ? {...settings.initialValues} : {},
+            values: settings.initialValues ? { ...settings.initialValues } : {},
         },
         settings,
     }
@@ -94,7 +91,7 @@ export const start = async (
 
     ELEMS.loadingLabel.innerHTML = 'loading assemblyscript compiler ...'
     console.log('PatchPlayer START')
-    await runtime.registerWebPdWorkletNode(patchPlayer.audioContext)
+    await Runtime.registerWebPdWorkletNode(patchPlayer.audioContext)
 
     ELEMS.loadingLabel.innerHTML = 'generating GUI ...'
     await nextTick()
@@ -122,36 +119,6 @@ export const destroy = (patchPlayer: PatchPlayer) => {
     }
     patchPlayer.webpdNode.disconnect()
     patchPlayer.audioContext.suspend()
-}
-
-const _collectInletCallerSpecs = (
-    controls: Array<ControlTreeModel>,
-    graph: DspGraph.Graph,
-    inletCallerSpecs: {
-        [nodeId: string]: Array<DspGraph.PortletId>
-    } = {}
-) => {
-    controls.forEach((control) => {
-        if (control.type === 'container') {
-            inletCallerSpecs = _collectInletCallerSpecs(
-                control.children,
-                graph,
-                inletCallerSpecs
-            )
-        } else if (control.type === 'control') {
-            const nodeId = dspGraph.buildGraphNodeId(
-                control.patch.id,
-                control.node.id
-            )
-            const portletId = PORTLET_ID
-            if (!graph[nodeId]) {
-                return
-            }
-            inletCallerSpecs[nodeId] = inletCallerSpecs[nodeId] || []
-            inletCallerSpecs[nodeId].push(portletId)
-        }
-    })
-    return inletCallerSpecs
 }
 
 const _startSound = (patchPlayer: PatchPlayerWithSettings) => {

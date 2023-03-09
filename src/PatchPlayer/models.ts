@@ -1,13 +1,6 @@
-import { CONTROL_TYPE, dspGraph, DspGraph } from 'webpd'
-import { PdJson } from 'webpd'
-import {
-    makeTranslationTransform,
-    computeRectanglesIntersection,
-    isPointInsideRectangle,
-    sumPoints,
-    Rectangle,
-    round,
-} from './math-utils'
+import { Build, DspGraph } from 'webpd'
+import { PdJson, AppGenerator } from 'webpd'
+import { round } from './math-utils'
 import { sendMsgToWebPd, throttled } from './misc-utils'
 import { PatchPlayerWithSettings } from './types'
 
@@ -20,46 +13,30 @@ export interface ControlsValues {
     transforms: { [nodeId: string]: ValueTransform }
 }
 
-export interface ControlModel {
-    type: 'control'
-    patch: PdJson.Patch
-    node: PdJson.ControlNode
-}
-
-export interface ContainerModel {
-    type: 'container'
-    patch: PdJson.Patch
-    node: PdJson.Node
-    children: Array<ControlTreeModel>
-}
-
-export type ControlTreeModel = ControlModel | ContainerModel
-
-export interface CommentModel {
-    type: 'comment'
-    patch: PdJson.Patch
-    node: PdJson.Node
-    text: string
-}
-
-export const getPdNode = (
-    pdJson: PdJson.Pd,
-    [patchId, nodeId]: [PdJson.GlobalId, PdJson.LocalId]
-) => pdJson.patches[patchId].nodes[nodeId]
-
 export const createModels = (
+    pdJson: PdJson.Pd,
     controlsValues: ControlsValues,
-    pdJson: PdJson.Pd
 ) => {
     const rootPatch = pdJson.patches['0']
 
-    // We make sure all controls are inside a container at top level for easier layout
-    const controlsModels = _createModelsRecursive(
-        controlsValues,
+    const { controls, comments } = AppGenerator.discoverGuiControls(
         pdJson,
         rootPatch
-    ).map((control) => {
-        const controlContainer: ContainerModel = {
+    )
+
+    AppGenerator.traverseGuiControls(controls, (control) => {
+        let valueTransform: ValueTransform = (v) => v
+        if (control.node.type === 'bng' || control.node.type === 'msg') {
+            valueTransform = () => 'bang'
+        } else if (control.node.type === 'tgl') {
+            valueTransform = (v) => +v
+        }
+        _registerControlValue(controlsValues, control, valueTransform)
+    })
+
+    // We make sure all controls are inside a container at top level for easier layout
+    const controlsModels = controls.map((control) => {
+        const controlContainer: AppGenerator.ControlContainer = {
             type: 'container',
             patch: control.patch,
             node: control.node,
@@ -70,137 +47,17 @@ export const createModels = (
 
     return {
         controls: controlsModels,
-        comments: Object.values(rootPatch.nodes)
-            .filter((node) => node.type === 'text')
-            .map((node) => {
-                const comment: CommentModel = {
-                    type: 'comment',
-                    patch: rootPatch,
-                    node,
-                    text: node.args[0]!.toString(),
-                }
-                return comment
-            }),
+        comments,
     }
-}
-
-export const _createModelsRecursive = (
-    controlsValues: ControlsValues,
-    pdJson: PdJson.Pd,
-    patch: PdJson.Patch,
-    viewport: Rectangle | null = null
-): Array<ControlModel | ContainerModel> => {
-    if (viewport === null) {
-        viewport = {
-            topLeft: { x: -Infinity, y: -Infinity },
-            bottomRight: { x: Infinity, y: Infinity },
-        }
-    }
-
-    const controls: Array<ControlModel | ContainerModel> = []
-    Object.values(patch.nodes).forEach((node) => {
-        if (node.type === 'pd' && node.nodeClass === 'subpatch') {
-            const subpatch = pdJson!.patches[node.patchId]
-            const nodeLayout = _assertNodeLayout(node.layout)
-
-            if (!subpatch.layout!.graphOnParent) {
-                return
-            }
-
-            const subpatchLayout = _assertPatchLayout(subpatch.layout)
-
-            // 1. we convert all coordinates to the subpatch coords system
-            const toSubpatchCoords = makeTranslationTransform(
-                { x: nodeLayout.x, y: nodeLayout.y },
-                { x: subpatchLayout.viewportX, y: subpatchLayout.viewportY }
-            )
-            const parentViewport = {
-                topLeft: toSubpatchCoords(viewport!.topLeft),
-                bottomRight: toSubpatchCoords(viewport!.bottomRight),
-            }
-
-            const topLeft = {
-                x: subpatchLayout.viewportX,
-                y: subpatchLayout.viewportY,
-            }
-            const subpatchViewport = {
-                topLeft,
-                bottomRight: sumPoints(topLeft, {
-                    x: subpatchLayout.viewportWidth,
-                    y: subpatchLayout.viewportHeight,
-                }),
-            }
-
-            // 2. we compute the visible intersection in the subpatch coords system
-            // and call the function for the subpatch
-            const visibleSubpatchViewport = computeRectanglesIntersection(
-                parentViewport,
-                subpatchViewport
-            )
-
-            if (visibleSubpatchViewport === null) {
-                return
-            }
-
-            const children = _createModelsRecursive(
-                controlsValues,
-                pdJson,
-                subpatch,
-                visibleSubpatchViewport
-            )
-
-            const control: ContainerModel = {
-                type: 'container',
-                patch,
-                node,
-                children,
-            }
-            controls.push(control)
-
-            // 3. When we get ab actual control node, we see if it is inside the
-            // visible viewport (which was previously transformed to local coords).
-        } else if (node.type in CONTROL_TYPE && node.nodeClass === 'control') {
-            const nodeLayout = _assertNodeLayout(node.layout)
-            if (
-                !isPointInsideRectangle(
-                    {
-                        x: nodeLayout.x,
-                        y: nodeLayout.y,
-                    },
-                    viewport!
-                )
-            ) {
-                return
-            }
-
-            const control: ControlModel = {
-                type: 'control',
-                patch,
-                node,
-            }
-
-            let valueTransform: ValueTransform = (v) => v
-            if (node.type === 'bng' || node.type === 'msg') {
-                valueTransform = () => 'bang'
-            } else if (node.type === 'tgl') {
-                valueTransform = (v) => +v
-            }
-
-            _registerControlValue(controlsValues, control, valueTransform)
-
-            controls.push(control)
-        }
-    })
-    return controls
 }
 
 export const setControlValue = (
     patchPlayer: PatchPlayerWithSettings,
-    control: ControlModel,
+    control: AppGenerator.Control,
     rawValue: number
 ) => {
     const { node, patch } = control
-    const nodeId = dspGraph.buildGraphNodeId(patch.id, node.id)
+    const nodeId = Build.buildGraphNodeId(patch.id, node.id)
     const valueTransform = patchPlayer.controlsValues.transforms[nodeId]
     if (!valueTransform) {
         throw new Error(`no value transform for ${nodeId}`)
@@ -210,14 +67,16 @@ export const setControlValue = (
 
 export const getControlValue = (
     patchPlayer: PatchPlayerWithSettings,
-    control: ControlModel
+    control: AppGenerator.Control
 ) => {
     const { node, patch } = control
-    const nodeId = dspGraph.buildGraphNodeId(patch.id, node.id)
+    const nodeId = Build.buildGraphNodeId(patch.id, node.id)
     return patchPlayer.controlsValues.values[nodeId]
 }
 
-export const initializeControlValues = (patchPlayer: PatchPlayerWithSettings) => {
+export const initializeControlValues = (
+    patchPlayer: PatchPlayerWithSettings
+) => {
     Object.entries(patchPlayer.controlsValues.values).forEach(
         ([nodeId, value]) => {
             _setControlValue(patchPlayer, nodeId, value)
@@ -227,11 +86,11 @@ export const initializeControlValues = (patchPlayer: PatchPlayerWithSettings) =>
 
 const _registerControlValue = (
     controlsValues: ControlsValues,
-    control: ControlModel,
+    control: AppGenerator.Control,
     valueTransform: ValueTransform
 ) => {
     const { node, patch } = control
-    const nodeId = dspGraph.buildGraphNodeId(patch.id, node.id)
+    const nodeId = Build.buildGraphNodeId(patch.id, node.id)
     controlsValues.transforms[nodeId] = valueTransform
 }
 
@@ -247,52 +106,16 @@ const _setControlValue = (
     sendMsgToWebPd(patchPlayer, nodeId, [value])
 }
 
-const _sendUpdatedControlValues = throttled(300, (patchPlayer: PatchPlayerWithSettings) => {
-    const values: ControlsValues['values'] = {}
-    Object.entries(patchPlayer.controlsValues.values).forEach(
-        ([nodeId, value]) => {
-            values[nodeId] = typeof value === 'number' ? round(value) : value
-        }
-    )
-    patchPlayer.settings.valuesUpdatedCallback!(values)
-})
-
-const _assertNodeLayout = (layout: PdJson.Node['layout']) => {
-    if (!layout) {
-        throw new Error(`Missing node layout`)
+const _sendUpdatedControlValues = throttled(
+    300,
+    (patchPlayer: PatchPlayerWithSettings) => {
+        const values: ControlsValues['values'] = {}
+        Object.entries(patchPlayer.controlsValues.values).forEach(
+            ([nodeId, value]) => {
+                values[nodeId] =
+                    typeof value === 'number' ? round(value) : value
+            }
+        )
+        patchPlayer.settings.valuesUpdatedCallback!(values)
     }
-    const x = layout.x
-    const y = layout.y
-    if (typeof x !== 'number' || typeof y !== 'number') {
-        throw new Error(`Missing node layout attributes`)
-    }
-    return {
-        x,
-        y,
-    }
-}
-
-const _assertPatchLayout = (layout: PdJson.Patch['layout']) => {
-    if (!layout) {
-        throw new Error(`Missing patch layout`)
-    }
-    const viewportX = layout.viewportX
-    const viewportY = layout.viewportY
-    const viewportWidth = layout.viewportWidth
-    const viewportHeight = layout.viewportHeight
-    if (
-        typeof viewportX !== 'number' ||
-        typeof viewportY !== 'number' ||
-        typeof viewportWidth !== 'number' ||
-        typeof viewportHeight !== 'number'
-    ) {
-        debugger
-        throw new Error(`Missing patch layout attributes`)
-    }
-    return {
-        viewportX,
-        viewportY,
-        viewportWidth,
-        viewportHeight,
-    }
-}
+)

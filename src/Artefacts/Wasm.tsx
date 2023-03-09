@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 import styled from 'styled-components'
-import { Artefacts } from 'webpd'
+import { Build } from 'webpd'
 import { Button, Filename, Filesize } from '../components'
 import { theme } from '../theme'
 import { download } from '../utils'
@@ -9,7 +9,7 @@ import { filesize } from 'filesize'
 const CHAR_MAP = ['░', '▒', '▓', '▔', '▙', '▚', '▛', '▜', '▝', '▞', '▟']
 
 interface Props {
-    wasm: NonNullable<Artefacts['wasm']>
+    wasm: NonNullable<Build.Artefacts['wasm']>
     filename: string
     showDownloadButton?: boolean
     showFileSize?: boolean

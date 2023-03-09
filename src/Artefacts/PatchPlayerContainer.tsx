@@ -1,7 +1,7 @@
 import React from 'react'
 import { useEffect, useRef } from 'react'
 import styled from 'styled-components'
-import { Artefacts } from 'webpd'
+import { Build } from 'webpd'
 import { Button } from '../components'
 import { destroy, start } from '../PatchPlayer/main'
 import { useAppDispatch, useAppSelector } from '../store'
@@ -11,7 +11,7 @@ import { selectPatchPlayer, selectPatchPlayerValues } from '../store/patch-playe
 import { actionCleanBuild } from '../store/shared-action'
 
 interface Props {
-    artefacts: Artefacts
+    artefacts: Build.Artefacts
 }
 
 const Container = styled.div`

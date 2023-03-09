@@ -1,16 +1,16 @@
-import { runtime, Artefacts } from 'webpd'
+import { Runtime, Build } from 'webpd'
 import { PatchPlayer } from './types'
 
 export const createEngine = async (
     patchPlayer: PatchPlayer,
     stream: MediaStream,
-    artefacts: Artefacts
+    artefacts: Build.Artefacts
 ) => {
     const sourceNode = patchPlayer.audioContext.createMediaStreamSource(stream)
-    const webpdNode = new runtime.WebPdWorkletNode(patchPlayer.audioContext)
+    const webpdNode = new Runtime.WebPdWorkletNode(patchPlayer.audioContext)
     sourceNode.connect(webpdNode)
     webpdNode.connect(patchPlayer.audioContext.destination)
-    webpdNode.port.onmessage = (message) => runtime.fs.web(webpdNode, message)
+    webpdNode.port.onmessage = (message) => Runtime.fs.web(webpdNode, message)
 
     if (artefacts.compiledJs) {
         webpdNode.port.postMessage({

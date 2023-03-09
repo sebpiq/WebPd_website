@@ -1,11 +1,11 @@
-import { Artefacts, BuildFormat } from 'webpd'
+import { Build } from 'webpd'
 import PdFile from './PdFile'
 import Wasm from './Wasm'
 import Wav from './Wav'
 
 interface Props {
-    format: BuildFormat
-    artefacts: Artefacts
+    format: Build.BuildFormat
+    artefacts: Build.Artefacts
     filename?: string
     showDownloadButton?: boolean
 }

@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import styled from 'styled-components'
-import { Artefacts } from 'webpd'
+import { Build } from 'webpd'
 import { Button, ButtonActive } from '../components'
 import { theme } from '../theme'
 import { download, round } from '../utils'
 
 interface Props {
-    wav: NonNullable<Artefacts['wav']>
+    wav: NonNullable<Build.Artefacts['wav']>
     showDownloadButton?: boolean
 }
 

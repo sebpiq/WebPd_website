@@ -1,5 +1,5 @@
 import { createSelector } from '@reduxjs/toolkit'
-import { build } from 'webpd'
+import { Build } from 'webpd'
 import { selectBuildInputFormat } from './build-input-selectors'
 import {
     selectBuildOutputCodeTarget,
@@ -29,13 +29,13 @@ export const selectBuildSteps = createSelector(
             outFormat === 'wav' &&
             ['pd', 'pdJson', 'dspGraph'].includes(inFormat)
         ) {
-            return build.listBuildSteps(
+            return Build.listBuildSteps(
                 inFormat,
                 outFormat,
                 codeTarget === 'JavaScript' ? 'compiledJs' : 'wasm'
             )
         } else {
-            return build.listBuildSteps(inFormat, outFormat)
+            return Build.listBuildSteps(inFormat, outFormat)
         }
     }
 )

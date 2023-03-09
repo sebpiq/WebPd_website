@@ -1,5 +1,5 @@
 import { createSelector } from '@reduxjs/toolkit'
-import { build } from 'webpd'
+import { Build } from 'webpd'
 import { RootState } from '.'
 import { BuildFormatWebSite } from '../types'
 import { selectBuildInputFormat } from './build-input-selectors'
@@ -20,7 +20,7 @@ export const selectBuildOutputFormatsAvailable = createSelector(
     (inFormat) => {
         inFormat = inFormat || 'pd'
         return [
-            ...Array.from(build.listOutputFormats(inFormat)).filter((format) =>
+            ...Array.from(Build.listOutputFormats(inFormat)).filter((format) =>
                 INTERESTING_FORMATS.includes(format)
             ),
             'patchPlayer',

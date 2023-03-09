@@ -1,5 +1,5 @@
 import styled from 'styled-components/macro'
-import { BUILD_FORMATS } from 'webpd'
+import { Build } from 'webpd'
 import { Button, Or, Hint } from '../components'
 import { useAppDispatch, useAppSelector } from '../store'
 import buildOutput from '../store/build-output'
@@ -10,7 +10,7 @@ import {
 import { theme } from '../theme'
 
 const BUILD_WEBSITE_FORMATS = {
-    ...BUILD_FORMATS,
+    ...Build.BUILD_FORMATS,
     patchPlayer: { description: 'Patch player' },
 }
 
@@ -33,6 +33,9 @@ const BUILD_WEBSITE_FORMATS_INFO: {
     patchPlayer: {
         info: 'Will render a interactive interface, allowing to play your patch online.',
     },
+    appTemplate: {
+        info: 'A bare bones web app embedding your patch. A good starter to setup your patch on a web page of your own.'
+    }
 }
 
 const Container = styled.div``

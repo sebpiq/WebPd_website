@@ -1,11 +1,11 @@
 import styled from 'styled-components'
 import React from 'react'
-import { Artefacts } from 'webpd'
+import { Build } from 'webpd'
 import { Filename } from '../components'
 import { theme } from '../theme'
 
 interface Props {
-    pd: NonNullable<Artefacts['pd']>
+    pd: NonNullable<Build.Artefacts['pd']>
     filename?: string
 }
 

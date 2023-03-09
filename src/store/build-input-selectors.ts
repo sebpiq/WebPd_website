@@ -1,5 +1,5 @@
 import { createSelector } from "@reduxjs/toolkit"
-import { build } from "webpd"
+import { Build } from "webpd"
 import { RootState } from "."
 
 export const selectBuildInputUrl = (state: RootState) => state.buildInput.url
@@ -16,7 +16,7 @@ export const selectBuildInputFormat = createSelector(
     (url, filepath) => {
         let filepathOrUrl = url || filepath
         if (filepathOrUrl) {
-            return build.guessFormat(filepathOrUrl) || 'pd'
+            return Build.guessFormat(filepathOrUrl) || 'pd'
 
         } else {
             return null
@@ -31,8 +31,8 @@ export const selectBuildInputArtefacts = createSelector(
         if (inFormat === null || arrayBuffer === null) {
             return null
         }
-        return build.preloadArtefact(
-            build.createArtefacts(),
+        return Build.preloadArtefact(
+            Build.createArtefacts(),
             arrayBuffer,
             inFormat
         )

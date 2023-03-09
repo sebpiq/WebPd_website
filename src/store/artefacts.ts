@@ -1,5 +1,5 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit'
-import { Artefacts, build, BuildFormat } from 'webpd'
+import { Build } from 'webpd'
 import { PatchPlayer } from '../PatchPlayer/types'
 import buildInput from './build-input'
 import buildOutput from './build-output'
@@ -22,14 +22,14 @@ type BuildStatus =
 // because these complex, non-serializable values
 // cause errors with immer and RTK.
 export const ASSETS: {
-    artefacts: Artefacts
+    artefacts: Build.Artefacts
 } = {
-    artefacts: build.createArtefacts(),
+    artefacts: Build.createArtefacts(),
 }
 
 interface ArtefactsState {
     buildStatus: BuildStatus
-    step: BuildFormat | null
+    step: Build.BuildFormat | null
 }
 
 const initialState: ArtefactsState = {
@@ -47,14 +47,14 @@ export default createSlice({
         buildSuccess: (
             state,
             action: PayloadAction<{
-                artefacts: Artefacts
+                artefacts: Build.Artefacts
                 patchPlayer: PatchPlayer | null
             }>
         ) => {
             ASSETS.artefacts = action.payload.artefacts
             state.buildStatus = BUILD_STATUS.SUCCESS
         },
-        startStep: (state, action: PayloadAction<BuildFormat>) => {
+        startStep: (state, action: PayloadAction<Build.BuildFormat>) => {
             state.step = action.payload
         },
         stepComplete: (
@@ -72,7 +72,7 @@ export default createSlice({
     },
     extraReducers(builder) {
         const reset = () => {
-            ASSETS.artefacts = build.createArtefacts()
+            ASSETS.artefacts = Build.createArtefacts()
             return initialState
         }
         builder.addCase(actionCleanBuild, reset)
