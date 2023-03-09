@@ -111,6 +111,9 @@ export const _createControlsViewsRecurs = (
                     },
                 }
                 return controlView
+
+            default:
+                throw new Error(`unexpected control type ${(control as any).type}`)
         }
     })
 

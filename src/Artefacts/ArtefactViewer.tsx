@@ -25,7 +25,7 @@ const ArtefactViewer: React.FunctionComponent<Props> = ({
             return artefacts.wasm ? (
                 <Wasm
                     wasm={artefacts.wasm}
-                    filename={filename}
+                    filename={filename || 'patch.wasm'}
                     showDownloadButton={showDownloadButton}
                     showFileSize={true}
                 />

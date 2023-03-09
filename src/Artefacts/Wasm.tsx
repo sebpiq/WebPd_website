@@ -10,7 +10,7 @@ const CHAR_MAP = ['░', '▒', '▓', '▔', '▙', '▚', '▛', '▜', '▝',
 
 interface Props {
     wasm: NonNullable<Artefacts['wasm']>
-    filename?: string
+    filename: string
     showDownloadButton?: boolean
     showFileSize?: boolean
 }
@@ -21,7 +21,8 @@ const Container = styled.div`
 
 const BinaryContainer = styled.div`
     word-break: break-all;
-    max-height: 20vw;
+    height: 20vw;
+    max-height: ${theme.dimensions.maxArtefactHeight};
     overflow: hidden;
     opacity: 0.1;
     text-align: justify;
@@ -29,7 +30,7 @@ const BinaryContainer = styled.div`
 
 const DownloadButton = styled(Button)`
     position: absolute;
-    bottom: ${theme.spacings.space0p1};
+    top: ${theme.spacings.space0p1};
     right: ${theme.spacings.space0p1};
 `
 
@@ -40,7 +41,7 @@ const Wasm: React.FunctionComponent<Props> = ({
     showFileSize,
 }) => {
     const onDownload = () => {
-        download('patch.wasm', wasm, 'application/wasm')
+        download(filename, wasm, 'application/wasm')
     }
 
     const array = useMemo(() => Array.from(new Uint8Array(wasm)), [wasm])

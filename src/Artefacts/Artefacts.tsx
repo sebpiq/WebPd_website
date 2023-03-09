@@ -1,5 +1,5 @@
 import styled from 'styled-components'
-import { Box, H3 } from '../components'
+import { H3 } from '../components'
 import { useAppSelector } from '../store'
 import { BUILD_STATUS } from '../store/artefacts'
 import {
@@ -35,6 +35,7 @@ const Artefacts = () => {
                     <ArtefactViewer
                         artefacts={artefacts}
                         format={outFormat}
+                        filename={'output.' + outFormat}
                         showDownloadButton={true}
                     />
                 ) : (

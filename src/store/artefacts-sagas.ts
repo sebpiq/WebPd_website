@@ -1,10 +1,5 @@
 import { call, delay, put, select, takeLatest } from 'redux-saga/effects'
-import {
-    build,
-    NODE_BUILDERS,
-    NODE_IMPLEMENTATIONS,
-    PdJson,
-} from 'webpd'
+import { build, NODE_BUILDERS, NODE_IMPLEMENTATIONS, PdJson } from 'webpd'
 import { create } from '../PatchPlayer/main'
 import { PatchPlayer } from '../PatchPlayer/types'
 import artefacts from './artefacts'
@@ -33,45 +28,56 @@ function* makeBuild() {
         selectBuildInputUrl
     )
 
-    console.log('BUILD ?', inputArtefacts, buildSteps, !inputArtefacts || !buildSteps)
     if (!inputArtefacts || !buildSteps) {
         return
     }
+
+    yield delay(1)
 
     let tempArtefacts = { ...inputArtefacts }
     let patchPlayer: PatchPlayer | null = null
     for (let step of buildSteps) {
         console.log('BUILD STEP START', step)
         yield put(artefacts.actions.startStep(step))
-        const result: Awaited<ReturnType<typeof build.performBuildStep>> =
-            yield call(build.performBuildStep, tempArtefacts, step, {
-                audioSettings: {
-                    channelCount: { in: 2, out: 2 },
-                    bitDepth: BIT_DEPTH,
-                    sampleRate: 44100,
-                    blockSize: 4096,
-                    previewDurationSeconds: 15,
-                },
-                inletCallerSpecs: patchPlayer
-                    ? patchPlayer.inletCallerSpecs
-                    : {},
-                nodeBuilders: NODE_BUILDERS,
-                nodeImplementations: NODE_IMPLEMENTATIONS,
-                abstractionLoader: url
-                    ? makeUrlAbstractionLoader(url)
-                    : localAbstractionLoader,
-            })
-
-        const errors = result.status === 1 ? result.errors : undefined
-        yield put(
-            artefacts.actions.stepComplete({
-                status: result.status,
-                errors,
-                warnings: result.warnings,
-            })
-        )
-        if (result.status === 1) {
-            break
+        try {
+            const result: Awaited<ReturnType<typeof build.performBuildStep>> =
+                yield call(build.performBuildStep, tempArtefacts, step, {
+                    audioSettings: {
+                        channelCount: { in: 2, out: 2 },
+                        bitDepth: BIT_DEPTH,
+                        sampleRate: 44100,
+                        blockSize: 4096,
+                        previewDurationSeconds: 15,
+                    },
+                    inletCallerSpecs: patchPlayer
+                        ? patchPlayer.inletCallerSpecs
+                        : {},
+                    nodeBuilders: NODE_BUILDERS,
+                    nodeImplementations: NODE_IMPLEMENTATIONS,
+                    abstractionLoader: url
+                        ? makeUrlAbstractionLoader(url)
+                        : localAbstractionLoader,
+                })
+            const errors = result.status === 1 ? result.errors : undefined
+            yield put(
+                artefacts.actions.stepComplete({
+                    status: result.status,
+                    errors,
+                    warnings: result.warnings,
+                })
+            )
+            if (result.status === 1) {
+                return
+            }
+        } catch (err: any) {
+            yield put(
+                artefacts.actions.stepComplete({
+                    status: 1,
+                    errors: [err.message],
+                    warnings: [],
+                })
+            )
+            return
         }
 
         if (step === 'dspGraph' && outFormat === 'patchPlayer') {
@@ -92,7 +98,9 @@ const makeUrlAbstractionLoader = (rootPatchUrl: string) => {
         parsedUrl.origin + parsedUrl.pathname.split('/').slice(0, -1).join('/')
     return build.makeAbstractionLoader(async (nodeType: PdJson.NodeType) => {
         const url =
-            rootUrl + '/' + (nodeType.endsWith('.pd') ? nodeType : `${nodeType}.pd`)
+            rootUrl +
+            '/' +
+            (nodeType.endsWith('.pd') ? nodeType : `${nodeType}.pd`)
         console.log('LOADING ABSTRACTION', url)
         const response = await fetch(url)
         if (!response.ok) {

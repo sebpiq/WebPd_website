@@ -1,5 +1,4 @@
-import { createGlobalStyle } from 'styled-components'
-import { Artefacts } from './Artefacts'
+import styled, { createGlobalStyle } from 'styled-components'
 import Input from './Input'
 import { theme } from './theme'
 import Output from './Output'
@@ -8,8 +7,10 @@ import { store, useAppSelector } from './store'
 import { selectAppIsInitialized } from './store/app-selectors'
 import Introduction from './Introduction'
 import Console from './Console'
-import { Box } from './components'
+import { Spinner } from './components'
 import CompilerTitle from './CompilerTitle'
+import { selectArtefactsBuildStatus } from './store/artefacts-selectors'
+import { BUILD_STATUS } from './store/artefacts'
 
 const GlobalStyle = createGlobalStyle`
     @font-face {
@@ -32,6 +33,18 @@ const GlobalStyle = createGlobalStyle`
         font-size: ${theme.devices.desktop.fontSize}px;
         font-family: ${theme.fonts.default};
         color: ${theme.colors.fg1};
+        scrollbar-width: thin;
+        &::-webkit-scrollbar {
+            width: calc(${theme.spacings.space1} / 4);
+            height: calc(${theme.spacings.space1} / 4);
+        }
+        &::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        &::-webkit-scrollbar-thumb {
+            background-color: ${theme.colors.fg2};
+            border-radius: 20px;
+        }
     }
 
     input {
@@ -45,14 +58,36 @@ const GlobalStyle = createGlobalStyle`
     }
 `
 
+const CompilerContainer = styled.div`
+    position: relative;
+`
+const SpinnerContainer = styled.div`
+    margin: auto;
+    width: 100%;
+    position: absolute;
+    height: 100%;
+    z-index: 3;
+`
+const AppSpinner = styled(Spinner)`
+    width: ${theme.dimensions.maxContentWidth};
+    margin: 0 auto;
+    z-index: ${theme.zIndexes.spinner};
+    height: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background-color: ${theme.colors.bg2}ee;
+    font-size: 200%;
+`
+
 const AppInner = () => {
     const isAppInitialized = useAppSelector(selectAppIsInitialized)
-
+    const isBuilding =
+        useAppSelector(selectArtefactsBuildStatus) === BUILD_STATUS.IN_PROGRESS
     if (!isAppInitialized) {
         return (
             <>
                 <Introduction />
-                <Box>LOADING</Box>
             </>
         )
     }
@@ -61,9 +96,16 @@ const AppInner = () => {
         <>
             <Introduction />
             <CompilerTitle />
-            <Input />
-            <Output />
-            <Console />
+            <CompilerContainer>
+                {isBuilding ? (
+                    <SpinnerContainer>
+                        <AppSpinner text="building..." />
+                    </SpinnerContainer>
+                ) : null}
+                <Input />
+                <Output />
+                <Console />
+            </CompilerContainer>
         </>
     )
 }

@@ -5,7 +5,7 @@ export const H2 = styled.h2`
     font-family: ${theme.fonts.title};
     color: ${theme.colors.colorScheme.next()};
     margin: 0;
-    padding: 0;    
+    padding: 0;
 `
 
 export const H3 = styled.h3`
@@ -57,13 +57,13 @@ export const Filesize = styled.span`
     position: absolute;
     top: ${theme.spacings.space0p1};
     left: ${theme.spacings.space0p1};
-    color: ${theme.colors.fg2};
+    color: ${theme.colors.fg1p5};
 `
 
 export const Or = styled.span`
     font-size: 120%;
     font-weight: bold;
-    color: ${theme.colors.fg2}
+    color: ${theme.colors.fg2};
 `
 
 export const Hint = styled.div`
@@ -88,3 +88,14 @@ export const CompilationBoxLeft = styled.div`
 export const CompilationBoxRight = styled.div`
     flex: auto;
 `
+
+const SpinnerContainer = styled.div`
+    font-family: ${theme.fonts.title};
+    color: ${theme.colors.colorScheme.next()};
+`
+
+export const Spinner: React.FunctionComponent<{ text: string, className?:string }> = ({
+    text, className
+}) => {
+    return <SpinnerContainer className={className}>{text}</SpinnerContainer>
+}

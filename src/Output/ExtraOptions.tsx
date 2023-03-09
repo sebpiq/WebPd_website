@@ -14,7 +14,7 @@ const Container = styled.div`
 
 const CodeTargetSelect = styled(Select)`
     min-width: 8em;
-    margin-left: ${theme.spacings.space1};
+    margin-left: ${theme.spacings.space0p1};
 `
 
 const CodeTargetHint = styled(Hint)`

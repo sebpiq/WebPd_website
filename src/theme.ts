@@ -43,6 +43,7 @@ const theme = {
 
     dimensions: {
         maxContentWidth: '900px',
+        maxArtefactHeight: '10em',
     },
 
     fonts: {
@@ -78,6 +79,7 @@ const theme = {
 
     zIndexes: {
         closeButton: 2,
+        spinner: 3
     }
 }
 
