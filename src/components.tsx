@@ -41,7 +41,7 @@ export const Select = styled.select`
 
 const FilenameContainer = styled.span`
     position: absolute;
-    top: ${theme.spacings.space0p1};
+    bottom: ${theme.spacings.space0p1};
     right: ${theme.spacings.space0p1};
     color: ${theme.colors.fg1p5};
 `

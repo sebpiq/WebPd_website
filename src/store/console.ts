@@ -34,6 +34,7 @@ export default createSlice({
             }
         })
         builder.addCase(buildInput.actions.setUrl, () => initialState)
+        builder.addCase(buildInput.actions.clear, () => initialState)
         builder.addCase(buildOutput.actions.setFormat, () => initialState)
         builder.addCase(buildInput.actions.fetchUrlError, (
             state,

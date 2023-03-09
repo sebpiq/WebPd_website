@@ -59,9 +59,9 @@ const BuildConfig = () => {
                     <>
                         <OutputSelector />
                         {outFormat && hasExtraOptions ? <ExtraOptions /> : null}
-                        <ButtonContainer>
+                        {outFormat ? <ButtonContainer>
                             <ButtonGo onClick={onGo}>Go !</ButtonGo>
-                        </ButtonContainer>
+                        </ButtonContainer>: null}
                     </>
                 )}
             </CompilationBoxRight>

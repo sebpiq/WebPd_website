@@ -36,6 +36,7 @@ export default createSlice({
         },
         setFocusOn: (state, action: PayloadAction<BuildInputState['focusOn']>) => {
             state.focusOn = action.payload
-        }
+        },
+        clear: () => initialState
     },
 })

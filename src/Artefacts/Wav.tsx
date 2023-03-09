@@ -53,7 +53,7 @@ const Volume = styled.div``
 const Player = styled.div`
     display: flex;
     flex-direction: row;
-    justify-content: flex-start;
+    justify-content: center;
     align-items: center;
     flex: auto;
 `
