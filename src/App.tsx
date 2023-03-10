@@ -19,6 +19,12 @@ const GlobalStyle = createGlobalStyle`
             url('./fonts/Rajdhani/Rajdhani-Medium.ttf') format('woff');
     }
 
+    @font-face {
+        font-family: 'Silkscreen';
+        src: local('Silkscreen'),
+            url('./fonts/Silkscreen/Silkscreen-Regular.ttf') format('woff');
+    }
+
     body, html {
         padding: 0;
         margin: 0;

@@ -5,6 +5,9 @@ import introUrl from '!!markdown-loader?modules!webpd/README.md'
 import { useEffect, useState } from 'react'
 import { theme } from './theme'
 
+const INTRO_START = '<!-- intro start -->'
+const INTRO_END = '<!-- intro end -->'
+
 const Container = styled(Box)`
     background: linear-gradient(180deg, rgba(0,0,0,0) 10%, ${theme.colors.bg2} 50%, ${theme.colors.bg2} 67%); 
 `
@@ -38,7 +41,9 @@ const Introduction = () => {
             if (!response.ok) {
                 throw new Error(`Failed to load text`)
             }
-            setMdText(await response.text())
+            let mdText = await response.text()
+            mdText = mdText.slice(mdText.indexOf(INTRO_START) + INTRO_START.length, mdText.indexOf(INTRO_END))
+            setMdText(mdText)
         }
         doRequest()
     }, [])

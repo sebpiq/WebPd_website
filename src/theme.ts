@@ -47,7 +47,7 @@ const theme = {
     },
 
     fonts: {
-        title: 'SilkScreen',
+        title: 'Silkscreen',
         default: 'Rajdhani',
     },
 
