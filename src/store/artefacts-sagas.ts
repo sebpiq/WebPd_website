@@ -91,7 +91,7 @@ function* makeBuild() {
 }
 
 const makeUrlAbstractionLoader = (rootPatchUrl: string) => {
-    const parsedUrl = new URL(rootPatchUrl)
+    const parsedUrl = new URL(rootPatchUrl, window.location.origin)
     const rootUrl =
         parsedUrl.origin + parsedUrl.pathname.split('/').slice(0, -1).join('/')
     return Build.makeAbstractionLoader(async (nodeType: PdJson.NodeType) => {

@@ -1,3 +1,20 @@
+<p>titre
+punchline
+intro
+use case
+lien docs
+lien home page 
+mode cli getting started
+license
+authors
+acknowledgements
+espace de discussion + poser questions
+publication annonces 
+demo video
+demander retour explicite aux gens &quot;dites moi que vous l&#39;utilisez, etc ...&quot;
+flucoma youtuber
+<a href="https://www.youtube.com/@TheAudioProgrammer">https://www.youtube.com/@TheAudioProgrammer</a></p>
+<p><strong>WebPd</strong> is a Pure Data compiler for the web, and a complete audio programming toolkit.</p>
 <!-- *[🤑 A crowdfunding campaign to help reaching the next milestone (WebPd 1.0) is in progress !!! 🤑](https://opencollective.com/webpd#category-CONTRIBUTE)* -->
 
 <p><strong>WebPd</strong> is a highly modular web audio programming toolkit inspired by <a href="puredata.info/">Pure Data</a>.</p>
