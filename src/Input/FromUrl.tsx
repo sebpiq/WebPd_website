@@ -18,9 +18,11 @@ const Input = styled.input`
     ::placeholder,
     ::-webkit-input-placeholder {
         color: ${theme.colors.fg1};
+        opacity: 1;
     }
     :-ms-input-placeholder {
         color: ${theme.colors.fg1};
+        opacity: 1;
     }
 `
 

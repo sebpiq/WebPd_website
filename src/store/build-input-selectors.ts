@@ -16,6 +16,8 @@ export const selectBuildInputFormat = createSelector(
     (url, filepath) => {
         let filepathOrUrl = url || filepath
         if (filepathOrUrl) {
+            // If no format guessed, we get pd format by default to allow
+            // for urls with no extension.
             return Build.guessFormat(filepathOrUrl) || 'pd'
 
         } else {

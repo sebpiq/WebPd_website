@@ -13,7 +13,7 @@ import {
 import { selectBuildInputUrl } from './build-input-selectors'
 import createSagaMiddleware from 'redux-saga'
 import { all } from 'redux-saga/effects'
-import { watchSetUrl } from './build-input-sagas'
+import { watchSetLocalFile, watchSetUrl } from './build-input-sagas'
 import { watchStartBuild } from './artefacts-sagas'
 import { selectAppWillBuildOnLoad } from './app-selectors'
 import { initializeApp } from './app-sagas'
@@ -45,15 +45,20 @@ export const useAppDispatch: () => AppDispatch = useDispatch
 export const useAppSelector: TypedUseSelectorHook<RootState> = useSelector
 
 // Redux-sagas for side-effects.
-// Important to start this after all the other, to be sure our 
+// Important to start this after all the other, to be sure our
 // store is initialized and synced with url state.
 sagaMiddleware.run(function* rootSaga() {
-    yield all([initializeApp(), watchSetUrl(), watchStartBuild()])
+    yield all([
+        initializeApp(),
+        watchSetUrl(),
+        watchSetLocalFile(),
+        watchStartBuild(),
+    ])
 })
 
 // Allows auto synchronization between redux state and url search params.
 // NOTE: this seems to sync the state synchronously on load of the page,
-// so no need to worry about race conditions. 
+// so no need to worry about race conditions.
 ReduxQuerySync({
     store,
     params: {

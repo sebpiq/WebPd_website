@@ -1,6 +1,12 @@
 import { createSlice, PayloadAction } from "@reduxjs/toolkit"
+import { Build } from "webpd"
 import { BuildFormatWebSite, CodeTarget } from "../types"
 import buildInput from "./build-input"
+
+export const AVAILABLE_OUTPUT_FORMATS: Array<Build.BuildFormat> = [
+    'wav',
+    'wasm',
+]
 
 interface BuildOutputState {
     format: BuildFormatWebSite | null

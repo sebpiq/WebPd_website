@@ -1,4 +1,7 @@
 import { createSlice, PayloadAction } from "@reduxjs/toolkit"
+import { Build } from "webpd"
+
+export const AVAILABLE_INPUT_FORMATS: Array<Build.BuildFormat> = ['pd', 'wasm']
 
 interface BuildInputState {
     url: string | null

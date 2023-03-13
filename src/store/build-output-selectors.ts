@@ -3,11 +3,7 @@ import { Build } from 'webpd'
 import { RootState } from '.'
 import { BuildFormatWebSite } from '../types'
 import { selectBuildInputFormat } from './build-input-selectors'
-
-const INTERESTING_FORMATS: Array<Build.BuildFormat> = [
-    'wav',
-    'wasm',
-]
+import { AVAILABLE_OUTPUT_FORMATS } from './build-output'
 
 export const selectBuildOutputFormat = (state: RootState) =>
     state.buildOutput.format
@@ -23,7 +19,7 @@ export const selectBuildOutputFormatsAvailable = createSelector(
         const outputFormats = Build.listOutputFormats(inFormat)
         return [
             'patchPlayer',
-            ...INTERESTING_FORMATS.filter((format) =>
+            ...AVAILABLE_OUTPUT_FORMATS.filter((format) =>
                 outputFormats.has(format)
             ),
         ] as Array<BuildFormatWebSite>

@@ -1,4 +1,4 @@
-import { createSlice } from "@reduxjs/toolkit"
+import { createSlice, PayloadAction } from "@reduxjs/toolkit"
 import artefacts from "./artefacts"
 import buildInput from "./build-input"
 import buildOutput from "./build-output"
@@ -16,7 +16,11 @@ const initialState: ConsoleState = {
 export default createSlice({
     name: 'console',
     initialState,
-    reducers: {},
+    reducers: {
+        setState: (_, action: PayloadAction<ConsoleState>) => {
+            return action.payload
+        },
+    },
     extraReducers(builder) {
         builder.addCase(artefacts.actions.startBuild, () => initialState)
         builder.addCase(artefacts.actions.stepComplete, (
