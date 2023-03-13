@@ -10,6 +10,7 @@ import {
     selectBuildInputUrl,
 } from '../store/build-input-selectors'
 import { theme } from '../theme'
+import FromExample from './FromExample'
 import FromLocalFile from './FromLocalFile'
 import FromUrl from './FromUrl'
 
@@ -60,7 +61,7 @@ const Input = () => {
                     </>
                 ) : (
                     <InputContainer>
-                        <FromLocalFile /> <Or>OR</Or> <FromUrl />
+                        <FromLocalFile /> <Or>OR</Or> <FromUrl /> <Or>OR</Or> <FromExample />
                     </InputContainer>
                 )}
             </CompilationBoxRight>

@@ -50,6 +50,7 @@ export const LinkActive = styled.a`
 export const Select = styled.select`
     border: none;
     background-color: ${theme.colors.bg1p5};
+    cursor: pointer;
 `
 
 const FilenameContainer = styled.span`
