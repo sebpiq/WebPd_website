@@ -32,9 +32,17 @@ function* makeBuild() {
     )
 
     if (!inputArtefacts || !buildSteps) {
+        yield put(
+            artefacts.actions.buildSuccess({
+                artefacts: inputArtefacts || Build.createArtefacts(),
+                patchPlayer: null,
+            })
+        )
         return
     }
 
+    // To allow the UI to update and display that it's building
+    // before we start blocking operations.
     yield delay(1)
 
     let tempArtefacts = { ...inputArtefacts }

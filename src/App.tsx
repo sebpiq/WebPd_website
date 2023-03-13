@@ -11,6 +11,7 @@ import { Spinner } from './components'
 import CompilerTitle from './CompilerTitle'
 import { selectArtefactsBuildStatus } from './store/artefacts-selectors'
 import { BUILD_STATUS } from './store/artefacts'
+import Footer from './Footer'
 
 const GlobalStyle = createGlobalStyle`
     @font-face {
@@ -111,6 +112,7 @@ const AppInner = () => {
                 <Input />
                 <Output />
                 <Console />
+                <Footer />
             </CompilerContainer>
         </>
     )

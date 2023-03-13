@@ -22,6 +22,7 @@ const Pre = styled.pre`
     margin: 0;
     padding: 0;
     opacity: 0.3;
+    user-select: none;
 `
 
 const ButtonsContainer = styled.div`

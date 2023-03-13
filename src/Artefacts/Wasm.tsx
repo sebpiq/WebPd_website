@@ -27,6 +27,7 @@ const BinaryContainer = styled.div`
     overflow: hidden;
     opacity: 0.1;
     text-align: justify;
+    user-select: none;
 `
 
 const ButtonsContainer = styled(ArtefactButtonsContainer)`
