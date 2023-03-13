@@ -1,6 +1,6 @@
 import styled from 'styled-components'
 import OutputSelector from './OutputSelector'
-import ExtraOptions from './ExtraOptions'
+import OptionsCodeTarget from './OptionsCodeTarget'
 import {
     ButtonActive,
     CompilationBox,
@@ -9,14 +9,17 @@ import {
     H3,
 } from '../components'
 import { useAppDispatch, useAppSelector } from '../store'
-import { selectBuildInputArtefacts } from '../store/build-input-selectors'
+import {
+    selectBuildInputArtefacts,
+    selectBuildInputFormat,
+} from '../store/build-input-selectors'
 import { selectBuildOutputFormat } from '../store/build-output-selectors'
 import artefacts, { BUILD_STATUS } from '../store/artefacts'
 import { theme } from '../theme'
-import { selectBuildOutputHasExtraOptions } from '../store/shared-selectors'
 import { selectArtefactsBuildStatus } from '../store/artefacts-selectors'
 import { Artefacts } from '../Artefacts'
 import { selectConsoleErrors } from '../store/console-selectors'
+import OptionsWavLength from './OptionsWavLength'
 
 const Container = styled(CompilationBox)``
 
@@ -32,9 +35,14 @@ const ButtonGo = styled(ButtonActive)`
 const BuildConfig = () => {
     const dispatch = useAppDispatch()
     const inputArtefacts = useAppSelector(selectBuildInputArtefacts)
+    const inFormat = useAppSelector(selectBuildInputFormat)
     const outFormat = useAppSelector(selectBuildOutputFormat)
     const buildStatus = useAppSelector(selectArtefactsBuildStatus)
-    const hasExtraOptions = useAppSelector(selectBuildOutputHasExtraOptions)
+    const hasCodeTargetOptions =
+        inFormat &&
+        outFormat &&
+        ['pd', 'pdJson', 'dspGraph'].includes(inFormat) &&
+        ['wav', 'patchPlayer'].includes(outFormat)
     const errors = useAppSelector(selectConsoleErrors)
 
     const onGo = () => {
@@ -58,10 +66,13 @@ const BuildConfig = () => {
                 ) : (
                     <>
                         <OutputSelector />
-                        {outFormat && hasExtraOptions ? <ExtraOptions /> : null}
-                        {outFormat ? <ButtonContainer>
-                            <ButtonGo onClick={onGo}>Go !</ButtonGo>
-                        </ButtonContainer>: null}
+                        {outFormat && hasCodeTargetOptions ? <OptionsCodeTarget /> : null}
+                        {outFormat === 'wav' ? <OptionsWavLength /> : null}
+                        {outFormat ? (
+                            <ButtonContainer>
+                                <ButtonGo onClick={onGo}>Go !</ButtonGo>
+                            </ButtonContainer>
+                        ) : null}
                     </>
                 )}
             </CompilationBoxRight>

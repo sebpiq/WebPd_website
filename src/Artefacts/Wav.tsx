@@ -31,11 +31,16 @@ const Container = styled.div`
     align-items: center;
 `
 
+const TimeAndPlayContainer = styled.div`
+    display: flex;
+    flex-direction: row;
+`
+
 const Time = styled.div`
     display: grid;
     grid-template-columns: repeat(3, 1fr);
     width: 6em;
-    margin: 0 calc(${theme.spacings.space1} + 0.5rem);
+    margin: 0 ${theme.spacings.space1};
     font-size: ${theme.fontSizes.h2};
     & > span {
         font-size: 100%;
@@ -51,20 +56,24 @@ const Time = styled.div`
 const Volume = styled.div<{ value: number }>`
     cursor: pointer;
     position: relative;
-    bottom: 0.15em;
+    margin-right: calc(${theme.spacings.space1} + 0.1rem);
     svg {
         display: block;
         height: 1.25em;
         width: 4em;
     }
 
-    svg:first-child {
-    }
+    svg:first-child {}
 
     svg:last-child {
         position: absolute;
         top: 0;
-        clip-path: polygon(0% 0%, ${(props) => props.value * 100}% 0%, ${(props) => props.value * 100}% 100%, 0% 100%);
+        clip-path: polygon(
+            0% 0%,
+            ${(props) => props.value * 100}% 0%,
+            ${(props) => props.value * 100}% 100%,
+            0% 100%
+        );
         path {
             fill: ${theme.colors.colorScheme.next()};
         }
@@ -74,7 +83,7 @@ const Volume = styled.div<{ value: number }>`
 const Player = styled.div`
     display: flex;
     flex-direction: row;
-    justify-content: flex-start;
+    justify-content: space-between;
     align-items: center;
     flex: auto;
 `
@@ -125,7 +134,11 @@ const Wav: React.FunctionComponent<Props> = ({ wav, showDownloadButton }) => {
 
         const onPointerMove = (event: PointerEvent) => {
             audio.volume = Math.max(
-                Math.min(audio.volume + (event.clientX - volumeChangeStartPrevX.current) / 50, 1),
+                Math.min(
+                    audio.volume +
+                        (event.clientX - volumeChangeStartPrevX.current) / 50,
+                    1
+                ),
                 0
             )
             setCurrentVolume(audio.volume)
@@ -179,20 +192,26 @@ const Wav: React.FunctionComponent<Props> = ({ wav, showDownloadButton }) => {
     return (
         <Container>
             <Player>
-                {isPlaying ? (
-                    <PlayPauseButton onClick={onClickPause}>Pause</PlayPauseButton>
-                ) : (
-                    <PlayPauseButton onClick={onClickPlay}>Play</PlayPauseButton>
-                )}
-                <Time>
-                    <span>{formatTime(audio.currentTime)}</span>
-                    <span>/</span>
-                    <span>
-                        {isNaN(audio.duration)
-                            ? formatTime(0)
-                            : formatTime(audio.duration)}
-                    </span>
-                </Time>
+                <TimeAndPlayContainer>
+                    {isPlaying ? (
+                        <PlayPauseButton onClick={onClickPause}>
+                            Pause
+                        </PlayPauseButton>
+                    ) : (
+                        <PlayPauseButton onClick={onClickPlay}>
+                            Play
+                        </PlayPauseButton>
+                    )}
+                    <Time>
+                        <span>{formatTime(audio.currentTime)}</span>
+                        <span>/</span>
+                        <span>
+                            {isNaN(audio.duration)
+                                ? formatTime(0)
+                                : formatTime(audio.duration)}
+                        </span>
+                    </Time>
+                </TimeAndPlayContainer>
                 <Volume
                     value={audio.volume}
                     onPointerDown={onStartVolumeChange}

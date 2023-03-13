@@ -21,7 +21,7 @@ const CodeTargetHint = styled(Hint)`
     margin-top: ${theme.spacings.space0p1};
 `
 
-const ExtraOptions: React.FunctionComponent<Props> = () => {
+const OptionsCodeTarget: React.FunctionComponent<Props> = () => {
     const codeTarget = useAppSelector(selectBuildOutputCodeTarget)
     const dispatch = useAppDispatch()
 
@@ -53,4 +53,4 @@ const ExtraOptions: React.FunctionComponent<Props> = () => {
     )
 }
 
-export default ExtraOptions
+export default OptionsCodeTarget

@@ -40,24 +40,6 @@ export const selectBuildSteps = createSelector(
     }
 )
 
-export const selectBuildOutputHasExtraOptions = createSelector(
-    selectBuildInputFormat,
-    selectBuildOutputFormat,
-    (inFormat, outFormat) => {
-        if (!inFormat || !outFormat) {
-            return null
-        }
-        if (
-            ['pd', 'pdJson', 'dspGraph'].includes(inFormat) &&
-            ['wav', 'patchPlayer'].includes(outFormat)
-        ) {
-            return true
-        } else {
-            return false
-        }
-    }
-)
-
 export const selectInletCallerSpecs = createSelector(
     selectBuildInputFormat,
     (inFormat) => {

@@ -5,11 +5,13 @@ import buildInput from "./build-input"
 interface BuildOutputState {
     format: BuildFormatWebSite | null
     codeTarget: CodeTarget
+    previewDurationSeconds: number | null
 }
 
 const initialState: BuildOutputState = {
     format: null,
     codeTarget: 'JavaScript',
+    previewDurationSeconds: 30,
 }
 
 export default createSlice({
@@ -21,6 +23,9 @@ export default createSlice({
         },
         setCodeTarget: (state, action: PayloadAction<CodeTarget>) => {
             state.codeTarget = action.payload
+        },
+        setPreviewDurationSeconds: (state, action: PayloadAction<number | null>) => {
+            state.previewDurationSeconds = action.payload
         },
     },
     extraReducers(builder) {

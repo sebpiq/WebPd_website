@@ -14,6 +14,8 @@ export const selectBuildOutputFormat = (state: RootState) =>
     state.buildOutput.format
 export const selectBuildOutputCodeTarget = (state: RootState) =>
     state.buildOutput.codeTarget
+export const selectBuildOutputPreviewDurationSeconds = (state: RootState) =>
+    state.buildOutput.previewDurationSeconds
 
 export const selectBuildOutputFormatsAvailable = createSelector(
     selectBuildInputFormat,

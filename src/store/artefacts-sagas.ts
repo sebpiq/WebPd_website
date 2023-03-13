@@ -7,7 +7,7 @@ import {
     selectBuildInputArtefacts,
     selectBuildInputUrl,
 } from './build-input-selectors'
-import { selectBuildOutputFormat } from './build-output-selectors'
+import { selectBuildOutputFormat, selectBuildOutputPreviewDurationSeconds } from './build-output-selectors'
 import { selectBuildSteps } from './shared-selectors'
 import { BIT_DEPTH } from '../types'
 
@@ -27,6 +27,9 @@ function* makeBuild() {
     const url: ReturnType<typeof selectBuildInputUrl> = yield select(
         selectBuildInputUrl
     )
+    const previewDurationSeconds: ReturnType<typeof selectBuildOutputPreviewDurationSeconds> = yield select(
+        selectBuildOutputPreviewDurationSeconds
+    )
 
     if (!inputArtefacts || !buildSteps) {
         return
@@ -40,7 +43,6 @@ function* makeBuild() {
         console.log('BUILD STEP START', step)
         yield put(artefacts.actions.startStep(step))
         try {
-            console.log('tempArtefacts.dspGraph', tempArtefacts.dspGraph)
             const result: Awaited<ReturnType<typeof Build.performBuildStep>> =
                 yield call(Build.performBuildStep, tempArtefacts, step, {
                     audioSettings: {
@@ -48,7 +50,7 @@ function* makeBuild() {
                         bitDepth: BIT_DEPTH,
                         sampleRate: 44100,
                         blockSize: 4096,
-                        previewDurationSeconds: 15,
+                        previewDurationSeconds: previewDurationSeconds || 30,
                     },
                     nodeBuilders: Build.NODE_BUILDERS,
                     nodeImplementations: Build.NODE_IMPLEMENTATIONS,
