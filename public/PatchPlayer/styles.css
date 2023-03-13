@@ -1,6 +1,6 @@
 #PatchPlayer {
     font-family: 'Rajdhani';
-    font-size: 20px;
+    font-size: 18px;
     padding: 0;
     margin: 0;
     box-sizing: border-box;
@@ -82,7 +82,7 @@
 
 #PatchPlayer .controls-container > .label {
     color: var(--fg-color3);
-    font-size: 100%;
+    font-size: 85%;
     position: absolute;
     top: 0.3rem;
     left: 50%;
@@ -110,6 +110,6 @@
 }
 
 #PatchPlayer .label {
-    font-size: 75%;
+    font-size: 70%;
     text-transform: uppercase;
 }

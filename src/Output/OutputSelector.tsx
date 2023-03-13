@@ -55,12 +55,13 @@ const ButtonInit = styled(Button)`
 `
 
 const ButtonActive = styled(Button)`
+    color: ${theme.colors.colorScheme.next()};
     background-color: ${theme.colors.bg1p5};
 `
 
 const ButtonInactive = styled(Button)`
+    color: ${theme.colors.fg1};
     background-color: ${theme.colors.bg1p5};
-    color: ${theme.colors.fg2};
 `
 
 const OutputSelector = () => {

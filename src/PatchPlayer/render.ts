@@ -5,7 +5,7 @@ import { PatchPlayerWithSettings } from './types'
 import { CONTAINER_EXTRA_SPACE, ControlTreeView, ControlView } from './views'
 
 const FONT_FAMILY = 'Rajdhani'
-const GRID_SIZE_PX = 4
+const GRID_SIZE_PX = 3
 const LABEL_HEIGHT_GRID = 4
 const SLIDER_SIZE_RATIO = 1.2
 

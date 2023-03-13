@@ -22,9 +22,9 @@ flucoma youtuber
 <p>→ <strong>it provides experienced web programmers with a complete audio toolkit</strong> that is production-ready, and enables efficient audio synthesis and processing in the browser.</p>
 <!-- ## Toolkit structure
 
-- [@webpd/compiler-js](https://github.com/sebpiq/WebPd_compiler-js) : Compiler for compiling a DSP graph into a single JavaScript function
+- [@webpd/compiler](https://github.com/sebpiq/WebPd_compiler) : Compiler for compiling a DSP graph into a single JavaScript function
 - [@webpd/dsp-graph](https://github.com/sebpiq/WebPd_dsp-graph) : Utilities for handling DSP graphs
-- [@webpd/runtime](https://github.com/sebpiq/WebPd_runtime) : AudioWorklets for running DSP engines compiled from @webpd/compiler-js.
+- [@webpd/runtime](https://github.com/sebpiq/WebPd_runtime) : AudioWorklets for running DSP engines compiled from @webpd/compiler.
 - [@webpd/shared](https://github.com/sebpiq/WebPd_shared) : Shared tools and types for the other packages
 - [@webpd/pd-parser](https://github.com/sebpiq/WebPd_pd-parser) : Parser for pd files
 - [@webpd/pd-renderer](https://github.com/sebpiq/WebPd_pd-renderer) : Renderer for pd files
@@ -43,7 +43,7 @@ flucoma youtuber
 - Implementation of the WebPd toolkit consisting in several independant packages which developers can re-use :
     - Full documentation for all the packages of the WebPd toolkit
     - Compilation of Pure Data patches to WebAssembly and/or JavaScript (https://github.com/sebpiq/WebPd_engine-live-eval)
-    - AudioWorklets to run WebAssembly and/or compiled JavaScript code (https://github.com/sebpiq/WebPd_compiler-js)
+    - AudioWorklets to run WebAssembly and/or compiled JavaScript code (https://github.com/sebpiq/WebPd_compiler)
     - Pd files parsing and rendering (https://github.com/sebpiq/WebPd_pd-parser, https://github.com/sebpiq/WebPd_pd-renderer)
 - WebPd library as a front door packaging the whole toolkit  :
     - Full documentation available (https://github.com/sebpiq/WebPd)

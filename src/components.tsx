@@ -23,15 +23,28 @@ export const Box = styled.div`
     max-width: ${theme.dimensions.maxContentWidth};
 `
 
-export const Button = styled.button`
+const buttonMixin = `
     border: none;
     cursor: pointer;
     background-color: ${theme.colors.bg3};
 `
 
-export const ButtonActive = styled(Button)`
+const buttonActiveMixin = `
     font-family: ${theme.fonts.title};
+`
+
+export const Button = styled.button`
+    ${buttonMixin}
+`
+
+export const ButtonActive = styled(Button)`
+    ${buttonActiveMixin}
     background-color: ${() => theme.colors.colorScheme.next()};
+`
+
+export const LinkActive = styled.a`
+    ${buttonMixin}
+    ${buttonActiveMixin}
 `
 
 export const Select = styled.select`
