@@ -8,6 +8,7 @@ interface Props {
     artefacts: Build.Artefacts
     filename?: string
     showDownloadButton?: boolean
+    extraButtons?: Array<JSX.Element>
 }
 
 const ArtefactViewer: React.FunctionComponent<Props> = ({
@@ -15,11 +16,16 @@ const ArtefactViewer: React.FunctionComponent<Props> = ({
     artefacts,
     filename,
     showDownloadButton,
+    extraButtons,
 }) => {
     switch (format) {
         case 'pd':
             return artefacts.pd ? (
-                <PdFile pd={artefacts.pd} filename={filename} />
+                <PdFile
+                    pd={artefacts.pd}
+                    filename={filename}
+                    extraButtons={extraButtons}
+                />
             ) : null
         case 'wasm':
             return artefacts.wasm ? (
@@ -27,6 +33,7 @@ const ArtefactViewer: React.FunctionComponent<Props> = ({
                     wasm={artefacts.wasm}
                     filename={filename || 'patch.wasm'}
                     showDownloadButton={showDownloadButton}
+                    extraButtons={extraButtons}
                     showFileSize={true}
                 />
             ) : null
@@ -35,6 +42,7 @@ const ArtefactViewer: React.FunctionComponent<Props> = ({
                 <Wav
                     wav={artefacts.wav}
                     showDownloadButton={showDownloadButton}
+                    extraButtons={extraButtons}
                 />
             ) : null
     }

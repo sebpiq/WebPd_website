@@ -4,10 +4,9 @@ import { RootState } from '.'
 import { BuildFormatWebSite } from '../types'
 import { selectBuildInputFormat } from './build-input-selectors'
 
-const INTERESTING_FORMATS: Array<BuildFormatWebSite> = [
-    'wasm',
+const INTERESTING_FORMATS: Array<Build.BuildFormat> = [
     'wav',
-    'patchPlayer',
+    'wasm',
 ]
 
 export const selectBuildOutputFormat = (state: RootState) =>
@@ -21,11 +20,12 @@ export const selectBuildOutputFormatsAvailable = createSelector(
     selectBuildInputFormat,
     (inFormat) => {
         inFormat = inFormat || 'pd'
+        const outputFormats = Build.listOutputFormats(inFormat)
         return [
-            ...Array.from(Build.listOutputFormats(inFormat)).filter((format) =>
-                INTERESTING_FORMATS.includes(format)
-            ),
             'patchPlayer',
+            ...INTERESTING_FORMATS.filter((format) =>
+                outputFormats.has(format)
+            ),
         ] as Array<BuildFormatWebSite>
     }
 )

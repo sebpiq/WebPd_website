@@ -27,6 +27,7 @@ export default createSlice({
         setPreviewDurationSeconds: (state, action: PayloadAction<number | null>) => {
             state.previewDurationSeconds = action.payload
         },
+        clear: () => initialState
     },
     extraReducers(builder) {
         builder.addCase(buildInput.actions.setFocusOn, (state) => {

@@ -113,3 +113,12 @@ export const Spinner: React.FunctionComponent<{ text: string, className?:string 
 }) => {
     return <SpinnerContainer className={className}>{text}</SpinnerContainer>
 }
+
+export const ArtefactButtonsContainer = styled.div`
+& > * {
+    margin-right: ${theme.spacings.space0p1};
+    &:last-child {
+        margin-right: 0;
+    }
+}
+`

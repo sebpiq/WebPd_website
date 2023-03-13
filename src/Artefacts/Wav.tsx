@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import styled from 'styled-components'
 import { Build } from 'webpd'
-import { Button, ButtonActive } from '../components'
+import { ArtefactButtonsContainer, Button, ButtonActive } from '../components'
 import { theme } from '../theme'
 import { download, round } from '../utils'
 import { ReactComponent as VolumeSvg } from '../images/volume.svg'
@@ -9,6 +9,7 @@ import { ReactComponent as VolumeSvg } from '../images/volume.svg'
 interface Props {
     wav: NonNullable<Build.Artefacts['wav']>
     showDownloadButton?: boolean
+    extraButtons?: Array<JSX.Element>
 }
 
 const formatTime = (timeSeconds: number) => {
@@ -63,7 +64,8 @@ const Volume = styled.div<{ value: number }>`
         width: 4em;
     }
 
-    svg:first-child {}
+    svg:first-child {
+    }
 
     svg:last-child {
         position: absolute;
@@ -92,7 +94,11 @@ const PlayPauseButton = styled(ButtonActive)`
     min-width: 4.5em;
 `
 
-const Wav: React.FunctionComponent<Props> = ({ wav, showDownloadButton }) => {
+const Wav: React.FunctionComponent<Props> = ({
+    wav,
+    showDownloadButton,
+    extraButtons,
+}) => {
     const [isPlaying, setIsPlaying] = useState(false)
     const [, setCurrentTime] = useState(0)
     const [isChangingVolume, setIsChangingVolume] = useState(false)
@@ -220,9 +226,12 @@ const Wav: React.FunctionComponent<Props> = ({ wav, showDownloadButton }) => {
                     <VolumeSvg />
                 </Volume>
             </Player>
-            {showDownloadButton ? (
-                <Button onClick={onDownload}>Download</Button>
-            ) : null}
+            <ArtefactButtonsContainer>
+                {extraButtons ? extraButtons : null}
+                {showDownloadButton ? (
+                    <Button onClick={onDownload}>Download</Button>
+                ) : null}
+            </ArtefactButtonsContainer>
         </Container>
     )
 }

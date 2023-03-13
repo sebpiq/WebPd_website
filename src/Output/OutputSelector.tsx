@@ -31,10 +31,10 @@ const BUILD_WEBSITE_FORMATS_INFO: {
     wasm: { info: 'Will generate a Web Assembly module from your patch. This module can be loaded again here at a later time to play your patch.' },
     wav: { info: 'Will generate an audio preview of your patch.' },
     patchPlayer: {
-        info: 'Will render a interactive interface, allowing to play your patch online.',
+        info: 'Will render a interactive interface allowing to play your patch online.',
     },
     appTemplate: {
-        info: 'A bare bones web app embedding your patch. A good starter to setup your patch on a web page of your own.'
+        info: 'Will generate a bare bones web page embedding your patch. A good starter to build an audio web site of your own.'
     }
 }
 

@@ -1,7 +1,7 @@
 import { useMemo } from 'react'
 import styled from 'styled-components'
 import { Build } from 'webpd'
-import { Button, Filename, Filesize } from '../components'
+import { ArtefactButtonsContainer, Button, Filename, Filesize } from '../components'
 import { theme } from '../theme'
 import { download } from '../utils'
 import { filesize } from 'filesize'
@@ -13,6 +13,7 @@ interface Props {
     filename: string
     showDownloadButton?: boolean
     showFileSize?: boolean
+    extraButtons?: Array<JSX.Element>
 }
 
 const Container = styled.div`
@@ -28,10 +29,10 @@ const BinaryContainer = styled.div`
     text-align: justify;
 `
 
-const DownloadButton = styled(Button)`
+const ButtonsContainer = styled(ArtefactButtonsContainer)`
     position: absolute;
-    top: ${theme.spacings.space0p1};
-    right: ${theme.spacings.space0p1};
+    top: calc(${theme.spacings.space0p1});
+    right: calc(${theme.spacings.space0p1});
 `
 
 const Wasm: React.FunctionComponent<Props> = ({
@@ -39,9 +40,16 @@ const Wasm: React.FunctionComponent<Props> = ({
     filename,
     showDownloadButton,
     showFileSize,
+    extraButtons,
 }) => {
-    const onDownload = () => {
-        download(filename, wasm, 'application/wasm')
+    if (showDownloadButton) {
+        const onDownload = () => {
+            download(filename, wasm, 'application/wasm')
+        }
+        extraButtons = [
+            ...(extraButtons || []),
+            <Button onClick={onDownload}>Download</Button>,
+        ]
     }
 
     const array = useMemo(() => Array.from(new Uint8Array(wasm)), [wasm])
@@ -51,14 +59,16 @@ const Wasm: React.FunctionComponent<Props> = ({
     return (
         <Container>
             {filename ? <Filename filename={filename} /> : null}
-            {showFileSize ? <Filesize>file size : {fileSizeStr}</Filesize> : null}
+            {showFileSize ? (
+                <Filesize>file size : {fileSizeStr}</Filesize>
+            ) : null}
             <BinaryContainer>
                 {array.slice(0, 1000).map((val, i) => (
                     <span key={i}>{CHAR_MAP[val % CHAR_MAP.length]} </span>
                 ))}
             </BinaryContainer>
-            {showDownloadButton ? (
-                <DownloadButton onClick={onDownload}>Download</DownloadButton>
+            {extraButtons ? (
+                <ButtonsContainer>{extraButtons}</ButtonsContainer>
             ) : null}
         </Container>
     )

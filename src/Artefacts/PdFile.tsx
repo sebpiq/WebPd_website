@@ -7,6 +7,7 @@ import { theme } from '../theme'
 interface Props {
     pd: NonNullable<Build.Artefacts['pd']>
     filename?: string
+    extraButtons?: Array<JSX.Element>
 }
 
 const Container = styled.div`
@@ -23,11 +24,24 @@ const Pre = styled.pre`
     opacity: 0.3;
 `
 
-const PdFile: React.FunctionComponent<Props> = ({ pd, filename }) => {
+const ButtonsContainer = styled.div`
+    position: absolute;
+    top: calc(${theme.spacings.space0p1});
+    right: calc(${theme.spacings.space0p1});
+`
+
+const PdFile: React.FunctionComponent<Props> = ({
+    pd,
+    filename,
+    extraButtons,
+}) => {
     return (
         <Container>
             <Pre>{pd}</Pre>
-            {filename ? <Filename filename={filename} />: null}
+            {filename ? <Filename filename={filename} /> : null}
+            {extraButtons ? (
+                <ButtonsContainer>{extraButtons}</ButtonsContainer>
+            ) : null}
         </Container>
     )
 }
