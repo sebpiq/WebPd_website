@@ -17,7 +17,7 @@ export const createModels = (
     pdJson: PdJson.Pd,
     controlsValues: ControlsValues,
 ) => {
-    const rootPatch = pdJson.patches['0']
+    const rootPatch = pdJson.patches[pdJson.rootPatchId]
 
     const { controls, comments } = AppGenerator.discoverGuiControls(
         pdJson,

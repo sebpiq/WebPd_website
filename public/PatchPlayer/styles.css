@@ -18,11 +18,16 @@
 }
 
 #PatchPlayer #splash-container {
+    font-family: 'Silkscreen';
     width: 100%;
     height: 100%;
     position: fixed;
     z-index: 1;
     background-color: rgba(1, 1, 1, 0.7);
+}
+
+#PatchPlayer #splash-container button {
+    font-family: 'Silkscreen';
 }
 
 #PatchPlayer #credits {
@@ -52,6 +57,7 @@
 }
 
 #PatchPlayer #start, #PatchPlayer #loading {
+    font-family: 'Silkscreen';
     position: absolute;
     top: 50%;
     left: 50%;
@@ -62,8 +68,6 @@
     cursor: pointer;
     text-transform: uppercase;
 }
-
-#PatchPlayer #patch-controls {}
 
 #PatchPlayer #controls-root {
     position: relative;
