@@ -65,6 +65,15 @@ const GlobalStyle = createGlobalStyle`
     }
 `
 
+const Container = styled.div`
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+    & > *:last-child {
+        flex: auto;
+    }
+`
+
 const CompilerContainer = styled.div`
     position: relative;
 `
@@ -100,7 +109,7 @@ const AppInner = () => {
     }
 
     return (
-        <>
+        <Container>
             <Introduction />
             <CompilerTitle />
             <CompilerContainer>
@@ -112,9 +121,9 @@ const AppInner = () => {
                 <Input />
                 <Output />
                 <Console />
-                <Footer />
             </CompilerContainer>
-        </>
+            <Footer />
+        </Container>
     )
 }
 

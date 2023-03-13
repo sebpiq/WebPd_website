@@ -18,8 +18,9 @@ export const H3 = styled.h3`
 
 export const Box = styled.div`
     background-color: ${theme.colors.bg2};
-    margin: ${theme.spacings.space1} auto;
+    margin: ${theme.spacings.space1} auto 0 auto;
     padding: ${theme.spacings.space1};
+    width: 100%;
     max-width: ${theme.dimensions.maxContentWidth};
 `
 
