@@ -4,6 +4,7 @@ import { Build } from 'webpd'
 import { Button, ButtonActive } from '../components'
 import { theme } from '../theme'
 import { download, round } from '../utils'
+import { ReactComponent as VolumeSvg } from '../images/volume.svg'
 
 interface Props {
     wav: NonNullable<Build.Artefacts['wav']>
@@ -34,8 +35,7 @@ const Time = styled.div`
     display: grid;
     grid-template-columns: repeat(3, 1fr);
     width: 6em;
-    margin: 0 ${theme.spacings.space1};
-    margin-right: calc(${theme.spacings.space1} + 0.5rem);
+    margin: 0 calc(${theme.spacings.space1} + 0.5rem);
     font-size: ${theme.fontSizes.h2};
     & > span {
         font-size: 100%;
@@ -48,20 +48,47 @@ const Time = styled.div`
     }
 `
 
-const Volume = styled.div``
+const Volume = styled.div<{ value: number }>`
+    cursor: pointer;
+    position: relative;
+    bottom: 0.15em;
+    svg {
+        display: block;
+        height: 1.25em;
+        width: 4em;
+    }
+
+    svg:first-child {
+    }
+
+    svg:last-child {
+        position: absolute;
+        top: 0;
+        clip-path: polygon(0% 0%, ${(props) => props.value * 100}% 0%, ${(props) => props.value * 100}% 100%, 0% 100%);
+        path {
+            fill: ${theme.colors.colorScheme.next()};
+        }
+    }
+`
 
 const Player = styled.div`
     display: flex;
     flex-direction: row;
-    justify-content: center;
+    justify-content: flex-start;
     align-items: center;
     flex: auto;
+`
+
+const PlayPauseButton = styled(ButtonActive)`
+    min-width: 4.5em;
 `
 
 const Wav: React.FunctionComponent<Props> = ({ wav, showDownloadButton }) => {
     const [isPlaying, setIsPlaying] = useState(false)
     const [, setCurrentTime] = useState(0)
-    const volumeDialRef = useRef<HTMLDivElement>(null)
+    const [isChangingVolume, setIsChangingVolume] = useState(false)
+    const [, setCurrentVolume] = useState(0)
+    const volumeChangeStartPrevX = useRef(0)
 
     const audio = useMemo(() => {
         const audio = new Audio(
@@ -87,23 +114,32 @@ const Wav: React.FunctionComponent<Props> = ({ wav, showDownloadButton }) => {
     }, [wav])
 
     useEffect(() => {
-        const dial = new Nexus.Dial(volumeDialRef.current!, {
-            value: audio.volume,
-            min: 0,
-            max: 1,
-            size: [theme.controls.gridSize * 1, theme.controls.gridSize * 1],
-        })
-        const color = theme.colors.colorScheme.next()
-        dial.on('change', (v: number) => {
-            audio.volume = v
-        })
-        dial.colorize('accent', color)
-        dial.colorize('fill', theme.colors.bg1)
-        dial.colorize('dark', color)
-        dial.colorize('mediumDark', theme.colors.bg1)
-        dial.colorize('mediumLight', theme.colors.bg1)
-        return () => dial.destroy()
-    }, [wav])
+        if (isChangingVolume === false) {
+            return
+        }
+
+        const onPointerUp = () => {
+            console.log('POINTER UP')
+            setIsChangingVolume(false)
+        }
+
+        const onPointerMove = (event: PointerEvent) => {
+            audio.volume = Math.max(
+                Math.min(audio.volume + (event.clientX - volumeChangeStartPrevX.current) / 50, 1),
+                0
+            )
+            setCurrentVolume(audio.volume)
+            volumeChangeStartPrevX.current = event.clientX
+        }
+
+        window.addEventListener('pointerup', onPointerUp)
+        window.addEventListener('pointermove', onPointerMove)
+        return () => {
+            console.log('DESTROU CHANGING')
+            window.removeEventListener('pointerup', onPointerUp)
+            window.removeEventListener('pointermove', onPointerMove)
+        }
+    }, [isChangingVolume])
 
     useEffect(() => {
         if (!isPlaying) {
@@ -129,6 +165,13 @@ const Wav: React.FunctionComponent<Props> = ({ wav, showDownloadButton }) => {
         audio.pause()
     }
 
+    const onStartVolumeChange: React.PointerEventHandler<HTMLDivElement> = (
+        event
+    ) => {
+        setIsChangingVolume(true)
+        volumeChangeStartPrevX.current = event.clientX
+    }
+
     const onDownload = () => {
         download(`audio.webpd.wav`, wav, 'audio/wav')
     }
@@ -136,25 +179,31 @@ const Wav: React.FunctionComponent<Props> = ({ wav, showDownloadButton }) => {
     return (
         <Container>
             <Player>
-            {isPlaying ? (
-                <ButtonActive onClick={onClickPause}>Pause</ButtonActive>
-            ) : (
-                <ButtonActive onClick={onClickPlay}>Play</ButtonActive>
-            )}
-            <Time>
-                <span>{formatTime(audio.currentTime)}</span>
-                <span>/</span>
-                <span>
-                    {isNaN(audio.duration)
-                        ? formatTime(0)
-                        : formatTime(audio.duration)}
-                </span>
-            </Time>
-            <Volume>
-                <div ref={volumeDialRef}></div>
-            </Volume>
+                {isPlaying ? (
+                    <PlayPauseButton onClick={onClickPause}>Pause</PlayPauseButton>
+                ) : (
+                    <PlayPauseButton onClick={onClickPlay}>Play</PlayPauseButton>
+                )}
+                <Time>
+                    <span>{formatTime(audio.currentTime)}</span>
+                    <span>/</span>
+                    <span>
+                        {isNaN(audio.duration)
+                            ? formatTime(0)
+                            : formatTime(audio.duration)}
+                    </span>
+                </Time>
+                <Volume
+                    value={audio.volume}
+                    onPointerDown={onStartVolumeChange}
+                >
+                    <VolumeSvg />
+                    <VolumeSvg />
+                </Volume>
             </Player>
-            {showDownloadButton ? <Button onClick={onDownload}>Download</Button>: null}
+            {showDownloadButton ? (
+                <Button onClick={onDownload}>Download</Button>
+            ) : null}
         </Container>
     )
 }

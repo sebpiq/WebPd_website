@@ -18,7 +18,8 @@ export default createSlice({
         },
         initializationDone: (state) => {
             state.isInitialized = true
-        }
+        },
+        pointerUp: () => {}
     },
     extraReducers: (builder) => {
         builder.addCase(artefacts.actions.buildSuccess, (state) => {
