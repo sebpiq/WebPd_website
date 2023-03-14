@@ -1,6 +1,7 @@
 #PatchPlayer {
+    z-index: 10;
     font-family: 'Rajdhani';
-    font-size: 20px;
+    font-size: 18px;
     padding: 0;
     margin: 0;
     box-sizing: border-box;
@@ -18,11 +19,16 @@
 }
 
 #PatchPlayer #splash-container {
+    font-family: 'Silkscreen';
     width: 100%;
     height: 100%;
     position: fixed;
     z-index: 1;
     background-color: rgba(1, 1, 1, 0.7);
+}
+
+#PatchPlayer #splash-container button {
+    font-family: 'Silkscreen';
 }
 
 #PatchPlayer #credits {
@@ -52,18 +58,20 @@
 }
 
 #PatchPlayer #start, #PatchPlayer #loading {
+    font-family: 'Silkscreen';
     position: absolute;
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
     border: none;
     background: none;
-    font-size: 300%;
+    font-size: 250%;
+    @media (max-width: 700px) {
+        font-size: 150%;
+    }
     cursor: pointer;
     text-transform: uppercase;
 }
-
-#PatchPlayer #patch-controls {}
 
 #PatchPlayer #controls-root {
     position: relative;
@@ -82,7 +90,7 @@
 
 #PatchPlayer .controls-container > .label {
     color: var(--fg-color3);
-    font-size: 100%;
+    font-size: 85%;
     position: absolute;
     top: 0.3rem;
     left: 50%;
@@ -110,6 +118,6 @@
 }
 
 #PatchPlayer .label {
-    font-size: 75%;
+    font-size: 70%;
     text-transform: uppercase;
 }
