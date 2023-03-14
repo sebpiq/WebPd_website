@@ -31,19 +31,22 @@ export const generateColorScheme = (seed: number) => {
 }
 
 const COLOR_SCHEME = generateColorScheme(1)
-COLOR_SCHEME.counter = 7
+COLOR_SCHEME.counter = 5
 
 const theme = {
 
     devices: {
         desktop: {
             fontSize: 20
+        },
+        mobile: {
+            fontSize: 16,
+            maxWidth: 600
         }
     },
 
     dimensions: {
         maxContentWidth: '900px',
-        maxArtefactHeight: '10em',
     },
 
     fonts: {

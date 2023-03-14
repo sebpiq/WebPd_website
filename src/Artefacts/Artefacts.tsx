@@ -42,7 +42,7 @@ const Artefacts = () => {
                         format={outFormat}
                         filename={'output.' + outFormat}
                         showDownloadButton={true}
-                        extraButtons={[<Button key="clear" onClick={onClear}>Clear</Button>]}
+                        extraButtons={[<Button key="clear" onClick={onClear}>clear</Button>]}
                     />
                 ) : (
                     <PatchPlayerContainer artefacts={artefacts} />

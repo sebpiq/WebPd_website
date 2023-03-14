@@ -1,10 +1,13 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import styled from 'styled-components'
 import { Build } from 'webpd'
-import { ArtefactButtonsContainer, Button, ButtonActive } from '../components'
+import {
+    ArtefactButtonsContainer as ArtefactButtonsContainerBase,
+    Button,
+    ButtonActive,
+} from '../components'
 import { theme } from '../theme'
 import { download, round } from '../utils'
-import { ReactComponent as VolumeSvg } from '../images/volume.svg'
 
 interface Props {
     wav: NonNullable<Build.Artefacts['wav']>
@@ -13,16 +16,8 @@ interface Props {
 }
 
 const formatTime = (timeSeconds: number) => {
-    const rounded = round(timeSeconds, 2)
-    const decimalPart = rounded % 1
-    const intPart = Math.floor(rounded)
-    const decimalStrParts = decimalPart.toString().split('.')
-    let decimalStr = '00'
-    if (decimalStrParts[1]) {
-        decimalStr = decimalStrParts[1].slice(0, 2).padEnd(2, '0')
-    }
-
-    return `${intPart.toString().padStart(2, '0')}:${decimalStr}`
+    const intPart = Math.floor(round(timeSeconds, 2))
+    return `${intPart.toString().padStart(3, '0')}`
 }
 
 const Container = styled.div`
@@ -30,19 +25,21 @@ const Container = styled.div`
     flex-direction: row;
     justify-content: space-between;
     align-items: center;
-`
-
-const TimeAndPlayContainer = styled.div`
-    display: flex;
-    flex-direction: row;
+    @media (max-width: ${theme.devices.mobile.maxWidth}px) {
+        flex-direction: column-reverse;
+        align-items: flex-end;
+    }
 `
 
 const Time = styled.div`
     display: grid;
     grid-template-columns: repeat(3, 1fr);
-    width: 6em;
+    min-width: 4em;
     margin: 0 ${theme.spacings.space1};
     font-size: ${theme.fontSizes.h2};
+    @media (max-width: ${theme.devices.mobile.maxWidth}px) {
+        font-size: 120%;
+    }
     & > span {
         font-size: 100%;
     }
@@ -54,44 +51,52 @@ const Time = styled.div`
     }
 `
 
-const Volume = styled.div<{ value: number }>`
-    cursor: pointer;
-    position: relative;
-    margin-right: calc(${theme.spacings.space1} + 0.1rem);
-    svg {
-        display: block;
-        height: 1.25em;
-        width: 4em;
-    }
-
-    svg:first-child {
-    }
-
-    svg:last-child {
-        position: absolute;
-        top: 0;
-        clip-path: polygon(
-            0% 0%,
-            ${(props) => props.value * 100}% 0%,
-            ${(props) => props.value * 100}% 100%,
-            0% 100%
-        );
-        path {
-            fill: ${theme.colors.colorScheme.next()};
-        }
-    }
-`
-
 const Player = styled.div`
     display: flex;
     flex-direction: row;
     justify-content: space-between;
     align-items: center;
     flex: auto;
+    margin-right: ${theme.spacings.space1};
+    @media (max-width: ${theme.devices.mobile.maxWidth}px) {
+        align-self: stretch;
+        margin-right: 0;
+    }
+    @media (max-width: 400px) {
+        font-size: 50%;
+    }
+
 `
 
 const PlayPauseButton = styled(ButtonActive)`
     min-width: 4.5em;
+    align-self: stretch;
+    @media (max-width: 700px) {
+        font-size: 80%;
+    }
+`
+
+const VolumeContainer = styled.div`
+    display: flex;
+    flex-direction: row;
+    align-self: stretch;
+`
+
+const VolumeButton = styled(ButtonActive)`
+    min-width: 3em;
+    @media (max-width: 700px) {
+        font-size: 80%;
+    }
+`
+
+const ArtefactButtonsContainer = styled(ArtefactButtonsContainerBase)`
+    align-self: stretch;
+    display: flex;
+    align-items: stretch;
+    @media (max-width: ${theme.devices.mobile.maxWidth}px) {
+        justify-content: flex-end;
+        margin-bottom: ${theme.spacings.space1};
+    }
 `
 
 const Wav: React.FunctionComponent<Props> = ({
@@ -101,9 +106,6 @@ const Wav: React.FunctionComponent<Props> = ({
 }) => {
     const [isPlaying, setIsPlaying] = useState(false)
     const [, setCurrentTime] = useState(0)
-    const [isChangingVolume, setIsChangingVolume] = useState(false)
-    const [, setCurrentVolume] = useState(0)
-    const volumeChangeStartPrevX = useRef(0)
 
     const audio = useMemo(() => {
         const audio = new Audio(
@@ -129,38 +131,6 @@ const Wav: React.FunctionComponent<Props> = ({
     }, [wav])
 
     useEffect(() => {
-        if (isChangingVolume === false) {
-            return
-        }
-
-        const onPointerUp = () => {
-            console.log('POINTER UP')
-            setIsChangingVolume(false)
-        }
-
-        const onPointerMove = (event: PointerEvent) => {
-            audio.volume = Math.max(
-                Math.min(
-                    audio.volume +
-                        (event.clientX - volumeChangeStartPrevX.current) / 50,
-                    1
-                ),
-                0
-            )
-            setCurrentVolume(audio.volume)
-            volumeChangeStartPrevX.current = event.clientX
-        }
-
-        window.addEventListener('pointerup', onPointerUp)
-        window.addEventListener('pointermove', onPointerMove)
-        return () => {
-            console.log('DESTROU CHANGING')
-            window.removeEventListener('pointerup', onPointerUp)
-            window.removeEventListener('pointermove', onPointerMove)
-        }
-    }, [isChangingVolume])
-
-    useEffect(() => {
         if (!isPlaying) {
             return
         }
@@ -184,11 +154,12 @@ const Wav: React.FunctionComponent<Props> = ({
         audio.pause()
     }
 
-    const onStartVolumeChange: React.PointerEventHandler<HTMLDivElement> = (
-        event
-    ) => {
-        setIsChangingVolume(true)
-        volumeChangeStartPrevX.current = event.clientX
+    const onVolumeUp = () => {
+        audio.volume += 0.05
+    }
+
+    const onVolumeDown = () => {
+        audio.volume -= 0.05
     }
 
     const onDownload = () => {
@@ -198,38 +169,33 @@ const Wav: React.FunctionComponent<Props> = ({
     return (
         <Container>
             <Player>
-                <TimeAndPlayContainer>
-                    {isPlaying ? (
-                        <PlayPauseButton onClick={onClickPause}>
-                            Pause
-                        </PlayPauseButton>
-                    ) : (
-                        <PlayPauseButton onClick={onClickPlay}>
-                            Play
-                        </PlayPauseButton>
-                    )}
-                    <Time>
-                        <span>{formatTime(audio.currentTime)}</span>
-                        <span>/</span>
-                        <span>
-                            {isNaN(audio.duration)
-                                ? formatTime(0)
-                                : formatTime(audio.duration)}
-                        </span>
-                    </Time>
-                </TimeAndPlayContainer>
-                <Volume
-                    value={audio.volume}
-                    onPointerDown={onStartVolumeChange}
-                >
-                    <VolumeSvg />
-                    <VolumeSvg />
-                </Volume>
+                {isPlaying ? (
+                    <PlayPauseButton onClick={onClickPause}>
+                        Pause
+                    </PlayPauseButton>
+                ) : (
+                    <PlayPauseButton onClick={onClickPlay}>
+                        Play
+                    </PlayPauseButton>
+                )}
+                <Time>
+                    <span>{formatTime(audio.currentTime)}</span>
+                    <span>/</span>
+                    <span>
+                        {isNaN(audio.duration)
+                            ? formatTime(0)
+                            : formatTime(audio.duration)}
+                    </span>
+                </Time>
+                <VolumeContainer>
+                    <VolumeButton onClick={onVolumeDown}>-</VolumeButton>
+                    <VolumeButton onClick={onVolumeUp}>+</VolumeButton>
+                </VolumeContainer>
             </Player>
             <ArtefactButtonsContainer>
                 {extraButtons ? extraButtons : null}
                 {showDownloadButton ? (
-                    <Button onClick={onDownload}>Download</Button>
+                    <Button onClick={onDownload}>download</Button>
                 ) : null}
             </ArtefactButtonsContainer>
         </Container>

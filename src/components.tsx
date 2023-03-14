@@ -3,6 +3,7 @@ import { theme } from './theme'
 
 export const H2 = styled.h2`
     font-family: ${theme.fonts.title};
+    font-size: 140%;
     color: ${theme.colors.colorScheme.next()};
     margin: 0;
     padding: 0;
@@ -43,11 +44,6 @@ export const ButtonActive = styled(Button)`
     background-color: ${() => theme.colors.colorScheme.next()};
 `
 
-export const LinkActive = styled.a`
-    ${buttonMixin}
-    ${buttonActiveMixin}
-`
-
 export const Select = styled.select`
     border: none;
     background-color: ${theme.colors.bg1p5};
@@ -70,15 +66,25 @@ export const Filename: React.FunctionComponent<{ filename: string }> = ({
 
 export const Filesize = styled.span`
     position: absolute;
-    top: ${theme.spacings.space0p1};
+    bottom: ${theme.spacings.space0p1};
     left: ${theme.spacings.space0p1};
     color: ${theme.colors.fg1p5};
+`
+
+export const fileViewportMixin = `
+    height: 20vh;
+    max-height: 10em;
+    user-select: none;
 `
 
 export const Or = styled.span`
     font-size: 120%;
     font-weight: bold;
     color: ${theme.colors.fg2};
+    min-width: 1.5em;
+    @media (max-width: ${theme.devices.mobile.maxWidth}px) {
+        text-align: center;
+    }
 `
 
 export const Hint = styled.div`
@@ -117,6 +123,7 @@ export const Spinner: React.FunctionComponent<{ text: string, className?:string 
 
 export const ArtefactButtonsContainer = styled.div`
 & > * {
+    font-size: 90%;
     margin-right: ${theme.spacings.space0p1};
     &:last-child {
         margin-right: 0;

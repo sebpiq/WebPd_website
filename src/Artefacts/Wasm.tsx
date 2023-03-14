@@ -1,7 +1,7 @@
 import { useMemo } from 'react'
 import styled from 'styled-components'
 import { Build } from 'webpd'
-import { ArtefactButtonsContainer, Button, Filename, Filesize } from '../components'
+import { ArtefactButtonsContainer, Button, Filename, Filesize, fileViewportMixin } from '../components'
 import { theme } from '../theme'
 import { download } from '../utils'
 import { filesize } from 'filesize'
@@ -21,13 +21,11 @@ const Container = styled.div`
 `
 
 const BinaryContainer = styled.div`
+    ${fileViewportMixin}
     word-break: break-all;
-    height: 20vw;
-    max-height: ${theme.dimensions.maxArtefactHeight};
     overflow: hidden;
     opacity: 0.1;
     text-align: justify;
-    user-select: none;
 `
 
 const ButtonsContainer = styled(ArtefactButtonsContainer)`
@@ -49,7 +47,7 @@ const Wasm: React.FunctionComponent<Props> = ({
         }
         extraButtons = [
             ...(extraButtons || []),
-            <Button onClick={onDownload}>Download</Button>,
+            <Button key="download" onClick={onDownload}>download</Button>,
         ]
     }
 
@@ -61,7 +59,7 @@ const Wasm: React.FunctionComponent<Props> = ({
         <Container>
             {filename ? <Filename filename={filename} /> : null}
             {showFileSize ? (
-                <Filesize>file size : {fileSizeStr}</Filesize>
+                <Filesize>{fileSizeStr}</Filesize>
             ) : null}
             <BinaryContainer>
                 {array.slice(0, 1000).map((val, i) => (

@@ -1,5 +1,5 @@
 import styled from 'styled-components'
-import { Box, LinkActive } from './components'
+import { Box } from './components'
 // eslint-disable-next-line import/no-webpack-loader-syntax
 import introUrl from '!!markdown-loader?modules!webpd/README.md'
 import { useEffect, useState } from 'react'
@@ -22,7 +22,6 @@ const Container = styled(Box)`
 const H1 = styled.h1`
     position: relative;
     bottom: 0.15em;
-    right: 0.08em;
     font-size: 600%;
     font-family: ${theme.fonts.title};
     color: ${theme.colors.colorScheme.next()};
@@ -32,6 +31,12 @@ const H1 = styled.h1`
     line-height: 100%;
     letter-spacing: 0.3em;
     text-align: center;
+    @media (max-width: 700px) {
+        font-size: 450%;
+    }
+    @media (max-width: 400px) {
+        font-size: 350%;
+    }
 `
 
 const RenderedMarkdownContainer = styled.div`
@@ -47,9 +52,9 @@ const ButtonsContainer = styled.div`
 `
 
 const buttonMixin = `
-    font-size: 90%;
-    padding: ${theme.spacings.space0p1};
-    text-decoration: none;
+    font-family: ${theme.fonts.title};
+    font-size: 85%;
+    text-decoration: underline;
     display: flex;
     flex-direction: row;
     align-items: center;
@@ -66,11 +71,11 @@ const buttonMixin = `
     }
 `
 
-const GitHubButton = styled(LinkActive)`
+const GitHubButton = styled.a`
     ${buttonMixin}
 `
 
-const OpenCollectiveButton = styled(LinkActive)`
+const OpenCollectiveButton = styled.a`
     ${buttonMixin}
     margin-left: ${theme.spacings.space1};
 `

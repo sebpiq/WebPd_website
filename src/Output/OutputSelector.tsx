@@ -45,6 +45,13 @@ const FormatSelector = styled.div`
     display: flex;
     flex-direction: row;
     justify-content: space-between;
+    @media (max-width: ${theme.devices.mobile.maxWidth}px) {
+        flex-direction: column;
+        align-items: initial;
+        ${Or} {
+            text-align: center;
+        }
+    }
 `
 
 const FormatHint = styled(Hint)`

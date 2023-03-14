@@ -22,6 +22,12 @@ const Container = styled.form`
 const ExampleSelect = styled(Select)`
     padding-left: 0;
     padding-top: ${theme.spacings.space0p1};
+    text-overflow: ellipsis;
+    width: 100%;
+    @media (max-width: ${theme.devices.mobile.maxWidth}px) {
+        background-color: transparent;
+        text-align: center;
+    }
 `
 
 const FromExample: React.FunctionComponent<Props> = () => {

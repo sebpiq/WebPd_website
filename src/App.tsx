@@ -38,6 +38,9 @@ const GlobalStyle = createGlobalStyle`
         min-width: 0; 
         min-height: 0;
         font-size: ${theme.devices.desktop.fontSize}px;
+        @media (max-width: ${theme.devices.mobile.maxWidth}px) {
+            font-size: ${theme.devices.mobile.fontSize}px;
+        }
         font-family: ${theme.fonts.default};
         color: ${theme.colors.fg1};
         scrollbar-width: thin;
@@ -77,6 +80,7 @@ const Container = styled.div`
 const CompilerContainer = styled.div`
     position: relative;
 `
+
 const SpinnerContainer = styled.div`
     margin: auto;
     width: 100%;
@@ -84,11 +88,13 @@ const SpinnerContainer = styled.div`
     height: 100%;
     z-index: 3;
 `
+
 const AppSpinner = styled(Spinner)`
-    width: ${theme.dimensions.maxContentWidth};
+    max-width: ${theme.dimensions.maxContentWidth};
+    width: 100%;
     margin: 0 auto;
-    z-index: ${theme.zIndexes.spinner};
     height: 100%;
+    z-index: ${theme.zIndexes.spinner};
     display: flex;
     justify-content: center;
     align-items: center;

@@ -47,7 +47,7 @@ const FromLocalFile: React.FunctionComponent<Props> = () => {
             {isDragActive ? (
                 <Span>Drop the file here ...</Span>
             ) : (
-                <Span>{filepath ? 'Choose a different file': 'Upload a file from your computer'}</Span>
+                <Span>{filepath ? 'Choose a different file': 'Upload a file from your device'}</Span>
             )}
         </Container>
     )

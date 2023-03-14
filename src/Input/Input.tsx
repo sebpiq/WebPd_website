@@ -9,6 +9,7 @@ import {
     selectBuildInputFormat,
     selectBuildInputUrl,
 } from '../store/build-input-selectors'
+import { theme } from '../theme'
 import FromExample from './FromExample'
 import FromLocalFile from './FromLocalFile'
 import FromUrl from './FromUrl'
@@ -24,6 +25,14 @@ const InputContainer = styled.div`
     flex: auto;
     & > * {
         display: inline-block;
+        @media (max-width: ${theme.devices.mobile.maxWidth}px) {
+            /* Match all objects except Or */
+            &:nth-child(2n+1) {
+                width: 100%;
+                text-align: center;
+                background-color: ${theme.colors.bg1};
+            }
+        }
     }
 `
 
@@ -49,7 +58,7 @@ const Input = () => {
                         format={inFormat}
                         artefacts={artefacts}
                         filename={filepath || url || undefined}
-                        extraButtons={[<Button key="clear" onClick={onClear}>Clear</Button>]}
+                        extraButtons={[<Button key="clear" onClick={onClear}>clear</Button>]}
                     />
                     </>
                 ) : (

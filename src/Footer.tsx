@@ -22,16 +22,22 @@ const Container = styled(Box)`
 
 const InfoContainer = styled.div`
     color: ${theme.colors.fg2};
-    margin-right: ${theme.spacings.space2};
+    margin-right: 1em;
 `
 
 const ButtonsContainer = styled.div`
     display: flex;
     flex-direction: row;
+    @media (min-width: ${theme.devices.mobile.maxWidth}px) {
+        min-width: 10em;
+    }
+    @media (max-width: ${theme.devices.mobile.maxWidth}px) {
+        flex-direction: column;
+        min-width: 5em;
+    }
 `
 
 const Link = styled.a`
-    width: 10em;
     text-align: right;
     color: ${theme.colors.fg2};
 
@@ -46,13 +52,24 @@ const Link = styled.a`
             fill: ${theme.colors.fg2};
         }
     }
+
+    @media (min-width: ${theme.devices.mobile.maxWidth}px) {
+        width: 10em;
+    }
+
+    @media (max-width: ${theme.devices.mobile.maxWidth}px) {
+        margin-bottom: ${theme.spacings.space1};
+        &:last-child {
+            margin-bottom: 0;
+        }
+    }
 `
 
 const Footer = () => {
     return (
         <Container>
             <InfoContainer>
-                WebPd is an open-source project released under the GNU Lesser General Public License v3.0.
+                WebPd is an open-source project released under the LGPL v3.0.
                 Files uploaded on this web site are not stored on any server.
             </InfoContainer>
             <ButtonsContainer>

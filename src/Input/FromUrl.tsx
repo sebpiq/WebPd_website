@@ -24,6 +24,10 @@ const Input = styled.input`
         color: ${theme.colors.fg1};
         opacity: 1;
     }
+    @media (max-width: ${theme.devices.mobile.maxWidth}px) {
+        background-color: transparent;
+        text-align: center;
+    }
 `
 
 const OkButton = styled(Button)`
