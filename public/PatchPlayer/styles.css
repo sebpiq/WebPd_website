@@ -1,4 +1,5 @@
 #PatchPlayer {
+    z-index: 10;
     font-family: 'Rajdhani';
     font-size: 18px;
     padding: 0;
@@ -64,7 +65,10 @@
     transform: translate(-50%, -50%);
     border: none;
     background: none;
-    font-size: 300%;
+    font-size: 250%;
+    @media (max-width: 700px) {
+        font-size: 150%;
+    }
     cursor: pointer;
     text-transform: uppercase;
 }

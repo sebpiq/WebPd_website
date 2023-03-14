@@ -17,12 +17,7 @@ export const createModels = (
     pdJson: PdJson.Pd,
     controlsValues: ControlsValues,
 ) => {
-    const rootPatch = pdJson.patches[pdJson.rootPatchId]
-
-    const { controls, comments } = AppGenerator.discoverGuiControls(
-        pdJson,
-        rootPatch
-    )
+    const { controls, comments } = AppGenerator.discoverGuiControls(pdJson)
 
     AppGenerator.traverseGuiControls(controls, (control) => {
         let valueTransform: ValueTransform = (v) => v

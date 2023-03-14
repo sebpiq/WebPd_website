@@ -62,6 +62,7 @@ function* makeBuild() {
                     },
                     nodeBuilders: Build.NODE_BUILDERS,
                     nodeImplementations: Build.NODE_IMPLEMENTATIONS,
+                    inletCallerSpecs: patchPlayer ? patchPlayer.inletCallersSpecs : undefined,
                     abstractionLoader: url
                         ? makeUrlAbstractionLoader(url)
                         : localAbstractionLoader,

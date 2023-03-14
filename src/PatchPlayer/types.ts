@@ -1,4 +1,4 @@
-import { AppGenerator, PdJson } from 'webpd'
+import { AppGenerator, Build, PdJson } from 'webpd'
 import { ControlsValues } from './models'
 import { CommentView, ControlTreeView } from './views'
 
@@ -18,6 +18,7 @@ export interface PatchPlayer {
     webpdNode: any // runtime.WebPdWorkletNode | null
     pdJson: PdJson.Pd
     controls: Array<AppGenerator.ControlTree>
+    inletCallersSpecs: Build.Settings['inletCallerSpecs']
     controlsViews: Array<ControlTreeView>
     commentsViews: Array<CommentView>
     controlsValues: ControlsValues

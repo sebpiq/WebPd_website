@@ -155,11 +155,11 @@ const Wav: React.FunctionComponent<Props> = ({
     }
 
     const onVolumeUp = () => {
-        audio.volume += 0.05
+        audio.volume = Math.min(audio.volume + 0.1, 1)
     }
 
     const onVolumeDown = () => {
-        audio.volume -= 0.05
+        audio.volume = Math.max(audio.volume - 0.1, 0)
     }
 
     const onDownload = () => {

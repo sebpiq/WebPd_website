@@ -39,15 +39,3 @@ export const selectBuildSteps = createSelector(
         }
     }
 )
-
-export const selectInletCallerSpecs = createSelector(
-    selectBuildInputFormat,
-    (inFormat) => {
-        if (!inFormat) {
-            return null
-        }
-        if (!['pd', 'pdJson'].includes(inFormat)) {
-            return null
-        }
-    }
-)
