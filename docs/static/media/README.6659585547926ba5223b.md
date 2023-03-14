@@ -71,7 +71,7 @@ Expected behavior -&gt; Describe shortly how it should work instead
 GNU Lesser General Public License or read the <a href="https://github.com/Ircam-WAM/WebPd/blob/main/COPYING.LESSER">COPYING.LESSER</a> file for more details.</p>
 <h2 id="authors">Authors</h2>
 <ul>
-<li>Sébastien Piquemal <a href="mailto:&#115;&#x65;&#x62;&#x70;&#105;&#x71;&#64;&#112;&#114;&#x6f;&#x74;&#x6f;&#110;&#x6d;&#x61;&#x69;&#x6c;&#x2e;&#x63;&#111;&#x6d;">&#115;&#x65;&#x62;&#x70;&#105;&#x71;&#64;&#112;&#114;&#x6f;&#x74;&#x6f;&#110;&#x6d;&#x61;&#x69;&#x6c;&#x2e;&#x63;&#111;&#x6d;</a></li>
+<li>Sébastien Piquemal <a href="mailto:&#x73;&#101;&#x62;&#x70;&#x69;&#113;&#64;&#112;&#x72;&#x6f;&#x74;&#x6f;&#x6e;&#109;&#x61;&#105;&#x6c;&#x2e;&#x63;&#111;&#x6d;">&#x73;&#101;&#x62;&#x70;&#x69;&#113;&#64;&#112;&#x72;&#x6f;&#x74;&#x6f;&#x6e;&#109;&#x61;&#105;&#x6c;&#x2e;&#x63;&#111;&#x6d;</a></li>
 <li>Chris McCormick</li>
 <li>Brandon James</li>
 <li>mgsx-dev</li>
