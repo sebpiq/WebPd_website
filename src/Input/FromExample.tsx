@@ -1,9 +1,7 @@
-import React, { useState } from 'react'
 import styled from 'styled-components'
 import { Select } from '../components'
-import { useAppDispatch, useAppSelector } from '../store'
+import { useAppDispatch } from '../store'
 import buildInput from '../store/build-input'
-import { selectBuildInputUrl } from '../store/build-input-selectors'
 import { theme } from '../theme'
 
 interface Props {}
@@ -23,8 +21,8 @@ const ExampleSelect = styled(Select)`
     padding-left: 0;
     padding-top: ${theme.spacings.space0p1};
     text-overflow: ellipsis;
-    width: 100%;
     @media (max-width: ${theme.devices.mobile.maxWidth}px) {
+        width: 100%;
         background-color: transparent;
         text-align: center;
     }
