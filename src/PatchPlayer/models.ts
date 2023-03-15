@@ -6,7 +6,7 @@ import { PatchPlayerWithSettings } from './types'
 
 export const PORTLET_ID = '0'
 
-export type ValueTransform = (v: number) => string | number
+export type ValueTransform = (v: number) => string | number | null
 
 export interface ControlsValues {
     values: { [nodeId: string]: string | number }
@@ -22,7 +22,7 @@ export const createModels = (
     AppGenerator.traverseGuiControls(controls, (control) => {
         let valueTransform: ValueTransform = (v) => v
         if (control.node.type === 'bng' || control.node.type === 'msg') {
-            valueTransform = () => 'bang'
+            valueTransform = (v: any) => v.state === true ? 'bang' : null
         } else if (control.node.type === 'tgl') {
             valueTransform = (v) => +v
         }
@@ -57,7 +57,12 @@ export const setControlValue = (
     if (!valueTransform) {
         throw new Error(`no value transform for ${nodeId}`)
     }
-    _setControlValue(patchPlayer, nodeId, valueTransform(rawValue)!)
+    const value = valueTransform(rawValue)!
+    if (value === null) {
+        return
+    }
+
+    _setControlValue(patchPlayer, nodeId, value)
 }
 
 export const getControlValue = (

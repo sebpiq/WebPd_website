@@ -15,7 +15,7 @@ import createSagaMiddleware from 'redux-saga'
 import { all } from 'redux-saga/effects'
 import { watchSetLocalFile, watchSetUrl } from './build-input-sagas'
 import { watchStartBuild } from './artefacts-sagas'
-import { selectAppWillBuildOnLoad } from './app-selectors'
+import { selectAppDebug, selectAppWillBuildOnLoad } from './app-selectors'
 import { initializeApp } from './app-sagas'
 import patchPlayer from './patch-player'
 import { PatchPlayerValues } from '../PatchPlayer/types'
@@ -59,6 +59,9 @@ sagaMiddleware.run(function* rootSaga() {
 // Allows auto synchronization between redux state and url search params.
 // NOTE: this seems to sync the state synchronously on load of the page,
 // so no need to worry about race conditions.
+const _stringToValueFlag = (str: string) => str === '1'
+const _valueToStringFlag = (value: boolean) => value ? '1' : '0'
+
 ReduxQuerySync({
     store,
     params: {
@@ -81,8 +84,15 @@ ReduxQuerySync({
             selector: selectAppWillBuildOnLoad,
             action: app.actions.setWillBuildOnLoad,
             defaultValue: app.getInitialState().willBuildOnLoad,
-            stringToValue: (str: string) => str === '1',
-            valueToString: (value: boolean) => (value ? '1' : '0'),
+            stringToValue: _stringToValueFlag,
+            valueToString: _valueToStringFlag,
+        },
+        debug: {
+            selector: selectAppDebug,
+            action: app.actions.setDebug,
+            defaultValue: app.getInitialState().debug,
+            stringToValue: _stringToValueFlag,
+            valueToString: _valueToStringFlag,
         },
         pp: {
             selector: selectPatchPlayerValues,

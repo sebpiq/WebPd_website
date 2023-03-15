@@ -1,5 +1,6 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit'
 import { Build } from 'webpd'
+import { Artefacts } from 'webpd/dist/types/src/build/types'
 import { PatchPlayer } from '../PatchPlayer/types'
 import buildInput from './build-input'
 import buildOutput from './build-output'
@@ -63,8 +64,10 @@ export default createSlice({
                 status: 0 | 1
                 errors?: Array<string>
                 warnings?: Array<string>
+                artefacts: Artefacts
             }>
         ) => {
+            ASSETS.artefacts = action.payload.artefacts
             if (action.payload.status === 1) {
                 state.buildStatus = BUILD_STATUS.ERRORED
             }

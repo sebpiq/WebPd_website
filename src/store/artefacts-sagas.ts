@@ -10,6 +10,7 @@ import {
 import { selectBuildOutputFormat, selectBuildOutputPreviewDurationSeconds } from './build-output-selectors'
 import { selectBuildSteps } from './shared-selectors'
 import { BIT_DEPTH } from '../types'
+import { selectAppDebug } from './app-selectors'
 
 export function* watchStartBuild() {
     yield takeLatest(artefacts.actions.startBuild.type, makeBuild)
@@ -29,6 +30,9 @@ function* makeBuild() {
     )
     const previewDurationSeconds: ReturnType<typeof selectBuildOutputPreviewDurationSeconds> = yield select(
         selectBuildOutputPreviewDurationSeconds
+    )
+    const debug: ReturnType<typeof selectAppDebug> = yield select(
+        selectAppDebug
     )
 
     if (!inputArtefacts || !buildSteps) {
@@ -71,10 +75,11 @@ function* makeBuild() {
             yield put(
                 artefacts.actions.stepComplete({
                     status: result.status,
+                    artefacts: tempArtefacts,
                     errors,
                     warnings: result.warnings,
                 })
-            )
+                )
             if (result.status === 1) {
                 return
             }
@@ -82,10 +87,14 @@ function* makeBuild() {
             yield put(
                 artefacts.actions.stepComplete({
                     status: 1,
+                    artefacts: tempArtefacts,
                     errors: [err.message],
                     warnings: [],
                 })
             )
+            if (debug) {
+                throw err
+            }
             return
         }
 

@@ -4,7 +4,7 @@ import { theme } from './theme'
 import Output from './Output'
 import { Provider } from 'react-redux'
 import { store, useAppSelector } from './store'
-import { selectAppIsInitialized } from './store/app-selectors'
+import { selectAppDebug, selectAppIsInitialized } from './store/app-selectors'
 import Introduction from './Introduction'
 import Console from './Console'
 import { Spinner } from './components'
@@ -12,6 +12,7 @@ import CompilerTitle from './CompilerTitle'
 import { selectArtefactsBuildStatus } from './store/artefacts-selectors'
 import { BUILD_STATUS } from './store/artefacts'
 import Footer from './Footer'
+import Debug from './Debug'
 
 const GlobalStyle = createGlobalStyle`
     @font-face {
@@ -106,6 +107,7 @@ const AppInner = () => {
     const isAppInitialized = useAppSelector(selectAppIsInitialized)
     const isBuilding =
         useAppSelector(selectArtefactsBuildStatus) === BUILD_STATUS.IN_PROGRESS
+    const debug = useAppSelector(selectAppDebug)
     if (!isAppInitialized) {
         return (
             <>
@@ -126,6 +128,7 @@ const AppInner = () => {
                 ) : null}
                 <Input />
                 <Output />
+                {debug ? <Debug />: null}
                 <Console />
             </CompilerContainer>
             <Footer />

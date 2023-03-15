@@ -215,7 +215,7 @@ const _getDimensionsGrid = (node: PdJson.Node) => {
 const _getNodeLabel = (node: PdJson.Node): string | null => {
     const layout = _getLayout(node)
     const label = (layout as any).label as string
-    return label.length ? label : null
+    return label && label.length ? label : null
 }
 
 const _assertNumber = (val: PdJson.NodeArg) => {
