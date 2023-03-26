@@ -4,7 +4,7 @@
 
 <!-- intro start -->
 
-<p><strong>WebPd</strong> is a compiler for audio programming language <a href="puredata.info/">Pure Data</a> allowing to run <strong>.pd</strong> patches on web pages. </p>
+<p><strong>WebPd</strong> is a compiler for audio programming language <a href="https://puredata.info/">Pure Data</a> allowing to run <strong>.pd</strong> patches on web pages. </p>
 <p><strong>WebPd is highly modular and takes a white-box approach to audio programming</strong>. It aims to enable people with different levels of expertise to use the programming environment they feel most confortable with. The output of the compiler is plain human-readable JavaScript or <a href="https://www.assemblyscript.org/">AssemblyScript</a> (*). This means that you&#39;re free to take the generated code and work directly with it in your own web application without using WebPd or Pure Data ever again 🌈.</p>
 <!-- intro end -->
 
@@ -71,7 +71,7 @@ Expected behavior -&gt; Describe shortly how it should work instead
 GNU Lesser General Public License or read the <a href="https://github.com/Ircam-WAM/WebPd/blob/main/COPYING.LESSER">COPYING.LESSER</a> file for more details.</p>
 <h2 id="authors">Authors</h2>
 <ul>
-<li>Sébastien Piquemal <a href="mailto:&#115;&#x65;&#98;&#x70;&#x69;&#x71;&#x40;&#x70;&#114;&#x6f;&#x74;&#111;&#110;&#109;&#x61;&#105;&#108;&#46;&#99;&#111;&#109;">&#115;&#x65;&#98;&#x70;&#x69;&#x71;&#x40;&#x70;&#114;&#x6f;&#x74;&#111;&#110;&#109;&#x61;&#105;&#108;&#46;&#99;&#111;&#109;</a></li>
+<li>Sébastien Piquemal <a href="mailto:&#115;&#101;&#x62;&#x70;&#105;&#x71;&#64;&#112;&#114;&#x6f;&#116;&#111;&#x6e;&#109;&#97;&#x69;&#x6c;&#46;&#99;&#x6f;&#109;">&#115;&#101;&#x62;&#x70;&#105;&#x71;&#64;&#112;&#114;&#x6f;&#116;&#111;&#x6e;&#109;&#97;&#x69;&#x6c;&#46;&#99;&#x6f;&#109;</a></li>
 <li>Chris McCormick</li>
 <li>Brandon James</li>
 <li>mgsx-dev</li>
