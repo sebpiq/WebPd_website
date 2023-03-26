@@ -10,7 +10,7 @@ import { assertNonNullable, nextTick } from './misc-utils'
 import { PatchPlayer, PatchPlayerWithSettings, Settings } from './types'
 import { Runtime, Build, AppGenerator } from 'webpd'
 
-export const create = (artefacts: Build.Artefacts): PatchPlayer => {
+export const create = (artefacts: Build.Artefacts, patchUrl: string | null): PatchPlayer => {
     const dspGraph = assertNonNullable(
         artefacts.dspGraph,
         'artefacts.dspGraph not defined'
@@ -29,6 +29,7 @@ export const create = (artefacts: Build.Artefacts): PatchPlayer => {
 
     return {
         rootElem: null,
+        patchUrl,
         audioContext,
         webpdNode: null,
         pdJson: dspGraph.pd,

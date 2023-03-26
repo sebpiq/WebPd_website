@@ -10,7 +10,9 @@ export const createEngine = async (
     const webpdNode = new Runtime.WebPdWorkletNode(patchPlayer.audioContext)
     sourceNode.connect(webpdNode)
     webpdNode.connect(patchPlayer.audioContext.destination)
-    webpdNode.port.onmessage = (message) => Runtime.fs.web(webpdNode, message)
+    webpdNode.port.onmessage = (message) => Runtime.fs.web(webpdNode, message, {
+        rootUrl: Runtime.urlDirName(patchPlayer.patchUrl || '.')
+    })
 
     if (artefacts.compiledJs) {
         webpdNode.port.postMessage({

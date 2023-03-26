@@ -21,8 +21,10 @@ export const createModels = (
 
     AppGenerator.traverseGuiControls(controls, (control) => {
         let valueTransform: ValueTransform = (v) => v
-        if (control.node.type === 'bng' || control.node.type === 'msg') {
+        if (control.node.type === 'bng') {
             valueTransform = (v: any) => v.state === true ? 'bang' : null
+        } else if (control.node.type === 'msg') {
+            valueTransform = (v: any) => v === true ? 'bang' : null
         } else if (control.node.type === 'tgl') {
             valueTransform = (v) => +v
         }

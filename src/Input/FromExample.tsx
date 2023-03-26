@@ -9,8 +9,12 @@ interface Props {}
 const EXAMPLES = {
     ginger2: {
         display: "Martin's Brinkmann ginger2",
-        url: 'https://raw.githubusercontent.com/sebpiq/WebPd_website/bc04a2a5bf603f872cf44409009c2b251bbafa9b/patch-player/www/ginger2.pd',
+        url: './patches/Martin-Brinkmann-ginger2.pd',
     },
+    randomperc1: {
+        display: "Martin's Brinkmann randomperc1",
+        url: './patches/Martin-Brinkmann-randomperc1.pd'
+    }
 }
 
 const Container = styled.form`

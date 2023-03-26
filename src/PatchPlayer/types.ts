@@ -14,6 +14,7 @@ export interface Settings {
 
 export interface PatchPlayer {
     rootElem: HTMLElement | null
+    patchUrl: string | null
     audioContext: AudioContext
     webpdNode: any // runtime.WebPdWorkletNode | null
     pdJson: PdJson.Pd

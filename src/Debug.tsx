@@ -6,7 +6,7 @@ import { download } from './utils'
 
 const Container = styled(Box)``
 
-const JsonContainer = styled.pre`
+const ArtefactContainer = styled.pre`
     max-height: 25vh;
     overflow: auto;
 `
@@ -30,6 +30,22 @@ const Debug = () => {
         )
     }
 
+    const onDowloadCompiledJs = () => {
+        download(
+            'debug.code.js',
+            artefacts.compiledJs!,
+            'application/javascript'
+        )
+    }
+
+    const onDowloadCompiledAsc = () => {
+        download(
+            'debug.code.asc',
+            artefacts.compiledAsc!,
+            'application/assemblyscript'
+        )
+    }
+
     return (
         <Container>
             <H2>Debugging</H2>
@@ -40,9 +56,9 @@ const Debug = () => {
                         Pd JSON{' '}
                         <Button onClick={onDowloadPdJson}>Download</Button>
                     </H3>
-                    <JsonContainer>
+                    <ArtefactContainer>
                         {JSON.stringify(artefacts.pdJson, null, 2)}
-                    </JsonContainer>
+                    </ArtefactContainer>
                 </>
             ) : null}
 
@@ -52,9 +68,33 @@ const Debug = () => {
                         DSP Graph{' '}
                         <Button onClick={onDowloadDspGraph}>Download</Button>
                     </H3>
-                    <JsonContainer>
+                    <ArtefactContainer>
                         {JSON.stringify(artefacts.dspGraph, null, 2)}
-                    </JsonContainer>
+                    </ArtefactContainer>
+                </>
+            ) : null}
+
+            {artefacts.compiledJs ? (
+                <>
+                    <H3>
+                        Compiled JS{' '}
+                        <Button onClick={onDowloadCompiledJs}>Download</Button>
+                    </H3>
+                    <ArtefactContainer>
+                        {artefacts.compiledJs}
+                    </ArtefactContainer>
+                </>
+            ) : null}
+
+            {artefacts.compiledAsc ? (
+                <>
+                    <H3>
+                        Compiled ASC{' '}
+                        <Button onClick={onDowloadCompiledAsc}>Download</Button>
+                    </H3>
+                    <ArtefactContainer>
+                        {artefacts.compiledAsc}
+                    </ArtefactContainer>
                 </>
             ) : null}
         </Container>

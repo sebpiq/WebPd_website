@@ -5,6 +5,7 @@ import { PatchPlayer } from '../PatchPlayer/types'
 import artefacts from './artefacts'
 import {
     selectBuildInputArtefacts,
+    selectBuildInputFilepath,
     selectBuildInputUrl,
 } from './build-input-selectors'
 import { selectBuildOutputFormat, selectBuildOutputPreviewDurationSeconds } from './build-output-selectors'
@@ -99,7 +100,7 @@ function* makeBuild() {
         }
 
         if (step === 'dspGraph' && outFormat === 'patchPlayer') {
-            patchPlayer = create(tempArtefacts)
+            patchPlayer = create(tempArtefacts, url || null)
         }
     }
     yield put(
