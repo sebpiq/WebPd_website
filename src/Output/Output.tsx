@@ -7,6 +7,7 @@ import {
     CompilationBoxLeft,
     CompilationBoxRight,
     H3,
+    Hint,
 } from '../components'
 import { useAppDispatch, useAppSelector } from '../store'
 import {
@@ -22,6 +23,10 @@ import { selectConsoleErrors } from '../store/console-selectors'
 import OptionsWavLength from './OptionsWavLength'
 
 const Container = styled(CompilationBox)``
+
+const MoreOptionsContainer = styled(Hint)`
+    margin-top: ${theme.spacings.space2};
+`
 
 const ButtonContainer = styled.div`
     margin-top: ${theme.spacings.space2};
@@ -66,13 +71,26 @@ const BuildConfig = () => {
                 ) : (
                     <>
                         <OutputSelector />
-                        {outFormat && hasCodeTargetOptions ? <OptionsCodeTarget /> : null}
+                        {outFormat && hasCodeTargetOptions ? (
+                            <OptionsCodeTarget />
+                        ) : null}
                         {outFormat === 'wav' ? <OptionsWavLength /> : null}
                         {outFormat ? (
                             <ButtonContainer>
                                 <ButtonGo onClick={onGo}>Go !</ButtonGo>
                             </ButtonContainer>
                         ) : null}
+                        <MoreOptionsContainer>
+                            For more compilation options{' '}
+                            <a
+                                href="https://github.com/sebpiq/WebPd/#using-the-cli"
+                                target="_blank"
+                                rel="noreferrer"
+                            >
+                                you can use the CLI
+                            </a>
+                            .
+                        </MoreOptionsContainer>
                     </>
                 )}
             </CompilationBoxRight>

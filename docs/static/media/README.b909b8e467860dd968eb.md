@@ -12,14 +12,14 @@
 <p><em>(*) AssemblyScript is a TypeScript-style language which compiles to WebAssembly.</em></p>
 <p><a href="https://github.com/sponsors/sebpiq"><img src="https://img.shields.io/static/v1?label=Sponsor&message=%E2%9D%A4&logo=GitHub&color=%23ed00d9" alt=""></a></p>
 <h2 id="usage">Usage</h2>
-<h3 id="web-compiler-and-player">Web compiler and player</h3>
 <p><span id="using-the-web-compiler"><span></p>
+<h3 id="web-compiler-and-player">Web compiler and player</h3>
 <p><strong>The web compiler and a patch player are live at the following address: <a href="https://sebpiq.github.io/WebPd_website">https://sebpiq.github.io/WebPd_website</a></strong></p>
 <p>Just upload or give a URL(*) of a patch, compile it just in time and generate an interface allowing to play that patch in realtime in your browser. Once the compilation succeeds, you can copy and share with others the resulting URL from the player(**). This URL contains all the modified parameters of the patch you have played with, so that it is shared completely in its <em>current</em> state.</p>
 <p><em>(*)You can use any public URL of a patch found in the wild (on github, Pure Data forums, etc.).</em></p>
 <p><em>(**)Sharing a compiled patch doesn&#39;t work if you used local files for compilation.</em></p>
-<h3 id="command-line-interface">Command line interface</h3>
 <p><span id="using-the-cli"><span></p>
+<h3 id="command-line-interface">Command line interface</h3>
 <p>The command-line interface (CLI) offers more customization options, including the ability to generate a fully-functional (but bare bones) web page embedding your patch.</p>
 <p>Open a terminal and install the CLI with <a href="https://nodejs.org/">node / npm</a> by running the following command:</p>
 <pre><code>npm install -g webpd
@@ -38,8 +38,8 @@
 <h3 id="status--roadmap">Status &amp; roadmap</h3>
 <p>WebPd is currently under heavy development, but it is still a work in progress. A list of implemented objects, features and the roadmap are <a href="https://github.com/sebpiq/WebPd/blob/main/ROADMAP.md">here</a>.</p>
 <p>The project is currently in <em>alpha release state</em> which means that many of your patches will <em>not</em> work out of the box. Many objects and features are indeed still missing. If you feel there is a bug, thanks for reporting it following <a href="#reporting-a-bug">these simple guidelines</a>. If you feel you could develop an object that is missing in WebPd to play a specific patch, see <a href="#contributing">contributing</a>.</p>
-<h3 id="reporting-a-bug">Reporting a bug</h3>
 <p><span id="reporting-a-bug"><span></p>
+<h3 id="reporting-a-bug">Reporting a bug</h3>
 <p>If you wish to report a bug:</p>
 <ul>
 <li>First narrow it down. Remove all objects in your patch that are not related with the bug. Try to find the simplest patch with which this bug can be reproduced.</li>
@@ -51,8 +51,8 @@ Current behavior -&gt; Describe shortly how it is working at the moment
 
 Expected behavior -&gt; Describe shortly how it should work instead
 </code></pre>
-<h3 id="contributing">Contributing</h3>
 <p><span id="contributing"><span></p>
+<h3 id="contributing">Contributing</h3>
 <p>One-time contributions or regular work on the library are more than welcome! Contribution guidelines are coming, meanwhile if you have time and would really like to get involved please get in touch on the issue tracker on GitHub. I would be pleased to help you getting started for contributing.</p>
 <p>In case you would like to try developping a new object, here are some good examples to start with:</p>
 <ul>
@@ -71,7 +71,7 @@ Expected behavior -&gt; Describe shortly how it should work instead
 GNU Lesser General Public License or read the <a href="https://github.com/Ircam-WAM/WebPd/blob/main/COPYING.LESSER">COPYING.LESSER</a> file for more details.</p>
 <h2 id="authors">Authors</h2>
 <ul>
-<li>Sébastien Piquemal <a href="mailto:&#115;&#101;&#x62;&#x70;&#105;&#x71;&#64;&#112;&#114;&#x6f;&#116;&#111;&#x6e;&#109;&#97;&#x69;&#x6c;&#46;&#99;&#x6f;&#109;">&#115;&#101;&#x62;&#x70;&#105;&#x71;&#64;&#112;&#114;&#x6f;&#116;&#111;&#x6e;&#109;&#97;&#x69;&#x6c;&#46;&#99;&#x6f;&#109;</a></li>
+<li>Sébastien Piquemal <a href="mailto:&#x73;&#x65;&#x62;&#112;&#x69;&#x71;&#64;&#112;&#x72;&#x6f;&#x74;&#x6f;&#110;&#109;&#x61;&#x69;&#108;&#x2e;&#99;&#111;&#x6d;">&#x73;&#x65;&#x62;&#112;&#x69;&#x71;&#64;&#112;&#x72;&#x6f;&#x74;&#x6f;&#110;&#109;&#x61;&#x69;&#108;&#x2e;&#99;&#111;&#x6d;</a></li>
 <li>Chris McCormick</li>
 <li>Brandon James</li>
 <li>mgsx-dev</li>

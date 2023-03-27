@@ -92,6 +92,9 @@ export const Hint = styled.div`
     ::before {
         content: '→ ';
     }
+    a {
+        color: ${theme.colors.fg2};
+    }
 `
 
 export const CompilationBox = styled(Box)`
@@ -102,7 +105,7 @@ export const CompilationBox = styled(Box)`
 `
 
 export const CompilationBoxLeft = styled.div`
-    min-width: 6.5em;
+    min-width: 6.5rem;
     transform: translateX(-20%);
 `
 
