@@ -4,13 +4,21 @@
 
 <!-- intro start -->
 
-<p><strong>WebPd</strong> is a compiler for audio programming language <a href="https://puredata.info/">Pure Data</a> allowing to run <strong>.pd</strong> patches on web pages. </p>
-<p><strong>WebPd is highly modular and takes a white-box approach to audio programming</strong>. It aims to enable people with different levels of expertise to use the programming environment they feel most confortable with. The output of the compiler is plain human-readable JavaScript or <a href="https://www.assemblyscript.org/">AssemblyScript</a> (*). This means that you&#39;re free to take the generated code and work directly with it in your own web application without using WebPd or Pure Data ever again 🌈.</p>
+<p><strong>WebPd</strong> is a compiler for the <a href="https://puredata.info/">Pure Data</a> audio programming language allowing to run <strong>.pd</strong> patches in web pages.</p>
+<p><strong>WebPd is highly modular and takes a white-box approach to audio programming</strong>. It converts the audio graph and processing objects from a patch into plain human-readable JavaScript or <a href="https://www.assemblyscript.org/">AssemblyScript</a> (*). The pure audio generated code can be then integrated directly in any web application without using WebPd or Pure Data ever again 🌈.</p>
 <!-- intro end -->
 
-<p>WebPd simply generates audio code so adding visuals and interactivity is up to you. Indeed, there are plenty of good JavaScript libraries to build interactive visual interfaces such as <a href="https://threejs.org/">Three.js</a>, <a href="https://p5js.org/">p5.js</a>, good old JavaScript / HTML / CSS, etc. Integrating them with a WebPd patch should be fairly easy. An example of such integration is the <em>patch player</em> demo, available through <a href="#using-the-web-compiler">the web compiler</a>. As a result, WebPd is <strong>not</strong>, in itself, a complete editor and a live performance platform as Pure Data is. The Pure Data graphical interface, as well as GEM, are out of the scope of WebPd. WebPd isn&#39;t either a simple executor like libpd. It is rather a lean audio compiler, which generates high-performance, human-readable and easily integrable audio code with no bloat.</p>
-<p><em>(*) AssemblyScript is a TypeScript-style language which compiles to WebAssembly.</em></p>
 <p><a href="https://github.com/sponsors/sebpiq"><img src="https://img.shields.io/static/v1?label=Sponsor&message=%E2%9D%A4&logo=GitHub&color=%23ed00d9" alt=""></a></p>
+<p><em>(*) AssemblyScript is a TypeScript-style language which compiles to WebAssembly.</em></p>
+<h2 id="usecase-examples">Usecase examples</h2>
+<ul>
+<li>Publish generative musical works on the web</li>
+<li>Execute, tweak and share patches collectively on any machine</li>
+<li>Produce, filter and playback sound and music data in realtime from web based applications and games</li>
+</ul>
+<h2 id="integration-and-scope">Integration and scope</h2>
+<p>There are plenty of good JavaScript libraries to build interactive visual interfaces such as <a href="https://threejs.org/">Three.js</a>, <a href="https://p5js.org/">p5.js</a>, good old JavaScript / HTML / CSS, etc. Integrating them with a WebPd patch should be fairly easy. An example of such integration is the <em>patch player</em> demo, available through <a href="#using-the-web-compiler">the web compiler</a>.</p>
+<p>WebPd is <strong>not</strong>, in itself, a complete editor and a live performance platform like Pure Data. The Pure Data graphical interface, as well as GEM, are out of the scope of WebPd. WebPd isn&#39;t either a simple executor like libpd. It is rather a lean audio compiler, which generates high-performance, human-readable and easily integrable audio code with no bloat.</p>
 <h2 id="usage">Usage</h2>
 <p><span id="using-the-web-compiler"><span></p>
 <h3 id="web-compiler-and-player">Web compiler and player</h3>
@@ -68,10 +76,10 @@ Expected behavior -&gt; Describe shortly how it should work instead
 <h2 id="license">License</h2>
 <p>WebPd is free software: you can redistribute it and/or modify it under the terms of the GNU Lesser General Public License version 3 as published by the Free Software Foundation.</p>
 <p>WebPd is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-GNU Lesser General Public License or read the <a href="https://github.com/Ircam-WAM/WebPd/blob/main/COPYING.LESSER">COPYING.LESSER</a> file for more details.</p>
+GNU Lesser General Public License or read the <a href="https://github.com/sebpiq/WebPd/blob/main/COPYING.LESSER">COPYING.LESSER</a> file for more details.</p>
 <h2 id="authors">Authors</h2>
 <ul>
-<li>Sébastien Piquemal <a href="mailto:&#x73;&#x65;&#x62;&#112;&#x69;&#x71;&#64;&#112;&#x72;&#x6f;&#x74;&#x6f;&#110;&#109;&#x61;&#x69;&#108;&#x2e;&#99;&#111;&#x6d;">&#x73;&#x65;&#x62;&#112;&#x69;&#x71;&#64;&#112;&#x72;&#x6f;&#x74;&#x6f;&#110;&#109;&#x61;&#x69;&#108;&#x2e;&#99;&#111;&#x6d;</a></li>
+<li>Sébastien Piquemal <a href="mailto:&#x73;&#x65;&#x62;&#112;&#105;&#x71;&#x40;&#x70;&#114;&#x6f;&#x74;&#x6f;&#110;&#109;&#x61;&#105;&#108;&#x2e;&#99;&#111;&#x6d;">&#x73;&#x65;&#x62;&#112;&#105;&#x71;&#x40;&#x70;&#114;&#x6f;&#x74;&#x6f;&#110;&#109;&#x61;&#105;&#108;&#x2e;&#99;&#111;&#x6d;</a></li>
 <li>Chris McCormick</li>
 <li>Brandon James</li>
 <li>mgsx-dev</li>
