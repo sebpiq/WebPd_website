@@ -3,12 +3,15 @@ import { PatchPlayer } from './types'
 
 export const createEngine = async (
     patchPlayer: PatchPlayer,
-    stream: MediaStream,
+    stream: MediaStream | null,
     artefacts: Build.Artefacts
 ) => {
-    const sourceNode = patchPlayer.audioContext.createMediaStreamSource(stream)
+
     const webpdNode = new Runtime.WebPdWorkletNode(patchPlayer.audioContext)
-    sourceNode.connect(webpdNode)
+    if (stream) {
+        const sourceNode = patchPlayer.audioContext.createMediaStreamSource(stream)
+        sourceNode.connect(webpdNode)
+    }
     webpdNode.connect(patchPlayer.audioContext.destination)
     webpdNode.port.onmessage = (message) => Runtime.fsWeb(webpdNode, message, {
         rootUrl: Runtime.urlDirName(patchPlayer.patchUrl || '.')

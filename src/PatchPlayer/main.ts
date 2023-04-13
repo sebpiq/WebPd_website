@@ -93,7 +93,12 @@ export const start = async (
 
     await nextTick()
 
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+    let stream: MediaStream | null = null
+    try {
+        stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+    } catch (err) {
+        console.error(`Failed to get microphone stream ${err}`)
+    }
     patchPlayer.webpdNode = await createEngine(patchPlayer, stream, artefacts)
     patchPlayer.rootElem = rootElem
 
