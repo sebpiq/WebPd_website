@@ -1,23 +1,34 @@
 import { call, delay, put, select, takeLatest } from 'redux-saga/effects'
-import { Build, PdJson } from 'webpd'
+import { Build } from 'webpd'
 import { create } from '../PatchPlayer/main'
 import { PatchPlayer } from '../PatchPlayer/types'
 import artefacts from './artefacts'
 import {
     selectBuildInputArtefacts,
-    selectBuildInputFilepath,
     selectBuildInputUrl,
 } from './build-input-selectors'
 import { selectBuildOutputFormat, selectBuildOutputPreviewDurationSeconds } from './build-output-selectors'
 import { selectBuildSteps } from './shared-selectors'
 import { BIT_DEPTH } from '../types'
 import { selectAppDebug } from './app-selectors'
+import { WorkerSafeBuildSettings, workerSafePerformBuildStep } from './artefacts-worker-safe'
+import { RequestPayload, ResponsePayload } from '../workers/build'
 
 export function* watchStartBuild() {
     yield takeLatest(artefacts.actions.startBuild.type, makeBuild)
 }
 
+function sendBuildStepToWorker(worker: Worker, requestPayload: RequestPayload): Promise<ResponsePayload> {
+    return new Promise((resolve) => {
+        worker.onmessage = (event: MessageEvent<ResponsePayload>) => {
+            resolve(event.data)
+        }
+        worker.postMessage(requestPayload)
+    })
+}
+
 function* makeBuild() {
+    const worker = new Worker('js/build.worker.js')
     const inputArtefacts: ReturnType<typeof selectBuildInputArtefacts> =
         yield select(selectBuildInputArtefacts)
     const buildSteps: ReturnType<typeof selectBuildSteps> = yield select(
@@ -53,25 +64,35 @@ function* makeBuild() {
     let tempArtefacts = { ...inputArtefacts }
     let patchPlayer: PatchPlayer | null = null
     for (let step of buildSteps) {
-        console.log('BUILD STEP START', step)
+        console.log('BUILD STEP START', step, tempArtefacts)
         yield put(artefacts.actions.startStep(step))
         try {
-            const result: Awaited<ReturnType<typeof Build.performBuildStep>> =
-                yield call(Build.performBuildStep, tempArtefacts, step, {
-                    audioSettings: {
-                        channelCount: { in: 2, out: 2 },
-                        bitDepth: BIT_DEPTH,
-                        sampleRate: 44100,
-                        blockSize: 4096,
-                        previewDurationSeconds: previewDurationSeconds || 30,
-                    },
-                    nodeBuilders: Build.NODE_BUILDERS,
-                    nodeImplementations: Build.NODE_IMPLEMENTATIONS,
-                    inletCallerSpecs: patchPlayer ? patchPlayer.inletCallersSpecs : undefined,
-                    abstractionLoader: url
-                        ? makeUrlAbstractionLoader(url)
-                        : localAbstractionLoader,
-                })
+            const settings: WorkerSafeBuildSettings = {
+                audioSettings: {
+                    channelCount: { in: 2, out: 2 },
+                    bitDepth: BIT_DEPTH,
+                    sampleRate: 44100,
+                    blockSize: 4096,
+                    previewDurationSeconds: previewDurationSeconds || 30,
+                },
+                inletCallerSpecs: patchPlayer ? patchPlayer.inletCallersSpecs : undefined,
+                rootUrl: url ? getRootUrl(url): null
+            }
+            const requestPayload: RequestPayload = {
+                artefacts: tempArtefacts, step, settings
+            }
+
+            // Didn't manage to build the AssemblyScript compiler in a worker, so execute the ASC compilation
+            // in main thread, while everything else goes to worker.
+            let result: Awaited<ReturnType<typeof Build.performBuildStep>>
+            if (step === 'wasm') {
+                result = yield call(workerSafePerformBuildStep, tempArtefacts, step, settings)
+            } else {
+                const responsePayload: ResponsePayload = yield call(sendBuildStepToWorker, worker, requestPayload)
+                result = responsePayload.result
+                tempArtefacts = responsePayload.artefacts
+            }
+            
             const errors = result.status === 1 ? result.errors : undefined
             yield put(
                 artefacts.actions.stepComplete({
@@ -111,28 +132,7 @@ function* makeBuild() {
     )
 }
 
-const makeUrlAbstractionLoader = (rootPatchUrl: string) => {
-    const parsedUrl = new URL(rootPatchUrl, window.location.origin)
-    const rootUrl =
-        parsedUrl.origin + parsedUrl.pathname.split('/').slice(0, -1).join('/')
-    return Build.makeAbstractionLoader(async (nodeType: PdJson.NodeType) => {
-        const url =
-            rootUrl +
-            '/' +
-            (nodeType.endsWith('.pd') ? nodeType : `${nodeType}.pd`)
-        console.log('LOADING ABSTRACTION', url)
-        const response = await fetch(url)
-        if (!response.ok) {
-            console.log('ERROR LOADING ABSTRACTION', url)
-            throw new Build.UnknownNodeTypeError(nodeType)
-        }
-        return await response.text()
-    })
+const getRootUrl = (patchUrl: string) => {
+    const parsedUrl = new URL(patchUrl, window.location.origin)
+    return parsedUrl.origin + parsedUrl.pathname.split('/').slice(0, -1).join('/')
 }
-
-/** Always fails, because locally we don't load any abstractions */
-const localAbstractionLoader = Build.makeAbstractionLoader(
-    async (nodeType: PdJson.NodeType) => {
-        throw new Build.UnknownNodeTypeError(nodeType)
-    }
-)

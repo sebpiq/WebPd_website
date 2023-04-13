@@ -11,7 +11,7 @@ function* checkLocalFile(
     action: ReturnType<typeof buildInput.actions.setLocalFile>
 ) {
     const guessedFormat = Build.guessFormat(action.payload.filepath)
-    if (!AVAILABLE_INPUT_FORMATS.includes(guessedFormat)) {
+    if (guessedFormat === null || !AVAILABLE_INPUT_FORMATS.includes(guessedFormat)) {
         yield put(buildInput.actions.clear())
         yield put(console.actions.setState({
             errors: [`Invalid file input ${action.payload.filepath}`],

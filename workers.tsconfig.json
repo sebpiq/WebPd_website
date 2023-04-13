@@ -1,0 +1,19 @@
+{
+    "compilerOptions": {
+        "module": "ES2022",
+        "target": "ES2021",
+        "esModuleInterop": true,
+        "removeComments": true,
+        "noImplicitAny": true,
+        "noImplicitReturns": true,
+        "noImplicitOverride": true,
+        "noUncheckedIndexedAccess": true,
+        "preserveConstEnums": true,
+        "sourceMap": true,
+        "moduleResolution": "node",
+        "allowJs": true,
+        "checkJs": true
+    },
+    "typeRoots": ["./node_modules/@types"],
+    "include": ["src/workers", "@types/**/*.d.ts", "*.d.ts"]
+}
