@@ -79,7 +79,7 @@ Expected behavior -&gt; Describe shortly how it should work instead
 GNU Lesser General Public License or read the <a href="https://github.com/sebpiq/WebPd/blob/main/COPYING.LESSER">COPYING.LESSER</a> file for more details.</p>
 <h2 id="authors">Authors</h2>
 <ul>
-<li>Sébastien Piquemal <a href="mailto:&#x73;&#x65;&#x62;&#112;&#105;&#x71;&#x40;&#x70;&#114;&#x6f;&#x74;&#x6f;&#110;&#109;&#x61;&#105;&#108;&#x2e;&#99;&#111;&#x6d;">&#x73;&#x65;&#x62;&#112;&#105;&#x71;&#x40;&#x70;&#114;&#x6f;&#x74;&#x6f;&#110;&#109;&#x61;&#105;&#108;&#x2e;&#99;&#111;&#x6d;</a></li>
+<li>Sébastien Piquemal <a href="mailto:&#x73;&#101;&#98;&#112;&#x69;&#x71;&#x40;&#112;&#x72;&#x6f;&#x74;&#x6f;&#110;&#x6d;&#x61;&#105;&#x6c;&#46;&#99;&#111;&#x6d;">&#x73;&#101;&#98;&#112;&#x69;&#x71;&#x40;&#112;&#x72;&#x6f;&#x74;&#x6f;&#110;&#x6d;&#x61;&#105;&#x6c;&#46;&#99;&#111;&#x6d;</a></li>
 <li>Chris McCormick</li>
 <li>Brandon James</li>
 <li>mgsx-dev</li>
