@@ -82,7 +82,9 @@ export const Or = styled.span`
     font-weight: bold;
     color: ${theme.colors.fg2};
     min-width: 1.5em;
-    text-align: center;
+    @media (max-width: ${theme.devices.mobile.maxWidth}px) {
+        text-align: center;
+    }
 `
 
 export const Hint = styled.div`

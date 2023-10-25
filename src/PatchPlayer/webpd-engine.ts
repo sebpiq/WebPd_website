@@ -1,4 +1,4 @@
-import { Runtime, Build } from 'webpd'
+import { Run, Build } from 'webpd'
 import { PatchPlayer } from './types'
 
 export const createEngine = async (
@@ -7,14 +7,14 @@ export const createEngine = async (
     artefacts: Build.Artefacts
 ) => {
 
-    const webpdNode = new Runtime.WebPdWorkletNode(patchPlayer.audioContext)
+    const webpdNode = new Run.WebPdWorkletNode(patchPlayer.audioContext)
     if (stream) {
         const sourceNode = patchPlayer.audioContext.createMediaStreamSource(stream)
         sourceNode.connect(webpdNode)
     }
     webpdNode.connect(patchPlayer.audioContext.destination)
-    webpdNode.port.onmessage = (message) => Runtime.fsWeb(webpdNode, message, {
-        rootUrl: Runtime.urlDirName(patchPlayer.patchUrl || '.')
+    webpdNode.port.onmessage = (message) => Run.fsWeb(webpdNode, message, {
+        rootUrl: Run.urlDirName(patchPlayer.patchUrl || '.')
     })
 
     if (artefacts.compiledJs) {

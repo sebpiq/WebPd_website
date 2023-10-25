@@ -1,6 +1,6 @@
 import { call, delay, put, select, takeLatest } from 'redux-saga/effects'
 import { Build } from 'webpd'
-import { create } from '../PatchPlayer/main'
+import { create as createPatchPlayer } from '../PatchPlayer/main'
 import { PatchPlayer } from '../PatchPlayer/types'
 import artefacts from './artefacts'
 import {
@@ -121,7 +121,7 @@ function* makeBuild() {
         }
 
         if (step === 'dspGraph' && outFormat === 'patchPlayer') {
-            patchPlayer = create(tempArtefacts, url || null)
+            patchPlayer = createPatchPlayer(tempArtefacts, url || null)
         }
     }
     yield put(

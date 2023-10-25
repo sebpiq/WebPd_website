@@ -1044,28 +1044,6 @@ const macros = {
  * You should have received a copy of the GNU Lesser General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
-const FS_OPERATION_SUCCESS = 0;
-const FS_OPERATION_FAILURE = 1;
-
-/*
- * Copyright (c) 2022-2023 Sébastien Piquemal <sebpiq@protonmail.com>, Chris McCormick.
- *
- * This file is part of WebPd
- * (see https://github.com/sebpiq/WebPd).
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public License
- * along with this program. If not, see <http://www.gnu.org/licenses/>.
- */
 /**
  * Renders templated strings which contain nested arrays of strings.
  * This helper allows to use functions such as `.map` to generate several lines
@@ -1170,6 +1148,699 @@ const renderIf = (test, code) => {
  * You should have received a copy of the GNU Lesser General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
+const sked = ({ macros: { Var, Func }, target, }) => `
+    ${renderIf(target === 'assemblyscript', `
+            type SkedCallback = (event: SkedEvent) => void
+            type SkedId = Int
+            type SkedMode = Int
+            type SkedEvent = string
+        `)}
+
+    /** 
+     * Skeduler id that will never be used. 
+     * Can be used as a "no id", or "null" value. 
+     */
+    const ${Var('SKED_ID_NULL', 'SkedId')} = -1
+    const ${Var('SKED_ID_COUNTER_INIT', 'SkedId')} = 1
+
+    const ${Var('_SKED_WAIT_IN_PROGRESS', 'Int')} = 0
+    const ${Var('_SKED_WAIT_OVER', 'Int')} = 1
+
+    const ${Var('_SKED_MODE_WAIT', 'Int')} = 0
+    const ${Var('_SKED_MODE_SUBSCRIBE', 'Int')} = 1
+
+    // =========================== SKED API
+    class SkedRequest {
+        ${Var('id', 'SkedId')}
+        ${Var('mode', 'SkedMode')}
+    }
+
+    class Skeduler {
+        ${Var('requests', 'Map<SkedEvent, Array<SkedRequest>>')}
+        ${Var('callbacks', 'Map<SkedId, SkedCallback>')}
+        ${Var('isLoggingEvents', 'boolean')}
+        ${Var('eventLog', 'Set<SkedEvent>')}
+        ${Var('idCounter', 'SkedId')}
+    }
+
+    /** Creates a new Skeduler. */
+    function sked_create ${Func([Var('isLoggingEvents', 'boolean')], 'Skeduler')} {
+        return {
+            eventLog: new Set(),
+            requests: new Map(),
+            callbacks: new Map(),
+            idCounter: SKED_ID_COUNTER_INIT,
+            isLoggingEvents,
+        }
+    }
+
+    /** 
+     * Asks the skeduler to wait for an event to occur and trigger a callback. 
+     * If the event has already occurred, the callback is triggered instantly 
+     * when calling the function.
+     * Once triggered, the callback is forgotten.
+     * @returns an id allowing to cancel the callback with {@link sked_cancel}
+     */
+    function sked_wait ${Func([
+    Var('skeduler', 'Skeduler'),
+    Var('event', 'SkedEvent'),
+    Var('callback', 'SkedCallback'),
+], 'SkedId')} {
+        if (skeduler.isLoggingEvents === false) {
+            throw new Error("Please activate skeduler's isLoggingEvents")
+        }
+
+        if (skeduler.eventLog.has(event)) {
+            callback(event)
+            return SKED_ID_NULL
+        } else {
+            return _sked_createRequest(skeduler, event, callback, _SKED_MODE_WAIT)
+        }
+    }
+
+    /** 
+     * Asks the skeduler to wait for an event to occur and trigger a callback. 
+     * If the event has already occurred, the callback is NOT triggered immediatelly.
+     * Once triggered, the callback is forgotten.
+     * @returns an id allowing to cancel the callback with {@link sked_cancel}
+     */
+    function sked_wait_future ${Func([
+    Var('skeduler', 'Skeduler'),
+    Var('event', 'SkedEvent'),
+    Var('callback', 'SkedCallback'),
+], 'SkedId')} {
+        return _sked_createRequest(skeduler, event, callback, _SKED_MODE_WAIT)
+    }
+
+    /** 
+     * Asks the skeduler to trigger a callback everytime an event occurs 
+     * @returns an id allowing to cancel the callback with {@link sked_cancel}
+     */
+    function sked_subscribe ${Func([
+    Var('skeduler', 'Skeduler'),
+    Var('event', 'SkedEvent'),
+    Var('callback', 'SkedCallback'),
+], 'SkedId')} {
+        return _sked_createRequest(skeduler, event, callback, _SKED_MODE_SUBSCRIBE)
+    }
+
+    /** Notifies the skeduler that an event has just occurred. */
+    function sked_emit ${Func([Var('skeduler', 'Skeduler'), Var('event', 'SkedEvent')], 'void')} {
+        if (skeduler.isLoggingEvents === true) {
+            skeduler.eventLog.add(event)
+        }
+        if (skeduler.requests.has(event)) {
+            const ${Var('requests', 'Array<SkedRequest>')} = skeduler.requests.get(event)
+            const ${Var('requestsStaying', 'Array<SkedRequest>')} = []
+            for (let ${Var('i', 'Int')} = 0; i < requests.length; i++) {
+                const ${Var('request', 'SkedRequest')} = requests[i]
+                if (skeduler.callbacks.has(request.id)) {
+                    skeduler.callbacks.get(request.id)(event)
+                    if (request.mode === _SKED_MODE_WAIT) {
+                        skeduler.callbacks.delete(request.id)
+                    } else {
+                        requestsStaying.push(request)
+                    }
+                }
+            }
+            skeduler.requests.set(event, requestsStaying)
+        }
+    }
+
+    /** Cancels a callback */
+    function sked_cancel ${Func([Var('skeduler', 'Skeduler'), Var('id', 'SkedId')], 'void')} {
+        skeduler.callbacks.delete(id)
+    }
+
+    // =========================== PRIVATE
+    function _sked_createRequest ${Func([
+    Var('skeduler', 'Skeduler'),
+    Var('event', 'SkedEvent'),
+    Var('callback', 'SkedCallback'),
+    Var('mode', 'SkedMode'),
+], 'SkedId')} {
+        const ${Var('id', 'SkedId')} = _sked_nextId(skeduler)
+        const ${Var('request', 'SkedRequest')} = {id, mode}
+        skeduler.callbacks.set(id, callback)
+        if (!skeduler.requests.has(event)) {
+            skeduler.requests.set(event, [request])    
+        } else {
+            skeduler.requests.get(event).push(request)
+        }
+        return id
+    }
+
+    function _sked_nextId ${Func([Var('skeduler', 'Skeduler')], 'SkedId')} {
+        return skeduler.idCounter++
+    }
+`;
+
+/*
+ * Copyright (c) 2022-2023 Sébastien Piquemal <sebpiq@protonmail.com>, Chris McCormick.
+ *
+ * This file is part of WebPd
+ * (see https://github.com/sebpiq/WebPd).
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with this program. If not, see <http://www.gnu.org/licenses/>.
+ */
+const commonsCore = {
+    codeGenerator: ({ macros: { Var, Func } }) => `
+        const _commons_ENGINE_LOGGED_SKEDULER = sked_create(true)
+        const _commons_FRAME_SKEDULER = sked_create(false)
+
+        function _commons_emitEngineConfigure ${Func([], 'void')} {
+            sked_emit(_commons_ENGINE_LOGGED_SKEDULER, 'configure')
+        }
+        
+        function _commons_emitFrame ${Func([Var('frame', 'Int')], 'void')} {
+            sked_emit(_commons_FRAME_SKEDULER, frame.toString())
+        }
+    `,
+    dependencies: [sked],
+};
+const commonsArrays = {
+    codeGenerator: ({ macros: { Var, Func } }) => `
+        const ${Var('_commons_ARRAYS', 'Map<string, FloatArray>')} = new Map()
+        const ${Var('_commons_ARRAYS_SKEDULER', 'Skeduler')} = sked_create(false)
+
+        /** Gets an named array, throwing an error if the array doesn't exist. */
+        function commons_getArray ${Func([Var('arrayName', 'string')], 'FloatArray')} {
+            if (!_commons_ARRAYS.has(arrayName)) {
+                throw new Error('Unknown array ' + arrayName)
+            }
+            return _commons_ARRAYS.get(arrayName)
+        }
+
+        function commons_hasArray ${Func([Var('arrayName', 'string')], 'boolean')} {
+            return _commons_ARRAYS.has(arrayName)
+        }
+
+        function commons_setArray ${Func([Var('arrayName', 'string'), Var('array', 'FloatArray')], 'void')} {
+            _commons_ARRAYS.set(arrayName, array)
+            sked_emit(_commons_ARRAYS_SKEDULER, arrayName)
+        }
+
+        /** 
+         * @param callback Called immediately if the array exists, and subsequently, everytime 
+         * the array is set again.
+         * @returns An id that can be used to cancel the subscription.
+         */
+        function commons_subscribeArrayChanges ${Func([Var('arrayName', 'string'), Var('callback', 'SkedCallback')], 'SkedId')} {
+            const id = sked_subscribe(_commons_ARRAYS_SKEDULER, arrayName, callback)
+            if (_commons_ARRAYS.has(arrayName)) {
+                callback(arrayName)
+            }
+            return id
+        }
+
+        /** 
+         * @param id The id received when subscribing.
+         */
+        function commons_cancelArrayChangesSubscription ${Func([Var('id', 'SkedId')], 'void')} {
+            sked_cancel(_commons_ARRAYS_SKEDULER, id)
+        }
+    `,
+    exports: [{ name: 'commons_getArray' }, { name: 'commons_setArray' }],
+};
+const commonsWaitEngineConfigure = {
+    codeGenerator: ({ macros: { Var, Func } }) => `
+        /** 
+         * @param callback Called when the engine is configured, or immediately if the engine
+         * was already configured.
+         */
+        function commons_waitEngineConfigure ${Func([Var('callback', 'SkedCallback')], 'void')} {
+            sked_wait(_commons_ENGINE_LOGGED_SKEDULER, 'configure', callback)
+        }
+    `,
+    dependencies: [commonsCore],
+};
+const commonsWaitFrame = {
+    codeGenerator: ({ macros: { Var, Func } }) => `
+        /** 
+         * Schedules a callback to be called at the given frame.
+         * If the frame already occurred, or is the current frame, the callback won't be executed.
+         */
+        function commons_waitFrame ${Func([Var('frame', 'Int'), Var('callback', 'SkedCallback')], 'SkedId')} {
+            return sked_wait_future(_commons_FRAME_SKEDULER, frame.toString(), callback)
+        }
+
+        /** 
+         * Cancels waiting for a frame to occur.
+         */
+        function commons_cancelWaitFrame ${Func([Var('id', 'SkedId')], 'void')} {
+            sked_cancel(_commons_FRAME_SKEDULER, id)
+        }
+
+    `,
+    dependencies: [commonsCore],
+};
+
+/*
+ * Copyright (c) 2022-2023 Sébastien Piquemal <sebpiq@protonmail.com>, Chris McCormick.
+ *
+ * This file is part of WebPd
+ * (see https://github.com/sebpiq/WebPd).
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with this program. If not, see <http://www.gnu.org/licenses/>.
+ */
+const core = {
+    codeGenerator: ({ target, audioSettings: { bitDepth } }) => {
+        const Int = 'i32';
+        const Float = bitDepth === 32 ? 'f32' : 'f64';
+        const FloatArray = bitDepth === 32 ? 'Float32Array' : 'Float64Array';
+        const getFloat = bitDepth === 32 ? 'getFloat32' : 'getFloat64';
+        const setFloat = bitDepth === 32 ? 'setFloat32' : 'setFloat64';
+        return renderCode `${renderSwitch([
+            target === 'assemblyscript',
+            `
+                    type FloatArray = ${FloatArray}
+                    type Float = ${Float}
+                    type Int = ${Int}
+
+                    function toInt (v: Float): Int { return ${Int}(v) }
+                    function toFloat (v: Int): Float { return ${Float}(v) }
+                    function createFloatArray (length: Int): FloatArray {
+                        return new ${FloatArray}(length)
+                    }
+                    function setFloatDataView (
+                        dataView: DataView, 
+                        position: Int, 
+                        value: Float,
+                    ): void { dataView.${setFloat}(position, value) }
+                    function getFloatDataView (
+                        dataView: DataView, 
+                        position: Int, 
+                    ): Float { return dataView.${getFloat}(position) }
+
+                    // =========================== EXPORTED API
+                    function x_core_createListOfArrays(): FloatArray[] {
+                        const arrays: FloatArray[] = []
+                        return arrays
+                    }
+
+                    function x_core_pushToListOfArrays(arrays: FloatArray[], array: FloatArray): void {
+                        arrays.push(array)
+                    }
+
+                    function x_core_getListOfArraysLength(arrays: FloatArray[]): Int {
+                        return arrays.length
+                    }
+
+                    function x_core_getListOfArraysElem(arrays: FloatArray[], index: Int): FloatArray {
+                        return arrays[index]
+                    }
+                `,
+        ], [
+            target === 'javascript',
+            `
+                    const i32 = (v) => v
+                    const f32 = i32
+                    const f64 = i32
+                    const toInt = (v) => v
+                    const toFloat = (v) => v
+                    const createFloatArray = (length) => 
+                        new ${FloatArray}(length)
+                    const setFloatDataView = (d, p, v) => d.${setFloat}(p, v)
+                    const getFloatDataView = (d, p) => d.${getFloat}(p)
+                `,
+        ])}`;
+    },
+    exports: [
+        { name: 'x_core_createListOfArrays', targets: ['assemblyscript'] },
+        { name: 'x_core_pushToListOfArrays', targets: ['assemblyscript'] },
+        { name: 'x_core_getListOfArraysLength', targets: ['assemblyscript'] },
+        { name: 'x_core_getListOfArraysElem', targets: ['assemblyscript'] },
+        { name: 'createFloatArray', targets: ['assemblyscript'] },
+    ],
+};
+
+/*
+ * Copyright (c) 2022-2023 Sébastien Piquemal <sebpiq@protonmail.com>, Chris McCormick.
+ *
+ * This file is part of WebPd
+ * (see https://github.com/sebpiq/WebPd).
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with this program. If not, see <http://www.gnu.org/licenses/>.
+ */
+const msg = {
+    codeGenerator: ({ target }) => renderCode `${renderSwitch([
+        target === 'assemblyscript',
+        `
+                    type MessageFloatToken = Float
+                    type MessageCharToken = Int
+
+                    type MessageTemplate = Array<Int>
+                    type MessageHeaderEntry = Int
+                    type MessageHeader = Int32Array
+
+                    const MSG_FLOAT_TOKEN: MessageHeaderEntry = 0
+                    const MSG_STRING_TOKEN: MessageHeaderEntry = 1
+
+
+                    // =========================== EXPORTED API
+                    function x_msg_create(templateTypedArray: Int32Array): Message {
+                        const template: MessageTemplate = new Array<Int>(templateTypedArray.length)
+                        for (let i: Int = 0; i < templateTypedArray.length; i++) {
+                            template[i] = templateTypedArray[i]
+                        }
+                        return msg_create(template)
+                    }
+
+                    function x_msg_getTokenTypes(message: Message): MessageHeader {
+                        return message.tokenTypes
+                    }
+
+                    function x_msg_createTemplate(length: i32): Int32Array {
+                        return new Int32Array(length)
+                    }
+
+
+                    // =========================== MSG API
+                    function msg_create(template: MessageTemplate): Message {
+                        let i: Int = 0
+                        let byteCount: Int = 0
+                        let tokenTypes: Array<MessageHeaderEntry> = []
+                        let tokenPositions: Array<MessageHeaderEntry> = []
+
+                        i = 0
+                        while (i < template.length) {
+                            switch(template[i]) {
+                                case MSG_FLOAT_TOKEN:
+                                    byteCount += sizeof<MessageFloatToken>()
+                                    tokenTypes.push(MSG_FLOAT_TOKEN)
+                                    tokenPositions.push(byteCount)
+                                    i += 1
+                                    break
+                                case MSG_STRING_TOKEN:
+                                    byteCount += sizeof<MessageCharToken>() * template[i + 1]
+                                    tokenTypes.push(MSG_STRING_TOKEN)
+                                    tokenPositions.push(byteCount)
+                                    i += 2
+                                    break
+                                default:
+                                    throw new Error("unknown token type : " + template[i].toString())
+                            }
+                        }
+
+                        const tokenCount = tokenTypes.length
+                        const headerByteCount = _msg_computeHeaderLength(tokenCount) * sizeof<MessageHeaderEntry>()
+                        byteCount += headerByteCount
+
+                        const buffer = new ArrayBuffer(byteCount)
+                        const dataView = new DataView(buffer)
+                        let writePosition: Int = 0
+                        
+                        dataView.setInt32(writePosition, tokenCount)
+                        writePosition += sizeof<MessageHeaderEntry>()
+
+                        for (i = 0; i < tokenCount; i++) {
+                            dataView.setInt32(writePosition, tokenTypes[i])
+                            writePosition += sizeof<MessageHeaderEntry>()
+                        }
+
+                        dataView.setInt32(writePosition, headerByteCount)
+                        writePosition += sizeof<MessageHeaderEntry>()
+                        for (i = 0; i < tokenCount; i++) {
+                            dataView.setInt32(writePosition, headerByteCount + tokenPositions[i])
+                            writePosition += sizeof<MessageHeaderEntry>()
+                        }
+
+                        return new Message(buffer)
+                    }
+
+                    function msg_writeStringToken(
+                        message: Message, 
+                        tokenIndex: Int,
+                        value: string,
+                    ): void {
+                        const startPosition = message.tokenPositions[tokenIndex]
+                        const endPosition = message.tokenPositions[tokenIndex + 1]
+                        const expectedStringLength: Int = (endPosition - startPosition) / sizeof<MessageCharToken>()
+                        if (value.length !== expectedStringLength) {
+                            throw new Error('Invalid string size, specified ' + expectedStringLength.toString() + ', received ' + value.length.toString())
+                        }
+
+                        for (let i = 0; i < value.length; i++) {
+                            message.dataView.setInt32(
+                                startPosition + i * sizeof<MessageCharToken>(), 
+                                value.codePointAt(i)
+                            )
+                        }
+                    }
+
+                    function msg_writeFloatToken(
+                        message: Message, 
+                        tokenIndex: Int,
+                        value: MessageFloatToken,
+                    ): void {
+                        setFloatDataView(message.dataView, message.tokenPositions[tokenIndex], value)
+                    }
+
+                    function msg_readStringToken(
+                        message: Message, 
+                        tokenIndex: Int,
+                    ): string {
+                        const startPosition = message.tokenPositions[tokenIndex]
+                        const endPosition = message.tokenPositions[tokenIndex + 1]
+                        const stringLength: Int = (endPosition - startPosition) / sizeof<MessageCharToken>()
+                        let value: string = ''
+                        for (let i = 0; i < stringLength; i++) {
+                            value += String.fromCodePoint(message.dataView.getInt32(startPosition + sizeof<MessageCharToken>() * i))
+                        }
+                        return value
+                    }
+
+                    function msg_readFloatToken(
+                        message: Message, 
+                        tokenIndex: Int,
+                    ): MessageFloatToken {
+                        return getFloatDataView(message.dataView, message.tokenPositions[tokenIndex])
+                    }
+
+                    function msg_getLength(message: Message): Int {
+                        return message.tokenTypes.length
+                    }
+
+                    function msg_getTokenType(message: Message, tokenIndex: Int): Int {
+                        return message.tokenTypes[tokenIndex]
+                    }
+
+                    function msg_isStringToken(
+                        message: Message, 
+                        tokenIndex: Int    
+                    ): boolean {
+                        return msg_getTokenType(message, tokenIndex) === MSG_STRING_TOKEN
+                    }
+
+                    function msg_isFloatToken(
+                        message: Message, 
+                        tokenIndex: Int    
+                    ): boolean {
+                        return msg_getTokenType(message, tokenIndex) === MSG_FLOAT_TOKEN
+                    }
+
+                    function msg_isMatching(message: Message, tokenTypes: Array<MessageHeaderEntry>): boolean {
+                        if (message.tokenTypes.length !== tokenTypes.length) {
+                            return false
+                        }
+                        for (let i: Int = 0; i < tokenTypes.length; i++) {
+                            if (message.tokenTypes[i] !== tokenTypes[i]) {
+                                return false
+                            }
+                        }
+                        return true
+                    }
+
+                    function msg_floats(values: Array<Float>): Message {
+                        const message: Message = msg_create(values.map<MessageHeaderEntry>(v => MSG_FLOAT_TOKEN))
+                        for (let i: Int = 0; i < values.length; i++) {
+                            msg_writeFloatToken(message, i, values[i])
+                        }
+                        return message
+                    }
+
+                    function msg_strings(values: Array<string>): Message {
+                        const template: MessageTemplate = []
+                        for (let i: Int = 0; i < values.length; i++) {
+                            template.push(MSG_STRING_TOKEN)
+                            template.push(values[i].length)
+                        }
+                        const message: Message = msg_create(template)
+                        for (let i: Int = 0; i < values.length; i++) {
+                            msg_writeStringToken(message, i, values[i])
+                        }
+                        return message
+                    }
+
+                    function msg_display(message: Message): string {
+                        let displayArray: Array<string> = []
+                        for (let i: Int = 0; i < msg_getLength(message); i++) {
+                            if (msg_isFloatToken(message, i)) {
+                                displayArray.push(msg_readFloatToken(message, i).toString())
+                            } else {
+                                displayArray.push('"' + msg_readStringToken(message, i) + '"')
+                            }
+                        }
+                        return '[' + displayArray.join(', ') + ']'
+                    }
+
+
+                    // =========================== PRIVATE
+                    // Message header : [
+                    //      <Token count>, 
+                    //      <Token 1 type>,  ..., <Token N type>, 
+                    //      <Token 1 start>, ..., <Token N start>, <Token N end>
+                    //      ... DATA ...
+                    // ]
+                    class Message {
+                        public dataView: DataView
+                        public header: MessageHeader
+                        public tokenCount: MessageHeaderEntry
+                        public tokenTypes: MessageHeader
+                        public tokenPositions: MessageHeader
+
+                        constructor(messageBuffer: ArrayBuffer) {
+                            const dataView = new DataView(messageBuffer)
+                            const tokenCount = _msg_unpackTokenCount(dataView)
+                            const header = _msg_unpackHeader(dataView, tokenCount)
+                            this.dataView = dataView
+                            this.tokenCount = tokenCount
+                            this.header = header 
+                            this.tokenTypes = _msg_unpackTokenTypes(header)
+                            this.tokenPositions = _msg_unpackTokenPositions(header)
+                        }
+                    }
+
+                    function _msg_computeHeaderLength(tokenCount: Int): Int {
+                        return 1 + tokenCount * 2 + 1
+                    }
+
+                    function _msg_unpackTokenCount(messageDataView: DataView): MessageHeaderEntry {
+                        return messageDataView.getInt32(0)
+                    }
+
+                    function _msg_unpackHeader(messageDataView: DataView, tokenCount: MessageHeaderEntry): MessageHeader {
+                        const headerLength = _msg_computeHeaderLength(tokenCount)
+                        // TODO : why is this \`wrap\` not working ?
+                        // return Int32Array.wrap(messageDataView.buffer, 0, headerLength)
+                        const messageHeader = new Int32Array(headerLength)
+                        for (let i = 0; i < headerLength; i++) {
+                            messageHeader[i] = messageDataView.getInt32(sizeof<MessageHeaderEntry>() * i)
+                        }
+                        return messageHeader
+                    }
+
+                    function _msg_unpackTokenTypes(header: MessageHeader): MessageHeader {
+                        return header.slice(1, 1 + header[0])
+                    }
+
+                    function _msg_unpackTokenPositions(header: MessageHeader): MessageHeader {
+                        return header.slice(1 + header[0])
+                    }
+                `,
+    ], [
+        target === 'javascript',
+        `
+                    const MSG_FLOAT_TOKEN = "number"
+                    const MSG_STRING_TOKEN = "string"
+                    const msg_create = (template) => {
+                        const m = []
+                        let i = 0
+                        while (i < template.length) {
+                            if (template[i] === MSG_STRING_TOKEN) {
+                                m.push('')
+                                i += 2
+                            } else if (template[i] === MSG_FLOAT_TOKEN) {
+                                m.push(0)
+                                i += 1
+                            }
+                        }
+                        return m
+                    }
+                    const msg_getLength = (m) => m.length
+                    const msg_getTokenType = (m, i) => typeof m[i]
+                    const msg_isStringToken = (m, i) => msg_getTokenType(m, i) === 'string'
+                    const msg_isFloatToken = (m, i) => msg_getTokenType(m, i) === 'number'
+                    const msg_isMatching = (m, tokenTypes) => {
+                        return (m.length === tokenTypes.length) 
+                            && m.every((v, i) => msg_getTokenType(m, i) === tokenTypes[i])
+                    }
+                    const msg_writeFloatToken = ( m, i, v ) => m[i] = v
+                    const msg_writeStringToken = msg_writeFloatToken
+                    const msg_readFloatToken = ( m, i ) => m[i]
+                    const msg_readStringToken = msg_readFloatToken
+                    const msg_floats = (v) => v
+                    const msg_strings = (v) => v
+                    const msg_display = (m) => '[' + m
+                        .map(t => typeof t === 'string' ? '"' + t + '"' : t.toString())
+                        .join(', ') + ']'
+            `,
+    ])}`,
+    exports: [
+        { name: 'x_msg_create', targets: ['assemblyscript'] },
+        { name: 'x_msg_getTokenTypes', targets: ['assemblyscript'] },
+        { name: 'x_msg_createTemplate', targets: ['assemblyscript'] },
+        { name: 'msg_writeStringToken', targets: ['assemblyscript'] },
+        { name: 'msg_writeFloatToken', targets: ['assemblyscript'] },
+        { name: 'msg_readStringToken', targets: ['assemblyscript'] },
+        { name: 'msg_readFloatToken', targets: ['assemblyscript'] },
+        { name: 'MSG_FLOAT_TOKEN', targets: ['assemblyscript'] },
+        { name: 'MSG_STRING_TOKEN', targets: ['assemblyscript'] },
+    ],
+};
+
+/*
+ * Copyright (c) 2022-2023 Sébastien Piquemal <sebpiq@protonmail.com>, Chris McCormick.
+ *
+ * This file is part of WebPd
+ * (see https://github.com/sebpiq/WebPd).
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with this program. If not, see <http://www.gnu.org/licenses/>.
+ */
 const getNode = (graph, nodeId) => {
     const node = graph[nodeId];
     if (node) {
@@ -1195,15 +1866,6 @@ const getOutlet = (node, outletId) => {
 const getSinks = (node, outletId) => node.sinks[outletId] || [];
 /** Returns the list of sources for the inlet or an empty list. */
 const getSources = (node, inletId) => node.sources[inletId] || [];
-
-var graphGetters = /*#__PURE__*/Object.freeze({
-    __proto__: null,
-    getInlet: getInlet,
-    getNode: getNode,
-    getOutlet: getOutlet,
-    getSinks: getSinks,
-    getSources: getSources
-});
 
 /*
  * Copyright (c) 2022-2023 Sébastien Piquemal <sebpiq@protonmail.com>, Chris McCormick.
@@ -1276,42 +1938,19 @@ const _messageNodesDepthFirstRecursive = (traversal, graph, node) => {
         });
     });
 };
-const listConnectionsIn = (sources, nodeId) => {
-    return Object.entries(sources).reduce((previousResults, [inletId, sources]) => {
-        return [
-            ...previousResults,
-            ...sources.map((source) => [
-                source,
-                {
-                    nodeId,
-                    portletId: inletId,
-                },
-            ]),
-        ];
-    }, []);
-};
-const listConnectionsOut = (sinks, nodeId) => {
-    return Object.entries(sinks).reduce((previousResults, [outletId, sinks]) => {
-        return [
-            ...previousResults,
-            ...sinks.map((sink) => [
-                {
-                    nodeId,
-                    portletId: outletId,
-                },
-                sink,
-            ]),
-        ];
-    }, []);
-};
 /**
  * Remove dead sinks and sources in graph.
+ * @param graphTraversal contains all nodes that are connected to
+ * an input or output of the graph.
  */
-const trimGraph = (graph, graphTraversal) => mapArray(Object.values(graph).filter((node) => graphTraversal.includes(node.id)), (node) => [node.id, {
+const trimGraph = (graph, graphTraversal) => mapArray(Object.values(graph).filter((node) => graphTraversal.includes(node.id)), (node) => [
+    node.id,
+    {
         ...node,
         sources: removeDeadSources(node.sources, graphTraversal),
         sinks: removeDeadSinks(node.sinks, graphTraversal),
-    }]);
+    },
+]);
 /**
  * When `node` has a sink node that is not connected to an end sink, that sink node won't be included
  * in the traversal, but will still appear in `node.sinks`.
@@ -1343,17 +1982,6 @@ const removeDeadSources = (sources, graphTraversal) => {
     return filteredSources;
 };
 
-var graphTraversal = /*#__PURE__*/Object.freeze({
-    __proto__: null,
-    listConnectionsIn: listConnectionsIn,
-    listConnectionsOut: listConnectionsOut,
-    messageNodes: messageNodes,
-    removeDeadSinks: removeDeadSinks,
-    removeDeadSources: removeDeadSources,
-    signalNodes: signalNodes,
-    trimGraph: trimGraph
-});
-
 /*
  * Copyright (c) 2022-2023 Sébastien Piquemal <sebpiq@protonmail.com>, Chris McCormick.
  *
@@ -1381,10 +2009,10 @@ const getNodeImplementation = (nodeImplementations, nodeType) => {
     }
     return {
         stateVariables: {},
-        declare: () => '',
-        loop: () => '',
-        messages: () => ({}),
-        sharedCode: [],
+        generateDeclarations: () => '',
+        generateLoop: () => '',
+        generateMessageReceivers: () => ({}),
+        dependencies: [],
         ...nodeImplementation,
     };
 };
@@ -1418,8 +2046,8 @@ const buildMetadata = (compilation) => {
  * by precompilation and don't need to be dealt with further.
  */
 const preCompileSignalAndMessageFlow = (compilation) => {
-    const { graph, graphTraversal, codeVariableNames, inletCallerSpecs, outletListenerSpecs, } = compilation;
-    const graphTraversalNodes = graphTraversal.map((nodeId) => getNode(graph, nodeId));
+    const { graph, graphTraversalDeclare, codeVariableNames, inletCallerSpecs, outletListenerSpecs, } = compilation;
+    const graphTraversalNodes = graphTraversalDeclare.map((nodeId) => getNode(graph, nodeId));
     const precompiledInlets = {};
     const precompiledOutlets = {};
     const _pushEntry = (portletsIndex, nodeId, portletId) => {
@@ -1506,48 +2134,90 @@ const preCompileSignalAndMessageFlow = (compilation) => {
     compilation.precompiledPortlets.precompiledInlets = precompiledInlets;
     compilation.precompiledPortlets.precompiledOutlets = precompiledOutlets;
 };
-const replaceCoreCodePlaceholders = (bitDepth, code) => {
-    const Int = 'i32';
-    const Float = bitDepth === 32 ? 'f32' : 'f64';
-    const FloatArray = bitDepth === 32 ? 'Float32Array' : 'Float64Array';
-    const getFloat = bitDepth === 32 ? 'getFloat32' : 'getFloat64';
-    const setFloat = bitDepth === 32 ? 'setFloat32' : 'setFloat64';
-    return code
-        .replaceAll('${Int}', Int)
-        .replaceAll('${Float}', Float)
-        .replaceAll('${FloatArray}', FloatArray)
-        .replaceAll('${getFloat}', getFloat)
-        .replaceAll('${setFloat}', setFloat)
-        .replaceAll('${FS_OPERATION_SUCCESS}', FS_OPERATION_SUCCESS.toString())
-        .replaceAll('${FS_OPERATION_FAILURE}', FS_OPERATION_FAILURE.toString());
-};
 /**
- * Build graph traversal for the compilation.
- * We first put nodes that push messages, so they have the opportunity
- * to change the engine state before running the loop.
- * !!! This is not fullproof ! For example if a node is pushing messages
- * but also writing signal outputs, it might be run too early / too late.
+ * Build graph traversal for declaring nodes.
+ * This should be exhaustive so that all nodes that are connected
+ * to an input or output of the graph are declared correctly.
+ * Order of nodes doesn't matter.
  * @TODO : outletListeners should also be included ?
  */
-const graphTraversalForCompile = (graph, inletCallerSpecs) => {
+const buildGraphTraversalDeclare = (graph, inletCallerSpecs) => {
     const nodesPullingSignal = Object.values(graph).filter((node) => !!node.isPullingSignal);
     const nodesPushingMessages = Object.values(graph).filter((node) => !!node.isPushingMessages);
     Object.keys(inletCallerSpecs).forEach((nodeId) => {
-        if (nodesPushingMessages.find(node => node.id === nodeId)) {
+        if (nodesPushingMessages.find((node) => node.id === nodeId)) {
             return;
         }
         nodesPushingMessages.push(getNode(graph, nodeId));
     });
-    const graphTraversalSignal = messageNodes(graph, nodesPushingMessages);
-    const combined = graphTraversalSignal;
+    return Array.from(new Set([
+        ...messageNodes(graph, nodesPushingMessages),
+        ...signalNodes(graph, nodesPullingSignal),
+    ]));
+};
+/**
+ * Build graph traversal for the declaring nodes.
+ * We first put nodes that push messages, so they have the opportunity
+ * to change the engine state before running the loop.
+ * !!! If a node is pushing messages but also writing signal outputs,
+ * it will not be ran first, and stay in the signal flow.
+ */
+const buildGraphTraversalLoop = (graph) => {
+    const nodesPullingSignal = Object.values(graph).filter((node) => !!node.isPullingSignal);
+    const nodesPushingMessages = Object.values(graph).filter((node) => !!node.isPushingMessages);
+    const combined = nodesPushingMessages.map((node) => node.id);
     signalNodes(graph, nodesPullingSignal).forEach((nodeId) => {
-        if (combined.indexOf(nodeId) === -1) {
-            combined.push(nodeId);
+        // If a node is already in the traversal, because it's puhsing messages,
+        // we prefer to remove it and put it after so that we keep the signal traversal
+        // order unchanged.
+        if (combined.includes(nodeId)) {
+            combined.splice(combined.indexOf(nodeId), 1);
         }
+        combined.push(nodeId);
     });
     return combined;
 };
-const getFloatArrayType = (bitDepth) => bitDepth === 64 ? Float64Array : Float32Array;
+const engineMinimalDependencies = () => [
+    core,
+    commonsCore,
+    msg,
+];
+const collectDependenciesFromTraversal = (compilation) => {
+    const { graphTraversalDeclare, graph, nodeImplementations } = compilation;
+    return graphTraversalDeclare.reduce((definitions, nodeId) => [
+        ...definitions,
+        ...getNodeImplementation(nodeImplementations, getNode(graph, nodeId).type).dependencies,
+    ], []);
+};
+const collectExports = (target, dependencies) => _collectExportsRecursive(dependencies)
+    .filter((xprt) => !xprt.targets || xprt.targets.includes(target))
+    .reduce(
+// De-duplicate exports
+(exports, xprt) => exports.some((otherExport) => xprt.name === otherExport.name)
+    ? exports
+    : [...exports, xprt], []);
+const collectImports = (dependencies) => _collectImportsRecursive(dependencies).reduce(
+// De-duplicate imports
+(imports, imprt) => imports.some((otherImport) => imprt.name === otherImport.name)
+    ? imports
+    : [...imports, imprt], []);
+const _collectExportsRecursive = (dependencies) => dependencies
+    .filter(isGlobalDefinitionWithSettings)
+    .flatMap((globalCodeDefinition) => [
+    ...(globalCodeDefinition.dependencies
+        ? _collectExportsRecursive(globalCodeDefinition.dependencies)
+        : []),
+    ...(globalCodeDefinition.exports || []),
+]);
+const _collectImportsRecursive = (dependencies) => dependencies
+    .filter(isGlobalDefinitionWithSettings)
+    .flatMap((globalCodeDefinition) => [
+    ...(globalCodeDefinition.dependencies
+        ? _collectImportsRecursive(globalCodeDefinition.dependencies)
+        : []),
+    ...(globalCodeDefinition.imports || []),
+]);
+const isGlobalDefinitionWithSettings = (globalCodeDefinition) => !(typeof globalCodeDefinition === 'function');
 
 /*
  * Copyright (c) 2022-2023 Sébastien Piquemal <sebpiq@protonmail.com>, Chris McCormick.
@@ -1568,42 +2238,48 @@ const getFloatArrayType = (bitDepth) => bitDepth === 64 ? Float64Array : Float32
  * You should have received a copy of the GNU Lesser General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
-var compileDeclare = (compilation) => {
-    const { graph, graphTraversal, macros, codeVariableNames, nodeImplementations, outletListenerSpecs, precompiledPortlets: { precompiledInlets, precompiledOutlets }, debug, } = compilation;
-    const graphTraversalNodes = graphTraversal.map((nodeId) => getNode(graph, nodeId));
-    const { Var, Func } = macros;
-    const { globs } = codeVariableNames;
-    const sharedCode = new Set();
-    const _isInletAlreadyHandled = (nodeId, portletId) => (precompiledInlets[nodeId] || []).includes(portletId);
-    const _isOutletAlreadyHandled = (nodeId, portletId) => (precompiledOutlets[nodeId] || []).includes(portletId);
-    // prettier-ignore
-    return renderCode `
+var generateDeclarationsGlobals = ({ macros: { Var, Func }, codeVariableNames: { globs }, }) => 
+// prettier-ignore
+`
         let ${Var(globs.iterFrame, 'Int')} = 0
         let ${Var(globs.frame, 'Int')} = 0
         let ${Var(globs.blockSize, 'Int')} = 0
         let ${Var(globs.sampleRate, 'Float')} = 0
         function ${globs.nullMessageReceiver} ${Func([Var('m', 'Message')], 'void')} {}
+    `;
 
-
-        ${graphTraversalNodes.map(node => {
-        // 0. De-duplicate and insert shared code required by nodes
-        const nodeImplementation = getNodeImplementation(nodeImplementations, node.type);
-        return nodeImplementation.sharedCode.map(codeGenerator => codeGenerator({ macros }))
-            .filter(code => {
-            if (sharedCode.has(code)) {
-                return false;
-            }
-            else {
-                sharedCode.add(code);
-                return true;
-            }
-        });
-    })}
-
+/*
+ * Copyright (c) 2022-2023 Sébastien Piquemal <sebpiq@protonmail.com>, Chris McCormick.
+ *
+ * This file is part of WebPd
+ * (see https://github.com/sebpiq/WebPd).
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with this program. If not, see <http://www.gnu.org/licenses/>.
+ */
+var generateDeclarationsGraph = (compilation) => {
+    const { graph, graphTraversalDeclare, macros, codeVariableNames, nodeImplementations, outletListenerSpecs, precompiledPortlets: { precompiledInlets, precompiledOutlets }, debug, } = compilation;
+    const graphTraversalNodes = graphTraversalDeclare.map((nodeId) => getNode(graph, nodeId));
+    const { Var, Func } = macros;
+    const { globs } = codeVariableNames;
+    const _isInletAlreadyHandled = (nodeId, portletId) => (precompiledInlets[nodeId] || []).includes(portletId);
+    const _isOutletAlreadyHandled = (nodeId, portletId) => (precompiledOutlets[nodeId] || []).includes(portletId);
+    // prettier-ignore
+    return renderCode `
         ${graphTraversalNodes.map(node => {
         const { ins, outs, rcvs, snds, state } = codeVariableNames.nodes[node.id];
         const nodeImplementation = getNodeImplementation(nodeImplementations, node.type);
-        const nodeMessageReceivers = nodeImplementation.messages({
+        const nodeMessageReceivers = nodeImplementation.generateMessageReceivers({
             macros, globs, state, snds, node, compilation
         });
         return [
@@ -1635,7 +2311,7 @@ var compileDeclare = (compilation) => {
                         `;
             }),
             // 3. Custom declarations for the node
-            nodeImplementation.declare({
+            nodeImplementation.generateDeclarations({
                 macros, globs, state, snds, node, compilation
             }),
         ];
@@ -1688,10 +2364,10 @@ var compileDeclare = (compilation) => {
  * You should have received a copy of the GNU Lesser General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
-var compileLoop = (compilation) => {
-    const { graph, graphTraversal, codeVariableNames, macros, nodeImplementations, } = compilation;
+var generateLoop$m = (compilation) => {
+    const { graph, graphTraversalLoop, codeVariableNames, macros, nodeImplementations, } = compilation;
     const { globs } = codeVariableNames;
-    const graphTraversalNodes = graphTraversal.map((nodeId) => getNode(graph, nodeId));
+    const graphTraversalNodes = graphTraversalLoop.map((nodeId) => getNode(graph, nodeId));
     // prettier-ignore
     return renderCode `
         for (${globs.iterFrame} = 0; ${globs.iterFrame} < ${globs.blockSize}; ${globs.iterFrame}++) {
@@ -1701,7 +2377,7 @@ var compileLoop = (compilation) => {
         const nodeImplementation = getNodeImplementation(nodeImplementations, node.type);
         return [
             // 1. Node loop implementation
-            nodeImplementation.loop({
+            nodeImplementation.generateLoop({
                 macros,
                 globs,
                 node,
@@ -1718,13 +2394,38 @@ var compileLoop = (compilation) => {
     `;
 };
 
-var BUF_JS = "/*\n * Copyright (c) 2012-2020 Sébastien Piquemal <sebpiq@gmail.com>\n *\n * BSD Simplified License.\n * For information on usage and redistribution, and for a DISCLAIMER OF ALL\n * WARRANTIES, see the file, \"LICENSE.txt,\" in this distribution.\n *\n * See https://github.com/sebpiq/WebPd_pd-parser for documentation\n *\n */\n// =========================== BUF API\n/**\n * Ring buffer\n */\nclass buf_SoundBuffer {\n    constructor(length) {\n        this.length = length;\n        this.data = createFloatArray(length);\n        this.writeCursor = 0;\n        this.pullAvailableLength = 0;\n    }\n}\n/** Erases all the content from the buffer */\nfunction buf_create(length) {\n    return new buf_SoundBuffer(length);\n}\n/** Erases all the content from the buffer */\nfunction buf_clear(buffer) {\n    buffer.data.fill(0);\n}\n/**\n * Pushes a block to the buffer, throwing an error if the buffer is full.\n * If the block is written successfully, {@link buf_SoundBuffer#writeCursor}\n * is moved corresponding with the length of data written.\n *\n * @todo : Optimize by allowing to read/write directly from host\n */\nfunction buf_pushBlock(buffer, block) {\n    if (buffer.pullAvailableLength + block.length > buffer.length) {\n        throw new Error('buffer full');\n    }\n    let left = block.length;\n    while (left > 0) {\n        const lengthToWrite = toInt(Math.min(toFloat(buffer.length - buffer.writeCursor), toFloat(left)));\n        buffer.data.set(block.subarray(block.length - left, block.length - left + lengthToWrite), buffer.writeCursor);\n        left -= lengthToWrite;\n        buffer.writeCursor = (buffer.writeCursor + lengthToWrite) % buffer.length;\n        buffer.pullAvailableLength += lengthToWrite;\n    }\n    return buffer.pullAvailableLength;\n}\n/**\n * Pulls a single sample from the buffer.\n * This is a destructive operation, and the sample will be\n * unavailable for subsequent readers with the same operation.\n */\nfunction buf_pullSample(buffer) {\n    if (buffer.pullAvailableLength <= 0) {\n        return 0;\n    }\n    const readCursor = buffer.writeCursor - buffer.pullAvailableLength;\n    buffer.pullAvailableLength -= 1;\n    return buffer.data[readCursor >= 0 ? readCursor : buffer.length + readCursor];\n}\n/**\n * Writes a sample at `@link writeCursor` and increments `writeCursor` by one.\n */\nfunction buf_writeSample(buffer, value) {\n    buffer.data[buffer.writeCursor] = value;\n    buffer.writeCursor = (buffer.writeCursor + 1) % buffer.length;\n}\n/**\n * Reads the sample at position `writeCursor - offset`.\n * @param offset Must be between 0 (for reading the last written sample)\n *  and {@link buf_SoundBuffer#length} - 1. A value outside these bounds will not cause\n *  an error, but might cause unexpected results.\n */\nfunction buf_readSample(buffer, offset) {\n    // R = (buffer.writeCursor - 1 - offset) -> ideal read position\n    // W = R % buffer.length -> wrap it so that its within buffer length bounds (but could be negative)\n    // (W + buffer.length) % buffer.length -> if W negative, (W + buffer.length) shifts it back to positive.\n    return buffer.data[(buffer.length + ((buffer.writeCursor - 1 - offset) % buffer.length)) % buffer.length];\n}\n";
-
-var SKED_JS = "/*\n * Copyright (c) 2012-2020 Sébastien Piquemal <sebpiq@gmail.com>\n *\n * BSD Simplified License.\n * For information on usage and redistribution, and for a DISCLAIMER OF ALL\n * WARRANTIES, see the file, \"LICENSE.txt,\" in this distribution.\n *\n * See https://github.com/sebpiq/WebPd_pd-parser for documentation\n *\n */\n/**\n * Skeduler id that will never be used.\n * Can be used as a \"no id\", or \"null\" value.\n */\nconst SKED_ID_NULL = -1;\nconst SKED_ID_COUNTER_INIT = 1;\nconst _SKED_WAIT_IN_PROGRESS = 0;\nconst _SKED_WAIT_OVER = 1;\nconst _SKED_MODE_WAIT = 0;\nconst _SKED_MODE_SUBSCRIBE = 1;\n// =========================== SKED API\nclass SkedRequest {\n}\nclass Skeduler {\n}\n/** Creates a new Skeduler. */\nfunction sked_create(isLoggingEvents) {\n    return {\n        eventLog: new Set(),\n        requests: new Map(),\n        callbacks: new Map(),\n        idCounter: SKED_ID_COUNTER_INIT,\n        isLoggingEvents,\n    };\n}\n/**\n * Asks the skeduler to wait for an event to occur and trigger a callback.\n * If the event has already occurred, the callback is triggered instantly\n * when calling the function.\n * Once triggered, the callback is forgotten.\n * @returns an id allowing to cancel the callback with {@link sked_cancel}\n */\nfunction sked_wait(skeduler, event, callback) {\n    if (skeduler.isLoggingEvents === false) {\n        throw new Error(\"Please activate skeduler's isLoggingEvents\");\n    }\n    if (skeduler.eventLog.has(event)) {\n        callback(event);\n        return SKED_ID_NULL;\n    }\n    else {\n        return _sked_createRequest(skeduler, event, callback, _SKED_MODE_WAIT);\n    }\n}\n/**\n * Asks the skeduler to wait for an event to occur and trigger a callback.\n * If the event has already occurred, the callback is NOT triggered.\n * Once triggered, the callback is forgotten.\n * @returns an id allowing to cancel the callback with {@link sked_cancel}\n */\nfunction sked_wait_future(skeduler, event, callback) {\n    return _sked_createRequest(skeduler, event, callback, _SKED_MODE_WAIT);\n}\n/**\n * Asks the skeduler to trigger a callback everytime an event occurs\n * @returns an id allowing to cancel the callback with {@link sked_cancel}\n */\nfunction sked_subscribe(skeduler, event, callback) {\n    return _sked_createRequest(skeduler, event, callback, _SKED_MODE_SUBSCRIBE);\n}\n/** Notifies the skeduler that an event has just occurred. */\nfunction sked_emit(skeduler, event) {\n    if (skeduler.isLoggingEvents === true) {\n        skeduler.eventLog.add(event);\n    }\n    if (skeduler.requests.has(event)) {\n        const requests = skeduler.requests.get(event);\n        const requestsStaying = [];\n        for (let i = 0; i < requests.length; i++) {\n            const request = requests[i];\n            if (skeduler.callbacks.has(request.id)) {\n                skeduler.callbacks.get(request.id)(event);\n                if (request.mode === _SKED_MODE_WAIT) {\n                    skeduler.callbacks.delete(request.id);\n                }\n                else {\n                    requestsStaying.push(request);\n                }\n            }\n        }\n        skeduler.requests.set(event, requestsStaying);\n    }\n}\n/** Cancels a callback */\nfunction sked_cancel(skeduler, id) {\n    skeduler.callbacks.delete(id);\n}\n// =========================== PRIVATE\nfunction _sked_createRequest(skeduler, event, callback, mode) {\n    const id = _sked_nextId(skeduler);\n    const request = { id, mode };\n    skeduler.callbacks.set(id, callback);\n    if (!skeduler.requests.has(event)) {\n        skeduler.requests.set(event, [request]);\n    }\n    else {\n        skeduler.requests.get(event).push(request);\n    }\n    return id;\n}\nfunction _sked_nextId(skeduler) {\n    return skeduler.idCounter++;\n}\n";
-
-var FS_JS = "/*\n * Copyright (c) 2012-2020 Sébastien Piquemal <sebpiq@gmail.com>\n *\n * BSD Simplified License.\n * For information on usage and redistribution, and for a DISCLAIMER OF ALL\n * WARRANTIES, see the file, \"LICENSE.txt,\" in this distribution.\n *\n * See https://github.com/sebpiq/WebPd_pd-parser for documentation\n *\n */\nconst _FS_OPERATIONS_IDS = new Set();\nconst _FS_OPERATIONS_CALLBACKS = new Map();\nconst _FS_OPERATIONS_SOUND_CALLBACKS = new Map();\nconst _FS_SOUND_STREAM_BUFFERS = new Map();\n// We start at 1, because 0 is what ASC uses when host forgets to pass an arg to \n// a function. Therefore we can get false negatives when a test happens to expect a 0.\nlet _FS_OPERATION_COUNTER = 1;\nconst _FS_SOUND_BUFFER_LENGTH = 20 * 44100;\n// =========================== EXPORTED API\nfunction x_fs_onReadSoundFileResponse(id, status, sound) {\n    _fs_assertOperationExists(id, 'x_fs_onReadSoundFileResponse');\n    _FS_OPERATIONS_IDS.delete(id);\n    // Finish cleaning before calling the callback in case it would throw an error.\n    const callback = _FS_OPERATIONS_SOUND_CALLBACKS.get(id);\n    callback(id, status, sound);\n    _FS_OPERATIONS_SOUND_CALLBACKS.delete(id);\n}\nfunction x_fs_onWriteSoundFileResponse(id, status) {\n    _fs_assertOperationExists(id, 'x_fs_onWriteSoundFileResponse');\n    _FS_OPERATIONS_IDS.delete(id);\n    // Finish cleaning before calling the callback in case it would throw an error.\n    const callback = _FS_OPERATIONS_CALLBACKS.get(id);\n    callback(id, status);\n    _FS_OPERATIONS_CALLBACKS.delete(id);\n}\nfunction x_fs_onSoundStreamData(id, block) {\n    _fs_assertOperationExists(id, 'x_fs_onSoundStreamData');\n    const buffers = _FS_SOUND_STREAM_BUFFERS.get(id);\n    for (let i = 0; i < buffers.length; i++) {\n        buf_pushBlock(buffers[i], block[i]);\n    }\n    return buffers[0].pullAvailableLength;\n}\nfunction x_fs_onCloseSoundStream(id, status) {\n    fs_closeSoundStream(id, status);\n}\n// =========================== FS API\nclass fs_SoundInfo {\n}\nfunction fs_readSoundFile(url, soundInfo, callback) {\n    const id = _fs_createOperationId();\n    _FS_OPERATIONS_SOUND_CALLBACKS.set(id, callback);\n    i_fs_readSoundFile(id, url, fs_soundInfoToMessage(soundInfo));\n    return id;\n}\nfunction fs_writeSoundFile(sound, url, soundInfo, callback) {\n    const id = _fs_createOperationId();\n    _FS_OPERATIONS_CALLBACKS.set(id, callback);\n    i_fs_writeSoundFile(id, sound, url, fs_soundInfoToMessage(soundInfo));\n    return id;\n}\nfunction fs_openSoundReadStream(url, soundInfo, callback) {\n    const id = _fs_createOperationId();\n    const buffers = [];\n    for (let channel = 0; channel < soundInfo.channelCount; channel++) {\n        buffers.push(new buf_SoundBuffer(_FS_SOUND_BUFFER_LENGTH));\n    }\n    _FS_SOUND_STREAM_BUFFERS.set(id, buffers);\n    _FS_OPERATIONS_CALLBACKS.set(id, callback);\n    i_fs_openSoundReadStream(id, url, fs_soundInfoToMessage(soundInfo));\n    return id;\n}\nfunction fs_openSoundWriteStream(url, soundInfo, callback) {\n    const id = _fs_createOperationId();\n    _FS_SOUND_STREAM_BUFFERS.set(id, []);\n    _FS_OPERATIONS_CALLBACKS.set(id, callback);\n    i_fs_openSoundWriteStream(id, url, fs_soundInfoToMessage(soundInfo));\n    return id;\n}\nfunction fs_sendSoundStreamData(id, block) {\n    _fs_assertOperationExists(id, 'fs_sendSoundStreamData');\n    i_fs_sendSoundStreamData(id, block);\n}\nfunction fs_closeSoundStream(id, status) {\n    if (!_FS_OPERATIONS_IDS.has(id)) {\n        return;\n    }\n    _FS_OPERATIONS_IDS.delete(id);\n    _FS_OPERATIONS_CALLBACKS.get(id)(id, status);\n    _FS_OPERATIONS_CALLBACKS.delete(id);\n    // Delete this last, to give the callback \n    // a chance to save a reference to the buffer\n    // If write stream, there won't be a buffer\n    if (_FS_SOUND_STREAM_BUFFERS.has(id)) {\n        _FS_SOUND_STREAM_BUFFERS.delete(id);\n    }\n    i_fs_closeSoundStream(id, status);\n}\nfunction fs_soundInfoToMessage(soundInfo) {\n    const info = msg_create([\n        MSG_FLOAT_TOKEN,\n        MSG_FLOAT_TOKEN,\n        MSG_FLOAT_TOKEN,\n        MSG_STRING_TOKEN,\n        soundInfo.encodingFormat.length,\n        MSG_STRING_TOKEN,\n        soundInfo.endianness.length,\n        MSG_STRING_TOKEN,\n        soundInfo.extraOptions.length\n    ]);\n    msg_writeFloatToken(info, 0, toFloat(soundInfo.channelCount));\n    msg_writeFloatToken(info, 1, toFloat(soundInfo.sampleRate));\n    msg_writeFloatToken(info, 2, toFloat(soundInfo.bitDepth));\n    msg_writeStringToken(info, 3, soundInfo.encodingFormat);\n    msg_writeStringToken(info, 4, soundInfo.endianness);\n    msg_writeStringToken(info, 5, soundInfo.extraOptions);\n    return info;\n}\n// =========================== PRIVATE\nfunction _fs_createOperationId() {\n    const id = _FS_OPERATION_COUNTER++;\n    _FS_OPERATIONS_IDS.add(id);\n    return id;\n}\nfunction _fs_assertOperationExists(id, operationName) {\n    if (!_FS_OPERATIONS_IDS.has(id)) {\n        throw new Error(operationName + ' operation unknown : ' + id.toString());\n    }\n}\n";
-
-var COMMONS_JS = "/*\n * Copyright (c) 2012-2020 Sébastien Piquemal <sebpiq@gmail.com>\n *\n * BSD Simplified License.\n * For information on usage and redistribution, and for a DISCLAIMER OF ALL\n * WARRANTIES, see the file, \"LICENSE.txt,\" in this distribution.\n *\n * See https://github.com/sebpiq/WebPd_pd-parser for documentation\n *\n */\nconst _commons_ARRAYS = new Map();\nconst _commons_ARRAYS_SKEDULER = sked_create(false);\nconst _commons_ENGINE_LOGGED_SKEDULER = sked_create(true);\nconst _commons_FRAME_SKEDULER = sked_create(false);\n// =========================== COMMONS API\n/**\n * @param callback Called when the engine is configured, or immediately if the engine\n * was already configured.\n */\nfunction commons_waitEngineConfigure(callback) {\n    sked_wait(_commons_ENGINE_LOGGED_SKEDULER, 'configure', callback);\n}\n/**\n * Schedules a callback to be called at the given frame.\n * If the frame already occurred, or is the current frame, the callback won't be executed.\n */\nfunction commons_waitFrame(frame, callback) {\n    return sked_wait_future(_commons_FRAME_SKEDULER, frame.toString(), callback);\n}\n/**\n * Cancels waiting for a frame to occur.\n */\nfunction commons_cancelWaitFrame(id) {\n    sked_cancel(_commons_FRAME_SKEDULER, id);\n}\n/**\n * @param callback Called immediately if the array exists, and subsequently, everytime\n * the array is set again.\n * @returns An id that can be used to cancel the subscription.\n */\nfunction commons_subscribeArrayChanges(arrayName, callback) {\n    const id = sked_subscribe(_commons_ARRAYS_SKEDULER, arrayName, callback);\n    if (_commons_ARRAYS.has(arrayName)) {\n        callback(arrayName);\n    }\n    return id;\n}\n/**\n * @param id The id received when subscribing.\n */\nfunction commons_cancelArrayChangesSubscription(id) {\n    sked_cancel(_commons_ARRAYS_SKEDULER, id);\n}\n/** Gets an named array, throwing an error if the array doesn't exist. */\nfunction commons_getArray(arrayName) {\n    if (!_commons_ARRAYS.has(arrayName)) {\n        throw new Error('Unknown array ' + arrayName);\n    }\n    return _commons_ARRAYS.get(arrayName);\n}\nfunction commons_hasArray(arrayName) {\n    return _commons_ARRAYS.has(arrayName);\n}\nfunction commons_setArray(arrayName, array) {\n    _commons_ARRAYS.set(arrayName, array);\n    sked_emit(_commons_ARRAYS_SKEDULER, arrayName);\n}\n// =========================== PRIVATE API\nfunction _commons_emitEngineConfigure() {\n    sked_emit(_commons_ENGINE_LOGGED_SKEDULER, 'configure');\n}\nfunction _commons_emitFrame(frame) {\n    sked_emit(_commons_FRAME_SKEDULER, frame.toString());\n}\n";
+/*
+ * Copyright (c) 2022-2023 Sébastien Piquemal <sebpiq@protonmail.com>, Chris McCormick.
+ *
+ * This file is part of WebPd
+ * (see https://github.com/sebpiq/WebPd).
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with this program. If not, see <http://www.gnu.org/licenses/>.
+ */
+var generateDeclarationsDependencies = (context, dependencies) => 
+// De-duplicate code
+_generateDependenciesDeclarationsRecursive(context, dependencies)
+    .reduce((codes, code) => (!codes.includes(code) ? [...codes, code] : codes), [])
+    .join('\n');
+const _generateDependenciesDeclarationsRecursive = (context, dependencies) => dependencies.flatMap((globalCodeDefinition) => isGlobalDefinitionWithSettings(globalCodeDefinition)
+    ? [
+        ...(globalCodeDefinition.dependencies
+            ? _generateDependenciesDeclarationsRecursive(context, globalCodeDefinition.dependencies)
+            : []),
+        globalCodeDefinition.codeGenerator(context),
+    ]
+    : [globalCodeDefinition(context)]);
 
 /*
  * Copyright (c) 2022-2023 Sébastien Piquemal <sebpiq@protonmail.com>, Chris McCormick.
@@ -1745,74 +2446,7 @@ var COMMONS_JS = "/*\n * Copyright (c) 2012-2020 Sébastien Piquemal <sebpiq@gma
  * You should have received a copy of the GNU Lesser General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
-const CORE = `
-const i32 = (v) => v
-const f32 = i32
-const f64 = i32
-const toInt = (v) => v
-const toFloat = (v) => v
-const createFloatArray = (length) => 
-    new \${FloatArray}(length)
-const setFloatDataView = (d, p, v) => d.\${setFloat}(p, v)
-const getFloatDataView = (d, p) => d.\${getFloat}(p)
-const FS_OPERATION_SUCCESS = ${FS_OPERATION_SUCCESS}
-const FS_OPERATION_FAILURE = ${FS_OPERATION_FAILURE}
-`;
-const MSG = `
-const MSG_FLOAT_TOKEN = "number"
-const MSG_STRING_TOKEN = "string"
-const msg_create = () => []
-const msg_getLength = (m) => m.length
-const msg_getTokenType = (m, i) => typeof m[i]
-const msg_isStringToken = (m, i) => msg_getTokenType(m, i) === 'string'
-const msg_isFloatToken = (m, i) => msg_getTokenType(m, i) === 'number'
-const msg_isMatching = (m, tokenTypes) => {
-    return (m.length === tokenTypes.length) 
-        && m.every((v, i) => msg_getTokenType(m, i) === tokenTypes[i])
-}
-const msg_writeFloatToken = ( m, i, v ) => m[i] = v
-const msg_writeStringToken = msg_writeFloatToken
-const msg_readFloatToken = ( m, i ) => m[i]
-const msg_readStringToken = msg_readFloatToken
-const msg_floats = (v) => v
-const msg_strings = (v) => v
-const msg_display = (m) => '[' + m
-    .map(t => typeof t === 'string' ? '"' + t + '"' : t.toString())
-    .join(', ') + ']'
-`;
-var generateCoreCodeJs = (bitDepth) => {
-    return (replaceCoreCodePlaceholders(bitDepth, CORE) +
-        BUF_JS +
-        SKED_JS +
-        COMMONS_JS +
-        MSG +
-        FS_JS);
-};
-
-/*
- * Copyright (c) 2022-2023 Sébastien Piquemal <sebpiq@protonmail.com>, Chris McCormick.
- *
- * This file is part of WebPd
- * (see https://github.com/sebpiq/WebPd).
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public License
- * along with this program. If not, see <http://www.gnu.org/licenses/>.
- */
-const compileOutletListeners = ({ outletListenerSpecs, codeVariableNames }, generateCode) => renderCode `${Object.entries(outletListenerSpecs).map(([nodeId, outletIds]) => outletIds.map((outletId) => {
-    const listenerVariableName = codeVariableNames.outletListeners[nodeId][outletId];
-    return generateCode(listenerVariableName, nodeId, outletId);
-}))}`;
-const compileInletCallers = ({ inletCallerSpecs, codeVariableNames, macros: { Var, Func }, }) => 
+var generateInletCallers = ({ inletCallerSpecs, codeVariableNames, macros: { Var, Func }, }) => 
 // Here not possible to assign directly the receiver because otherwise assemblyscript
 // doesn't export a function but a global instead.
 renderCode `${Object.entries(inletCallerSpecs).map(([nodeId, inletIds]) => inletIds.map((inletId) => `function ${codeVariableNames.inletCallers[nodeId][inletId]} ${Func([Var('m', 'Message')], 'void')} {${codeVariableNames.nodes[nodeId].rcvs[inletId]}(m)}`))}`;
@@ -1836,10 +2470,104 @@ renderCode `${Object.entries(inletCallerSpecs).map(([nodeId, inletIds]) => inlet
  * You should have received a copy of the GNU Lesser General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
+var generateOutletListeners = ({ outletListenerSpecs, codeVariableNames }, generateCode) => renderCode `${Object.entries(outletListenerSpecs).map(([nodeId, outletIds]) => outletIds.map((outletId) => {
+    const listenerVariableName = codeVariableNames.outletListeners[nodeId][outletId];
+    return generateCode(listenerVariableName, nodeId, outletId);
+}))}`;
+
+/*
+ * Copyright (c) 2022-2023 Sébastien Piquemal <sebpiq@protonmail.com>, Chris McCormick.
+ *
+ * This file is part of WebPd
+ * (see https://github.com/sebpiq/WebPd).
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with this program. If not, see <http://www.gnu.org/licenses/>.
+ */
+// NOTE : not necessarily the most logical place to put this function, but we need it here
+// cause it's imported by the bindings.
+const getFloatArrayType = (bitDepth) => bitDepth === 64 ? Float64Array : Float32Array;
+/** Helper to create a Module by wrapping a RawModule with Bindings */
+const createModule = (rawModule, bindings) => 
+// Use empty object on proxy cause proxy cannot redefine access of member of its target,
+// which causes issues for example for WebAssembly exports.
+// See : https://stackoverflow.com/questions/75148897/get-on-proxy-property-items-is-a-read-only-and-non-configurable-data-proper
+new Proxy({}, {
+    get: (_, k) => {
+        if (bindings.hasOwnProperty(k)) {
+            const key = String(k);
+            const bindingSpec = bindings[key];
+            switch (bindingSpec.type) {
+                case 'raw':
+                    // Cannot use hasOwnProperty here cause not defined in wasm exports object
+                    if (k in rawModule) {
+                        return rawModule[key];
+                    }
+                    else {
+                        throw new Error(`Key ${String(key)} doesn't exist in raw module`);
+                    }
+                case 'proxy':
+                case 'callback':
+                    return bindingSpec.value;
+            }
+            // We need to return undefined here for compatibility with various APIs
+            // which inspect object's attributes.
+        }
+        else {
+            return undefined;
+        }
+    },
+    set: (_, k, newValue) => {
+        if (bindings.hasOwnProperty(String(k))) {
+            const key = String(k);
+            const bindingSpec = bindings[key];
+            if (bindingSpec.type === 'callback') {
+                bindingSpec.value = newValue;
+            }
+            else {
+                throw new Error(`Binding key ${String(key)} is read-only`);
+            }
+        }
+        else {
+            throw new Error(`Key ${String(k)} is not defined in bindings`);
+        }
+        return true;
+    },
+});
+
+/*
+ * Copyright (c) 2022-2023 Sébastien Piquemal <sebpiq@protonmail.com>, Chris McCormick.
+ *
+ * This file is part of WebPd
+ * (see https://github.com/sebpiq/WebPd).
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with this program. If not, see <http://www.gnu.org/licenses/>.
+ */
 /**
  * Embed arrays passed to the compiler in the compiled module.
  */
-var embedArrays = (compilation) => renderCode `
+var generateEmbeddedArrays = (compilation) => renderCode `
     ${Object.entries(compilation.arrays).map(([arrayName, array]) => `
         commons_setArray("${arrayName}", new ${getFloatArrayType(compilation.audioSettings.bitDepth).name}(${array.length}))
         commons_getArray("${arrayName}").set(${JSON.stringify(Array.from(array))})
@@ -1865,23 +2593,50 @@ var embedArrays = (compilation) => renderCode `
  * You should have received a copy of the GNU Lesser General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
+var generateImportsExports = (target, dependencies, generateImport, generateExport) => 
+// prettier-ignore
+renderCode `
+        ${collectImports(dependencies).map(generateImport)}
+        ${collectExports(target, dependencies).map(generateExport)}
+    `;
+
+/*
+ * Copyright (c) 2022-2023 Sébastien Piquemal <sebpiq@protonmail.com>, Chris McCormick.
+ *
+ * This file is part of WebPd
+ * (see https://github.com/sebpiq/WebPd).
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with this program. If not, see <http://www.gnu.org/licenses/>.
+ */
 var compileToJavascript = (compilation) => {
-    const { codeVariableNames, outletListenerSpecs, inletCallerSpecs, audioSettings, } = compilation;
+    const { codeVariableNames, outletListenerSpecs, inletCallerSpecs } = compilation;
     const globs = compilation.codeVariableNames.globs;
     const metadata = buildMetadata(compilation);
-    // When setting an array we need to make sure it is converted to the right type.
-    const floatArrayType = getFloatArrayType(audioSettings.bitDepth);
+    const dependencies = [
+        ...engineMinimalDependencies(),
+        ...collectDependenciesFromTraversal(compilation),
+    ];
     // prettier-ignore
     return renderCode `
-        ${generateCoreCodeJs(audioSettings.bitDepth)}
+        ${generateDeclarationsGlobals(compilation)}
+        ${generateDeclarationsDependencies(compilation, dependencies)}
+        ${generateDeclarationsGraph(compilation)}
 
-        ${embedArrays(compilation)}
+        ${generateEmbeddedArrays(compilation)}
 
-        ${compileDeclare(compilation)}
-
-        ${compileInletCallers(compilation)}
-
-        ${compileOutletListeners(compilation, (variableName, nodeId, outletId) => `
+        ${generateInletCallers(compilation)}
+        ${generateOutletListeners(compilation, (variableName, nodeId, outletId) => `
             const ${variableName} = (m) => {
                 exports.outletListeners['${nodeId}']['${outletId}'].onMessage(m)
             }
@@ -1897,11 +2652,7 @@ var compileToJavascript = (compilation) => {
                 _commons_emitEngineConfigure()
             },
             loop: (${globs.input}, ${globs.output}) => {
-                ${compileLoop(compilation)}
-            },
-            commons: {
-                getArray: commons_getArray,
-                setArray: (arrayName, array) => commons_setArray(arrayName, new ${floatArrayType.name}(array)),
+                ${generateLoop$m(compilation)}
             },
             outletListeners: {
                 ${Object.entries(outletListenerSpecs).map(([nodeId, outletIds]) => renderCode `${nodeId}: {
@@ -1914,49 +2665,13 @@ var compileToJavascript = (compilation) => {
                         ${inletIds.map(inletId => `"${inletId}": ${codeVariableNames.inletCallers[nodeId][inletId]},`)}
                     },`)}
             },
-            fs: {
-                onReadSoundFile: () => undefined,
-                onWriteSoundFile: () => undefined,
-                onOpenSoundReadStream: () => undefined,
-                onOpenSoundWriteStream: () => undefined,
-                onSoundStreamData: () => undefined,
-                onCloseSoundStream: () => undefined,
-                sendReadSoundFileResponse: x_fs_onReadSoundFileResponse,
-                sendWriteSoundFileResponse: x_fs_onWriteSoundFileResponse,
-                sendSoundStreamData: x_fs_onSoundStreamData,
-                closeSoundStream: x_fs_onCloseSoundStream,
-            },
         }
 
-        // FS IMPORTS
-        const i_fs_readSoundFile = (...args) => exports.fs.onReadSoundFile(...args)
-        const i_fs_writeSoundFile = (...args) => exports.fs.onWriteSoundFile(...args)
-        const i_fs_openSoundReadStream = (...args) => exports.fs.onOpenSoundReadStream(...args)
-        const i_fs_openSoundWriteStream = (...args) => exports.fs.onOpenSoundWriteStream(...args)
-        const i_fs_sendSoundStreamData = (...args) => exports.fs.onSoundStreamData(...args)
-        const i_fs_closeSoundStream = (...args) => exports.fs.onCloseSoundStream(...args)
+        ${generateImportsExports('javascript', dependencies, ({ name }) => `
+                exports.${name} = () => { throw new Error('import for ${name} not provided') }
+                const ${name} = (...args) => exports.${name}(...args)
+            `, ({ name }) => `exports.${name} = ${name}`)}
     `;
-};
-
-var CORE_ASC = "/*\n * Copyright (c) 2012-2020 Sébastien Piquemal <sebpiq@gmail.com>\n *\n * BSD Simplified License.\n * For information on usage and redistribution, and for a DISCLAIMER OF ALL\n * WARRANTIES, see the file, \"LICENSE.txt,\" in this distribution.\n *\n * See https://github.com/sebpiq/WebPd_pd-parser for documentation\n *\n */\n\ntype FloatArray = ${FloatArray}\ntype Float = ${Float}\ntype Int = ${Int}\n\n// =========================== CORE API\nfunction toInt (v: ${Float}): ${Int} { return ${Int}(v) }\nfunction toFloat (v: ${Int}): ${Float} { return ${Float}(v) }\nfunction createFloatArray (length: Int): FloatArray {\n    return new ${FloatArray}(length)\n}\nfunction setFloatDataView (\n    dataView: DataView, \n    position: Int, \n    value: Float,\n): void { dataView.${setFloat}(position, value) }\nfunction getFloatDataView (\n    dataView: DataView, \n    position: Int, \n): Float { return dataView.${getFloat}(position) }\n\n// =========================== FS CONSTANTS\nconst FS_OPERATION_SUCCESS: Int = ${FS_OPERATION_SUCCESS}\nconst FS_OPERATION_FAILURE: Int = ${FS_OPERATION_FAILURE}\n\n// =========================== EXPORTED API\nfunction x_core_createListOfArrays(): FloatArray[] {\n    const arrays: FloatArray[] = []\n    return arrays\n}\n\nfunction x_core_pushToListOfArrays(arrays: FloatArray[], array: FloatArray): void {\n    arrays.push(array)\n}\n\nfunction x_core_getListOfArraysLength(arrays: FloatArray[]): Int {\n    return arrays.length\n}\n\nfunction x_core_getListOfArraysElem(arrays: FloatArray[], index: Int): FloatArray {\n    return arrays[index]\n}";
-
-var BUF_ASC = "/*\n * Copyright (c) 2012-2020 Sébastien Piquemal <sebpiq@gmail.com>\n *\n * BSD Simplified License.\n * For information on usage and redistribution, and for a DISCLAIMER OF ALL\n * WARRANTIES, see the file, \"LICENSE.txt,\" in this distribution.\n *\n * See https://github.com/sebpiq/WebPd_pd-parser for documentation\n *\n */\n\n// =========================== BUF API\n/**\n * Ring buffer \n */\nclass buf_SoundBuffer {\n    public data: FloatArray\n    public length: Int\n    public writeCursor: Int\n    public pullAvailableLength: Int\n\n    constructor(length: Int) {\n        this.length = length\n        this.data = createFloatArray(length)\n        this.writeCursor = 0\n        this.pullAvailableLength = 0\n    }\n}\n\n/** Erases all the content from the buffer */\nfunction buf_create (length: Int): buf_SoundBuffer {\n    return new buf_SoundBuffer(length)\n}\n\n/** Erases all the content from the buffer */\nfunction buf_clear (buffer: buf_SoundBuffer): void {\n    buffer.data.fill(0)\n}\n\n/**\n * Pushes a block to the buffer, throwing an error if the buffer is full. \n * If the block is written successfully, {@link buf_SoundBuffer#writeCursor} \n * is moved corresponding with the length of data written.\n * \n * @todo : Optimize by allowing to read/write directly from host\n */\nfunction buf_pushBlock (\n    buffer: buf_SoundBuffer,\n    block: FloatArray,\n): Int {\n    if (buffer.pullAvailableLength + block.length > buffer.length) {\n        throw new Error('buffer full')\n    }\n\n    let left: Int = block.length\n    while (left > 0) {\n        const lengthToWrite = toInt(Math.min(\n            toFloat(buffer.length - buffer.writeCursor), \n            toFloat(left)\n        ))\n        buffer.data.set(\n            block.subarray(\n                block.length - left, \n                block.length - left + lengthToWrite\n            ), \n            buffer.writeCursor\n        )\n        left -= lengthToWrite\n        buffer.writeCursor = (buffer.writeCursor + lengthToWrite) % buffer.length\n        buffer.pullAvailableLength += lengthToWrite\n    }\n    return buffer.pullAvailableLength\n}\n\n/**\n * Pulls a single sample from the buffer. \n * This is a destructive operation, and the sample will be \n * unavailable for subsequent readers with the same operation.\n */\nfunction buf_pullSample (buffer: buf_SoundBuffer): Float {\n    if (buffer.pullAvailableLength <= 0) {\n        return 0\n    }\n    const readCursor: Int = buffer.writeCursor - buffer.pullAvailableLength\n    buffer.pullAvailableLength -= 1\n    return buffer.data[readCursor >= 0 ? readCursor : buffer.length + readCursor]\n}\n\n/**\n * Writes a sample at `@link writeCursor` and increments `writeCursor` by one.\n */\nfunction buf_writeSample (buffer: buf_SoundBuffer, value: Float): void {\n    buffer.data[buffer.writeCursor] = value\n    buffer.writeCursor = (buffer.writeCursor + 1) % buffer.length\n}\n\n/**\n * Reads the sample at position `writeCursor - offset`.\n * @param offset Must be between 0 (for reading the last written sample)\n *  and {@link buf_SoundBuffer#length} - 1. A value outside these bounds will not cause \n *  an error, but might cause unexpected results.\n */\nfunction buf_readSample (buffer: buf_SoundBuffer, offset: Int): Float {\n    // R = (buffer.writeCursor - 1 - offset) -> ideal read position\n    // W = R % buffer.length -> wrap it so that its within buffer length bounds (but could be negative)\n    // (W + buffer.length) % buffer.length -> if W negative, (W + buffer.length) shifts it back to positive.\n    return buffer.data[(buffer.length + ((buffer.writeCursor - 1 - offset) % buffer.length)) % buffer.length]\n}";
-
-var SKED_ASC = "/*\n * Copyright (c) 2012-2020 Sébastien Piquemal <sebpiq@gmail.com>\n *\n * BSD Simplified License.\n * For information on usage and redistribution, and for a DISCLAIMER OF ALL\n * WARRANTIES, see the file, \"LICENSE.txt,\" in this distribution.\n *\n * See https://github.com/sebpiq/WebPd_pd-parser for documentation\n *\n */\n\ntype SkedCallback = (event: SkedEvent) => void\ntype SkedId = Int\ntype SkedMode = Int\ntype SkedEvent = string\n\n/** \n * Skeduler id that will never be used. \n * Can be used as a \"no id\", or \"null\" value. \n */\nconst SKED_ID_NULL: SkedId = -1\nconst SKED_ID_COUNTER_INIT: SkedId = 1\n\nconst _SKED_WAIT_IN_PROGRESS: Int = 0\nconst _SKED_WAIT_OVER: Int = 1\n\nconst _SKED_MODE_WAIT = 0\nconst _SKED_MODE_SUBSCRIBE = 1\n\n// =========================== SKED API\nclass SkedRequest {\n    id: SkedId\n    mode: SkedMode\n}\n\nclass Skeduler {\n    requests: Map<SkedEvent, Array<SkedRequest>>\n    callbacks: Map<SkedId, SkedCallback>\n    isLoggingEvents: boolean\n    eventLog: Set<SkedEvent>\n    idCounter: SkedId\n}\n\n/** Creates a new Skeduler. */\nfunction sked_create (isLoggingEvents: boolean): Skeduler {\n    return {\n        eventLog: new Set(),\n        requests: new Map(),\n        callbacks: new Map(),\n        idCounter: SKED_ID_COUNTER_INIT,\n        isLoggingEvents,\n    }\n}\n\n/** \n * Asks the skeduler to wait for an event to occur and trigger a callback. \n * If the event has already occurred, the callback is triggered instantly \n * when calling the function.\n * Once triggered, the callback is forgotten.\n * @returns an id allowing to cancel the callback with {@link sked_cancel}\n */\nfunction sked_wait (\n    skeduler: Skeduler,\n    event: SkedEvent,\n    callback: SkedCallback,\n): SkedId {\n    if (skeduler.isLoggingEvents === false) {\n        throw new Error(\"Please activate skeduler's isLoggingEvents\")\n    }\n\n    if (skeduler.eventLog.has(event)) {\n        callback(event)\n        return SKED_ID_NULL\n    } else {\n        return _sked_createRequest(skeduler, event, callback, _SKED_MODE_WAIT)\n    }\n}\n\n/** \n * Asks the skeduler to wait for an event to occur and trigger a callback. \n * If the event has already occurred, the callback is NOT triggered.\n * Once triggered, the callback is forgotten.\n * @returns an id allowing to cancel the callback with {@link sked_cancel}\n */\nfunction sked_wait_future (\n    skeduler: Skeduler,\n    event: SkedEvent,\n    callback: SkedCallback,\n): SkedId {\n    return _sked_createRequest(skeduler, event, callback, _SKED_MODE_WAIT)\n}\n\n/** \n * Asks the skeduler to trigger a callback everytime an event occurs \n * @returns an id allowing to cancel the callback with {@link sked_cancel}\n */\nfunction sked_subscribe (\n    skeduler: Skeduler,\n    event: SkedEvent,\n    callback: SkedCallback,\n): SkedId {\n    return _sked_createRequest(skeduler, event, callback, _SKED_MODE_SUBSCRIBE)\n}\n\n/** Notifies the skeduler that an event has just occurred. */\nfunction sked_emit (\n    skeduler: Skeduler,\n    event: SkedEvent,\n): void {\n    if (skeduler.isLoggingEvents === true) {\n        skeduler.eventLog.add(event)\n    }\n    if (skeduler.requests.has(event)) {\n        const requests: Array<SkedRequest> = skeduler.requests.get(event)\n        const requestsStaying: Array<SkedRequest> = []\n        for (let i: Int = 0; i < requests.length; i++) {\n            const request: SkedRequest = requests[i]\n            if (skeduler.callbacks.has(request.id)) {\n                skeduler.callbacks.get(request.id)(event)\n                if (request.mode === _SKED_MODE_WAIT) {\n                    skeduler.callbacks.delete(request.id)\n                } else {\n                    requestsStaying.push(request)\n                }\n            }\n        }\n        skeduler.requests.set(event, requestsStaying)\n    }\n}\n\n/** Cancels a callback */\nfunction sked_cancel (\n    skeduler: Skeduler,\n    id: SkedId,\n): void {\n    skeduler.callbacks.delete(id)\n}\n\n// =========================== PRIVATE\nfunction _sked_createRequest (\n    skeduler: Skeduler,\n    event: SkedEvent,\n    callback: SkedCallback,\n    mode: SkedMode,\n): SkedId {\n    const id = _sked_nextId(skeduler)\n    const request: SkedRequest = {id, mode}\n    skeduler.callbacks.set(id, callback)\n    if (!skeduler.requests.has(event)) {\n        skeduler.requests.set(event, [request])    \n    } else {\n        skeduler.requests.get(event).push(request)\n    }\n    return id\n}\n\nfunction _sked_nextId (\n    skeduler: Skeduler,\n): SkedId {\n    return skeduler.idCounter++\n}";
-
-var MSG_ASC = "/*\n * Copyright (c) 2012-2020 Sébastien Piquemal <sebpiq@gmail.com>\n *\n * BSD Simplified License.\n * For information on usage and redistribution, and for a DISCLAIMER OF ALL\n * WARRANTIES, see the file, \"LICENSE.txt,\" in this distribution.\n *\n * See https://github.com/sebpiq/WebPd_pd-parser for documentation\n *\n */\n\ntype MessageFloatToken = Float\ntype MessageCharToken = Int\n\ntype MessageTemplate = Array<Int>\ntype MessageHeaderEntry = Int\ntype MessageHeader = Int32Array\n\nconst MSG_FLOAT_TOKEN: MessageHeaderEntry = 0\nconst MSG_STRING_TOKEN: MessageHeaderEntry = 1\n\n\n// =========================== EXPORTED API\nfunction x_msg_create(templateTypedArray: Int32Array): Message {\n    const template: MessageTemplate = new Array<Int>(templateTypedArray.length)\n    for (let i: Int = 0; i < templateTypedArray.length; i++) {\n        template[i] = templateTypedArray[i]\n    }\n    return msg_create(template)\n}\n\nfunction x_msg_getTokenTypes(message: Message): MessageHeader {\n    return message.tokenTypes\n}\n\nfunction x_msg_createTemplate(length: i32): Int32Array {\n    return new Int32Array(length)\n}\n\n\n// =========================== MSG API\nfunction msg_create(template: MessageTemplate): Message {\n    let i: Int = 0\n    let byteCount: Int = 0\n    let tokenTypes: Array<MessageHeaderEntry> = []\n    let tokenPositions: Array<MessageHeaderEntry> = []\n\n    i = 0\n    while (i < template.length) {\n        switch(template[i]) {\n            case MSG_FLOAT_TOKEN:\n                byteCount += sizeof<MessageFloatToken>()\n                tokenTypes.push(MSG_FLOAT_TOKEN)\n                tokenPositions.push(byteCount)\n                i += 1\n                break\n            case MSG_STRING_TOKEN:\n                byteCount += sizeof<MessageCharToken>() * template[i + 1]\n                tokenTypes.push(MSG_STRING_TOKEN)\n                tokenPositions.push(byteCount)\n                i += 2\n                break\n            default:\n                throw new Error(\"unknown token type : \" + template[i].toString())\n        }\n    }\n\n    const tokenCount = tokenTypes.length\n    const headerByteCount = _msg_computeHeaderLength(tokenCount) * sizeof<MessageHeaderEntry>()\n    byteCount += headerByteCount\n\n    const buffer = new ArrayBuffer(byteCount)\n    const dataView = new DataView(buffer)\n    let writePosition: Int = 0\n    \n    dataView.setInt32(writePosition, tokenCount)\n    writePosition += sizeof<MessageHeaderEntry>()\n\n    for (i = 0; i < tokenCount; i++) {\n        dataView.setInt32(writePosition, tokenTypes[i])\n        writePosition += sizeof<MessageHeaderEntry>()\n    }\n\n    dataView.setInt32(writePosition, headerByteCount)\n    writePosition += sizeof<MessageHeaderEntry>()\n    for (i = 0; i < tokenCount; i++) {\n        dataView.setInt32(writePosition, headerByteCount + tokenPositions[i])\n        writePosition += sizeof<MessageHeaderEntry>()\n    }\n\n    return new Message(buffer)\n}\n\nfunction msg_writeStringToken(\n    message: Message, \n    tokenIndex: Int,\n    value: string,\n): void {\n    const startPosition = message.tokenPositions[tokenIndex]\n    const endPosition = message.tokenPositions[tokenIndex + 1]\n    const expectedStringLength: Int = (endPosition - startPosition) / sizeof<MessageCharToken>()\n    if (value.length !== expectedStringLength) {\n        throw new Error('Invalid string size, specified ' + expectedStringLength.toString() + ', received ' + value.length.toString())\n    }\n\n    for (let i = 0; i < value.length; i++) {\n        message.dataView.setInt32(\n            startPosition + i * sizeof<MessageCharToken>(), \n            value.codePointAt(i)\n        )\n    }\n}\n\nfunction msg_writeFloatToken(\n    message: Message, \n    tokenIndex: Int,\n    value: MessageFloatToken,\n): void {\n    setFloatDataView(message.dataView, message.tokenPositions[tokenIndex], value)\n}\n\nfunction msg_readStringToken(\n    message: Message, \n    tokenIndex: Int,\n): string {\n    const startPosition = message.tokenPositions[tokenIndex]\n    const endPosition = message.tokenPositions[tokenIndex + 1]\n    const stringLength: Int = (endPosition - startPosition) / sizeof<MessageCharToken>()\n    let value: string = ''\n    for (let i = 0; i < stringLength; i++) {\n        value += String.fromCodePoint(message.dataView.getInt32(startPosition + sizeof<MessageCharToken>() * i))\n    }\n    return value\n}\n\nfunction msg_readFloatToken(\n    message: Message, \n    tokenIndex: Int,\n): MessageFloatToken {\n    return getFloatDataView(message.dataView, message.tokenPositions[tokenIndex])\n}\n\nfunction msg_getLength(message: Message): Int {\n    return message.tokenTypes.length\n}\n\nfunction msg_getTokenType(message: Message, tokenIndex: Int): Int {\n    return message.tokenTypes[tokenIndex]\n}\n\nfunction msg_isStringToken(\n    message: Message, \n    tokenIndex: Int    \n): boolean {\n    return msg_getTokenType(message, tokenIndex) === MSG_STRING_TOKEN\n}\n\nfunction msg_isFloatToken(\n    message: Message, \n    tokenIndex: Int    \n): boolean {\n    return msg_getTokenType(message, tokenIndex) === MSG_FLOAT_TOKEN\n}\n\nfunction msg_isMatching(message: Message, tokenTypes: Array<MessageHeaderEntry>): boolean {\n    if (message.tokenTypes.length !== tokenTypes.length) {\n        return false\n    }\n    for (let i: Int = 0; i < tokenTypes.length; i++) {\n        if (message.tokenTypes[i] !== tokenTypes[i]) {\n            return false\n        }\n    }\n    return true\n}\n\nfunction msg_floats(values: Array<Float>): Message {\n    const message: Message = msg_create(values.map<MessageHeaderEntry>(v => MSG_FLOAT_TOKEN))\n    for (let i: Int = 0; i < values.length; i++) {\n        msg_writeFloatToken(message, i, values[i])\n    }\n    return message\n}\n\nfunction msg_strings(values: Array<string>): Message {\n    const template: MessageTemplate = []\n    for (let i: Int = 0; i < values.length; i++) {\n        template.push(MSG_STRING_TOKEN)\n        template.push(values[i].length)\n    }\n    const message: Message = msg_create(template)\n    for (let i: Int = 0; i < values.length; i++) {\n        msg_writeStringToken(message, i, values[i])\n    }\n    return message\n}\n\nfunction msg_display(message: Message): string {\n    let displayArray: Array<string> = []\n    for (let i: Int = 0; i < msg_getLength(message); i++) {\n        if (msg_isFloatToken(message, i)) {\n            displayArray.push(msg_readFloatToken(message, i).toString())\n        } else {\n            displayArray.push('\"' + msg_readStringToken(message, i) + '\"')\n        }\n    }\n    return '[' + displayArray.join(', ') + ']'\n}\n\n\n// =========================== PRIVATE\n// Message header : [\n//      <Token count>, \n//      <Token 1 type>,  ..., <Token N type>, \n//      <Token 1 start>, ..., <Token N start>, <Token N end>\n//      ... DATA ...\n// ]\nclass Message {\n    public dataView: DataView\n    public header: MessageHeader\n    public tokenCount: MessageHeaderEntry\n    public tokenTypes: MessageHeader\n    public tokenPositions: MessageHeader\n\n    constructor(messageBuffer: ArrayBuffer) {\n        const dataView = new DataView(messageBuffer)\n        const tokenCount = _msg_unpackTokenCount(dataView)\n        const header = _msg_unpackHeader(dataView, tokenCount)\n        this.dataView = dataView\n        this.tokenCount = tokenCount\n        this.header = header \n        this.tokenTypes = _msg_unpackTokenTypes(header)\n        this.tokenPositions = _msg_unpackTokenPositions(header)\n    }\n}\n\nfunction _msg_computeHeaderLength(tokenCount: Int): Int {\n    return 1 + tokenCount * 2 + 1\n}\n\nfunction _msg_unpackTokenCount(messageDataView: DataView): MessageHeaderEntry {\n    return messageDataView.getInt32(0)\n}\n\nfunction _msg_unpackHeader(messageDataView: DataView, tokenCount: MessageHeaderEntry): MessageHeader {\n    const headerLength = _msg_computeHeaderLength(tokenCount)\n    // TODO : why is this `wrap` not working ?\n    // return Int32Array.wrap(messageDataView.buffer, 0, headerLength)\n    const messageHeader = new Int32Array(headerLength)\n    for (let i = 0; i < headerLength; i++) {\n        messageHeader[i] = messageDataView.getInt32(sizeof<MessageHeaderEntry>() * i)\n    }\n    return messageHeader\n}\n\nfunction _msg_unpackTokenTypes(header: MessageHeader): MessageHeader {\n    return header.slice(1, 1 + header[0])\n}\n\nfunction _msg_unpackTokenPositions(header: MessageHeader): MessageHeader {\n    return header.slice(1 + header[0])\n}";
-
-var COMMONS_ASC = "/*\n * Copyright (c) 2012-2020 Sébastien Piquemal <sebpiq@gmail.com>\n *\n * BSD Simplified License.\n * For information on usage and redistribution, and for a DISCLAIMER OF ALL\n * WARRANTIES, see the file, \"LICENSE.txt,\" in this distribution.\n *\n * See https://github.com/sebpiq/WebPd_pd-parser for documentation\n *\n */\n\nconst _commons_ARRAYS: Map<string, FloatArray> = new Map()\nconst _commons_ARRAYS_SKEDULER: Skeduler = sked_create(false)\nconst _commons_ENGINE_LOGGED_SKEDULER: Skeduler = sked_create(true)\nconst _commons_FRAME_SKEDULER: Skeduler = sked_create(false)\n\n// =========================== COMMONS API\n/** \n * @param callback Called when the engine is configured, or immediately if the engine\n * was already configured.\n */\nfunction commons_waitEngineConfigure(\n    callback: SkedCallback,\n): void {\n    sked_wait(_commons_ENGINE_LOGGED_SKEDULER, 'configure', callback)\n}\n\n/** \n * Schedules a callback to be called at the given frame.\n * If the frame already occurred, or is the current frame, the callback won't be executed.\n */\nfunction commons_waitFrame(\n    frame: Int,\n    callback: SkedCallback,\n): SkedId {\n    return sked_wait_future(_commons_FRAME_SKEDULER, frame.toString(), callback)\n}\n\n/** \n * Cancels waiting for a frame to occur.\n */\nfunction commons_cancelWaitFrame(\n    id: SkedId,\n): void {\n    sked_cancel(_commons_FRAME_SKEDULER, id)\n}\n\n/** \n * @param callback Called immediately if the array exists, and subsequently, everytime \n * the array is set again.\n * @returns An id that can be used to cancel the subscription.\n */\nfunction commons_subscribeArrayChanges(\n    arrayName: string,\n    callback: SkedCallback,\n): SkedId {\n    const id: SkedId = sked_subscribe(_commons_ARRAYS_SKEDULER, arrayName, callback)\n    if (_commons_ARRAYS.has(arrayName)) {\n        callback(arrayName)\n    }\n    return id\n}\n\n/** \n * @param id The id received when subscribing.\n */\nfunction commons_cancelArrayChangesSubscription(\n    id: SkedId,\n): void {\n    sked_cancel(_commons_ARRAYS_SKEDULER, id)\n}\n\n/** Gets an named array, throwing an error if the array doesn't exist. */\nfunction commons_getArray(\n    arrayName: string,\n): FloatArray {\n    if (!_commons_ARRAYS.has(arrayName)) {\n        throw new Error('Unknown array ' + arrayName)\n    }\n    return _commons_ARRAYS.get(arrayName)\n}\n\nfunction commons_hasArray(\n    arrayName: string,\n): boolean {\n    return _commons_ARRAYS.has(arrayName)\n}\n\nfunction commons_setArray(\n    arrayName: string,\n    array: FloatArray,\n): void {\n    _commons_ARRAYS.set(arrayName, array)\n    sked_emit(_commons_ARRAYS_SKEDULER, arrayName)\n}\n\n// =========================== PRIVATE API\nfunction _commons_emitEngineConfigure(): void {\n    sked_emit(_commons_ENGINE_LOGGED_SKEDULER, 'configure')\n}\n\nfunction _commons_emitFrame(frame: Int): void {\n    sked_emit(_commons_FRAME_SKEDULER, frame.toString())\n}";
-
-var FS_ASC = "/*\n * Copyright (c) 2012-2020 Sébastien Piquemal <sebpiq@gmail.com>\n *\n * BSD Simplified License.\n * For information on usage and redistribution, and for a DISCLAIMER OF ALL\n * WARRANTIES, see the file, \"LICENSE.txt,\" in this distribution.\n *\n * See https://github.com/sebpiq/WebPd_pd-parser for documentation\n *\n */\n\ntype fs_OperationId = Int\ntype fs_OperationStatus = Int\ntype fs_OperationCallback = (id: fs_OperationId, status: fs_OperationStatus) => void\ntype fs_OperationSoundCallback = (id: fs_OperationId, status: fs_OperationStatus, sound: FloatArray[]) => void\n\ntype Url = string\n\nconst _FS_OPERATIONS_IDS = new Set<fs_OperationId>()\nconst _FS_OPERATIONS_CALLBACKS = new Map<fs_OperationId, fs_OperationCallback>()\nconst _FS_OPERATIONS_SOUND_CALLBACKS = new Map<fs_OperationId, fs_OperationSoundCallback>()\nconst _FS_SOUND_STREAM_BUFFERS = new Map<fs_OperationId, Array<buf_SoundBuffer>>()\n\n// We start at 1, because 0 is what ASC uses when host forgets to pass an arg to \n// a function. Therefore we can get false negatives when a test happens to expect a 0.\nlet _FS_OPERATION_COUNTER: Int = 1\n\nconst _FS_SOUND_BUFFER_LENGTH = 20 * 44100\n\n// =========================== EXPORTED API\nfunction x_fs_onReadSoundFileResponse (\n    id: fs_OperationId, \n    status: fs_OperationStatus,\n    sound: FloatArray[]\n): void {\n    _fs_assertOperationExists(id, 'x_fs_onReadSoundFileResponse')\n    _FS_OPERATIONS_IDS.delete(id)\n    // Finish cleaning before calling the callback in case it would throw an error.\n    const callback = _FS_OPERATIONS_SOUND_CALLBACKS.get(id)\n    callback(id, status, sound)\n    _FS_OPERATIONS_SOUND_CALLBACKS.delete(id)\n}\n\nfunction x_fs_onWriteSoundFileResponse (\n    id: fs_OperationId,\n    status: fs_OperationStatus,\n): void {\n    _fs_assertOperationExists(id, 'x_fs_onWriteSoundFileResponse')\n    _FS_OPERATIONS_IDS.delete(id)\n    // Finish cleaning before calling the callback in case it would throw an error.\n    const callback = _FS_OPERATIONS_CALLBACKS.get(id)\n    callback(id, status)\n    _FS_OPERATIONS_CALLBACKS.delete(id)\n}\n\nfunction x_fs_onSoundStreamData (\n    id: fs_OperationId, \n    block: FloatArray[]\n): Int {\n    _fs_assertOperationExists(id, 'x_fs_onSoundStreamData')\n    const buffers = _FS_SOUND_STREAM_BUFFERS.get(id)\n    for (let i: Int = 0; i < buffers.length; i++) {\n        buf_pushBlock(buffers[i], block[i])\n    }\n    return buffers[0].pullAvailableLength\n}\n\nfunction x_fs_onCloseSoundStream (\n    id: fs_OperationId, \n    status: fs_OperationStatus\n): void {\n    fs_closeSoundStream(id, status)\n}\n\n// =========================== FS API\nclass fs_SoundInfo {\n    channelCount: Int\n    sampleRate: Int\n    bitDepth: Int\n    encodingFormat: string\n    endianness: string\n    extraOptions: string\n}\n\nfunction fs_readSoundFile(\n    url: Url,\n    soundInfo: fs_SoundInfo,\n    callback: fs_OperationSoundCallback\n): fs_OperationId {\n    const id: fs_OperationId = _fs_createOperationId()\n    _FS_OPERATIONS_SOUND_CALLBACKS.set(id, callback)\n    i_fs_readSoundFile(id, url, fs_soundInfoToMessage(soundInfo))\n    return id\n}\n\nfunction fs_writeSoundFile(\n    sound: FloatArray[],\n    url: Url,\n    soundInfo: fs_SoundInfo,\n    callback: fs_OperationCallback,\n): fs_OperationId {\n    const id: fs_OperationId = _fs_createOperationId()\n    _FS_OPERATIONS_CALLBACKS.set(id, callback)\n    i_fs_writeSoundFile(id, sound, url, fs_soundInfoToMessage(soundInfo))\n    return id\n}\n\nfunction fs_openSoundReadStream(\n    url: Url, \n    soundInfo: fs_SoundInfo,\n    callback: fs_OperationCallback,\n): fs_OperationId {\n    const id: fs_OperationId = _fs_createOperationId()\n    const buffers: Array<buf_SoundBuffer> = []\n    for (let channel = 0; channel < soundInfo.channelCount; channel++) {\n        buffers.push(new buf_SoundBuffer(_FS_SOUND_BUFFER_LENGTH))\n    }\n    _FS_SOUND_STREAM_BUFFERS.set(id, buffers)\n    _FS_OPERATIONS_CALLBACKS.set(id, callback)\n    i_fs_openSoundReadStream(id, url, fs_soundInfoToMessage(soundInfo))\n    return id\n}\n\nfunction fs_openSoundWriteStream(\n    url: Url, \n    soundInfo: fs_SoundInfo,\n    callback: fs_OperationCallback,\n): fs_OperationId {\n    const id: fs_OperationId = _fs_createOperationId()\n    _FS_SOUND_STREAM_BUFFERS.set(id, [])\n    _FS_OPERATIONS_CALLBACKS.set(id, callback)\n    i_fs_openSoundWriteStream(id, url, fs_soundInfoToMessage(soundInfo))\n    return id\n}\n\nfunction fs_sendSoundStreamData(\n    id: fs_OperationId, \n    block: FloatArray[],\n): void {\n    _fs_assertOperationExists(id, 'fs_sendSoundStreamData')\n    i_fs_sendSoundStreamData(id, block)\n}\n\nfunction fs_closeSoundStream (\n    id: fs_OperationId, \n    status: fs_OperationStatus\n): void {\n    if (!_FS_OPERATIONS_IDS.has(id)) {\n        return\n    }\n    _FS_OPERATIONS_IDS.delete(id)\n    _FS_OPERATIONS_CALLBACKS.get(id)(id, status)\n    _FS_OPERATIONS_CALLBACKS.delete(id)\n    // Delete this last, to give the callback \n    // a chance to save a reference to the buffer\n    // If write stream, there won't be a buffer\n    if (_FS_SOUND_STREAM_BUFFERS.has(id)) {\n        _FS_SOUND_STREAM_BUFFERS.delete(id)\n    }\n    i_fs_closeSoundStream(id, status)\n}\n\nfunction fs_soundInfoToMessage(soundInfo: fs_SoundInfo): Message {\n    const info: Message = msg_create([\n        MSG_FLOAT_TOKEN,\n        MSG_FLOAT_TOKEN,\n        MSG_FLOAT_TOKEN,\n        MSG_STRING_TOKEN,\n        soundInfo.encodingFormat.length,\n        MSG_STRING_TOKEN,\n        soundInfo.endianness.length,\n        MSG_STRING_TOKEN,\n        soundInfo.extraOptions.length\n    ])\n    msg_writeFloatToken(info, 0, toFloat(soundInfo.channelCount))\n    msg_writeFloatToken(info, 1, toFloat(soundInfo.sampleRate))\n    msg_writeFloatToken(info, 2, toFloat(soundInfo.bitDepth))\n    msg_writeStringToken(info, 3, soundInfo.encodingFormat)\n    msg_writeStringToken(info, 4, soundInfo.endianness)\n    msg_writeStringToken(info, 5, soundInfo.extraOptions)\n    return info\n}\n\n// =========================== PRIVATE\nfunction _fs_createOperationId(): fs_OperationId {\n    const id: fs_OperationId = _FS_OPERATION_COUNTER++\n    _FS_OPERATIONS_IDS.add(id)\n    return id\n}\n\nfunction _fs_assertOperationExists(\n    id: fs_OperationId,\n    operationName: string,\n): void {\n    if (!_FS_OPERATIONS_IDS.has(id)) {\n        throw new Error(operationName + ' operation unknown : ' + id.toString())\n    }\n}";
-
-var generateCoreCodeAsc = (bitDepth) => {
-    return (replaceCoreCodePlaceholders(bitDepth, CORE_ASC) +
-        BUF_ASC +
-        SKED_ASC +
-        COMMONS_ASC +
-        MSG_ASC +
-        FS_ASC);
 };
 
 /*
@@ -1979,21 +2694,24 @@ var generateCoreCodeAsc = (bitDepth) => {
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 var compileToAssemblyscript = (compilation) => {
-    const { audioSettings, inletCallerSpecs, codeVariableNames } = compilation;
+    const { audioSettings, inletCallerSpecs, codeVariableNames, macros: { Func, Var }, } = compilation;
     const { channelCount } = audioSettings;
     const globs = compilation.codeVariableNames.globs;
     const metadata = buildMetadata(compilation);
+    const dependencies = [
+        ...engineMinimalDependencies(),
+        ...collectDependenciesFromTraversal(compilation),
+    ];
     // prettier-ignore
     return renderCode `
-        ${generateCoreCodeAsc(audioSettings.bitDepth)}
+        ${generateDeclarationsGlobals(compilation)}
+        ${generateDeclarationsDependencies(compilation, dependencies)}
+        ${generateDeclarationsGraph(compilation)}
 
-        ${embedArrays(compilation)}
+        ${generateEmbeddedArrays(compilation)}
 
-        ${compileDeclare(compilation)}
-
-        ${compileInletCallers(compilation)}
-        
-        ${compileOutletListeners(compilation, (variableName) => `
+        ${generateInletCallers(compilation)}        
+        ${generateOutletListeners(compilation, (variableName) => `
             export declare function ${variableName}(m: Message): void
         `)}
 
@@ -2014,51 +2732,15 @@ var compileToAssemblyscript = (compilation) => {
         export function getOutput(): FloatArray { return ${globs.output} }
 
         export function loop(): void {
-            ${compileLoop(compilation)}
+            ${generateLoop$m(compilation)}
         }
-
-        // FS IMPORTS
-        export declare function i_fs_readSoundFile (id: fs_OperationId, url: Url, info: Message): void
-        export declare function i_fs_writeSoundFile (id: fs_OperationId, sound: FloatArray[], url: Url, info: Message): void
-        export declare function i_fs_openSoundReadStream (id: fs_OperationId, url: Url, info: Message): void
-        export declare function i_fs_openSoundWriteStream (id: fs_OperationId, url: Url, info: Message): void
-        export declare function i_fs_sendSoundStreamData (id: fs_OperationId, block: FloatArray[]): void
-        export declare function i_fs_closeSoundStream (id: fs_OperationId, status: fs_OperationStatus): void
 
         export {
             metadata,
-
-            // FS EXPORTS
-            x_fs_onReadSoundFileResponse as fs_onReadSoundFileResponse,
-            x_fs_onWriteSoundFileResponse as fs_onWriteSoundFileResponse,
-            x_fs_onSoundStreamData as fs_onSoundStreamData,
-            x_fs_onCloseSoundStream as fs_onCloseSoundStream,
-
-            // MSG EXPORTS
-            x_msg_create as msg_create,
-            x_msg_getTokenTypes as msg_getTokenTypes,
-            x_msg_createTemplate as msg_createTemplate,
-            msg_writeStringToken,
-            msg_writeFloatToken,
-            msg_readStringToken,
-            msg_readFloatToken,
-            MSG_FLOAT_TOKEN,
-            MSG_STRING_TOKEN,
-
-            // COMMONS EXPORTS
-            commons_setArray,
-            commons_getArray, 
-
-            // CORE EXPORTS
-            createFloatArray,
-            x_core_createListOfArrays as core_createListOfArrays,
-            x_core_pushToListOfArrays as core_pushToListOfArrays,
-            x_core_getListOfArraysLength as core_getListOfArraysLength,
-            x_core_getListOfArraysElem as core_getListOfArraysElem,
-
-            // INLET CALLERS
             ${Object.entries(inletCallerSpecs).map(([nodeId, inletIds]) => inletIds.map(inletId => codeVariableNames.inletCallers[nodeId][inletId] + ','))}
         }
+
+        ${generateImportsExports('assemblyscript', dependencies, ({ name, args, returns }) => `export declare function ${name} ${Func(args.map((a) => Var(a[0], a[1])), returns)}`, ({ name }) => `export { ${name} }`)}
     `;
 };
 
@@ -2209,20 +2891,22 @@ const createNamespaceFromPortlets = (label, portletMap, portletType, mapFunction
  * You should have received a copy of the GNU Lesser General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
-var compile = (graph, nodeImplementations, settings) => {
+var index = (graph, nodeImplementations, settings) => {
     const { audioSettings, arrays, inletCallerSpecs, outletListenerSpecs, target, debug, } = validateSettings(settings);
     const macros = getMacros(target);
     const codeVariableNames = generate(nodeImplementations, graph, debug);
     attachInletCallers(codeVariableNames, inletCallerSpecs);
     attachOutletListeners(codeVariableNames, outletListenerSpecs);
-    const graphTraversal$1 = graphTraversalForCompile(graph, inletCallerSpecs);
-    const trimmedGraph = trimGraph(graph, graphTraversal$1);
+    const graphTraversalDeclare = buildGraphTraversalDeclare(graph, inletCallerSpecs);
+    const graphTraversalLoop = buildGraphTraversalLoop(graph);
+    const trimmedGraph = trimGraph(graph, graphTraversalDeclare);
     return {
         status: 0,
         code: executeCompilation({
             target,
             graph: trimmedGraph,
-            graphTraversal: graphTraversal$1,
+            graphTraversalDeclare,
+            graphTraversalLoop,
             nodeImplementations,
             audioSettings,
             arrays,
@@ -2273,162 +2957,7 @@ const executeCompilation = (compilation) => {
 class InvalidSettingsError extends Error {
 }
 
-var WEBPD_RUNTIME_CODE = "var WebPdRuntime = (function (exports) {\n  'use strict';\n\n  var _WebPdWorkletProcessorCode = \"/*\\n * Copyright (c) 2012-2020 Sébastien Piquemal <sebpiq@gmail.com>\\n *\\n * BSD Simplified License.\\n * For information on usage and redistribution, and for a DISCLAIMER OF ALL\\n * WARRANTIES, see the file, \\\"LICENSE.txt,\\\" in this distribution.\\n *\\n * See https://github.com/sebpiq/WebPd_pd-parser for documentation\\n *\\n */\\nconst FS_CALLBACK_NAMES = [\\n    'onReadSoundFile',\\n    'onOpenSoundReadStream',\\n    'onWriteSoundFile',\\n    'onOpenSoundWriteStream',\\n    'onSoundStreamData',\\n    'onCloseSoundStream',\\n];\\nclass WasmWorkletProcessor extends AudioWorkletProcessor {\\n    constructor() {\\n        super();\\n        this.port.onmessage = this.onMessage.bind(this);\\n        this.settings = {\\n            blockSize: null,\\n            sampleRate,\\n        };\\n        this.dspConfigured = false;\\n        this.engine = null;\\n    }\\n    process(inputs, outputs) {\\n        const output = outputs[0];\\n        const input = inputs[0];\\n        if (!this.dspConfigured) {\\n            if (!this.engine) {\\n                return true;\\n            }\\n            this.settings.blockSize = output[0].length;\\n            this.engine.configure(this.settings.sampleRate, this.settings.blockSize);\\n            this.dspConfigured = true;\\n        }\\n        this.engine.loop(input, output);\\n        return true;\\n    }\\n    onMessage(messageEvent) {\\n        const message = messageEvent.data;\\n        switch (message.type) {\\n            case 'code:WASM':\\n                this.setWasm(message.payload.wasmBuffer);\\n                break;\\n            case 'code:JS':\\n                this.setJsCode(message.payload.jsCode);\\n                break;\\n            case 'inletCaller':\\n                this.engine.inletCallers[message.payload.nodeId][message.payload.portletId](message.payload.message);\\n                break;\\n            case 'fs':\\n                const returned = this.engine.fs[message.payload.functionName].apply(null, message.payload.arguments);\\n                this.port.postMessage({\\n                    type: 'fs',\\n                    payload: {\\n                        functionName: message.payload.functionName + '_return',\\n                        operationId: message.payload.arguments[0],\\n                        returned,\\n                    },\\n                });\\n                break;\\n            case 'destroy':\\n                this.destroy();\\n                break;\\n            default:\\n                new Error(`unknown message type ${message.type}`);\\n        }\\n    }\\n    // TODO : control for channelCount of wasmModule\\n    setWasm(wasmBuffer) {\\n        return AssemblyscriptWasmBindings.createEngine(wasmBuffer).then((engine) => {\\n            this.setEngine(engine);\\n            return engine;\\n        });\\n    }\\n    setJsCode(code) {\\n        const engine = new Function(`\\n            ${code}\\n            return exports\\n        `)();\\n        this.setEngine(engine);\\n    }\\n    setEngine(engine) {\\n        FS_CALLBACK_NAMES.forEach((functionName) => {\\n            ;\\n            engine.fs[functionName] = (...args) => {\\n                // We don't use transferables, because that would imply reallocating each time new array in the engine.\\n                this.port.postMessage({\\n                    type: 'fs',\\n                    payload: {\\n                        functionName,\\n                        arguments: args,\\n                    },\\n                });\\n            };\\n        });\\n        this.engine = engine;\\n        this.dspConfigured = false;\\n    }\\n    destroy() {\\n        this.process = () => false;\\n    }\\n}\\nregisterProcessor('webpd-node', WasmWorkletProcessor);\\n\";\n\n  var AssemblyscriptWasmBindingsCode = \"var AssemblyscriptWasmBindings = (function (exports) {\\n    'use strict';\\n\\n    const getFloatArrayType = (bitDepth) => bitDepth === 64 ? Float64Array : Float32Array;\\n\\n    const liftString = (wasmExports, pointer) => {\\n        if (!pointer)\\n            return null;\\n        pointer = pointer >>> 0;\\n        const end = (pointer +\\n            new Uint32Array(wasmExports.memory.buffer)[(pointer - 4) >>> 2]) >>>\\n            1;\\n        const memoryU16 = new Uint16Array(wasmExports.memory.buffer);\\n        let start = pointer >>> 1;\\n        let string = '';\\n        while (end - start > 1024) {\\n            string += String.fromCharCode(...memoryU16.subarray(start, (start += 1024)));\\n        }\\n        return string + String.fromCharCode(...memoryU16.subarray(start, end));\\n    };\\n    const lowerString = (wasmExports, value) => {\\n        if (value == null)\\n            return 0;\\n        const length = value.length, pointer = wasmExports.__new(length << 1, 1) >>> 0, memoryU16 = new Uint16Array(wasmExports.memory.buffer);\\n        for (let i = 0; i < length; ++i)\\n            memoryU16[(pointer >>> 1) + i] = value.charCodeAt(i);\\n        return pointer;\\n    };\\n    const readTypedArray = (wasmExports, constructor, pointer) => {\\n        if (!pointer)\\n            return null;\\n        const memoryU32 = new Uint32Array(wasmExports.memory.buffer);\\n        return new constructor(wasmExports.memory.buffer, memoryU32[(pointer + 4) >>> 2], memoryU32[(pointer + 8) >>> 2] / constructor.BYTES_PER_ELEMENT);\\n    };\\n    const lowerFloatArray = (wasmExports, bitDepth, data) => {\\n        const arrayType = getFloatArrayType(bitDepth);\\n        const arrayPointer = wasmExports.createFloatArray(data.length);\\n        const array = readTypedArray(wasmExports, arrayType, arrayPointer);\\n        array.set(data);\\n        return { array, arrayPointer };\\n    };\\n    const lowerListOfFloatArrays = (wasmExports, bitDepth, data) => {\\n        const arraysPointer = wasmExports.core_createListOfArrays();\\n        data.forEach((array) => {\\n            const { arrayPointer } = lowerFloatArray(wasmExports, bitDepth, array);\\n            wasmExports.core_pushToListOfArrays(arraysPointer, arrayPointer);\\n        });\\n        return arraysPointer;\\n    };\\n    const readListOfFloatArrays = (wasmExports, bitDepth, listOfArraysPointer) => {\\n        const listLength = wasmExports.core_getListOfArraysLength(listOfArraysPointer);\\n        const arrays = [];\\n        const arrayType = getFloatArrayType(bitDepth);\\n        for (let i = 0; i < listLength; i++) {\\n            const arrayPointer = wasmExports.core_getListOfArraysElem(listOfArraysPointer, i);\\n            arrays.push(readTypedArray(wasmExports, arrayType, arrayPointer));\\n        }\\n        return arrays;\\n    };\\n\\n    const liftMessage = (wasmExports, messagePointer) => {\\n        const messageTokenTypesPointer = wasmExports.msg_getTokenTypes(messagePointer);\\n        const messageTokenTypes = readTypedArray(wasmExports, Int32Array, messageTokenTypesPointer);\\n        const message = [];\\n        messageTokenTypes.forEach((tokenType, tokenIndex) => {\\n            if (tokenType === wasmExports.MSG_FLOAT_TOKEN.valueOf()) {\\n                message.push(wasmExports.msg_readFloatToken(messagePointer, tokenIndex));\\n            }\\n            else if (tokenType === wasmExports.MSG_STRING_TOKEN.valueOf()) {\\n                const stringPointer = wasmExports.msg_readStringToken(messagePointer, tokenIndex);\\n                message.push(liftString(wasmExports, stringPointer));\\n            }\\n        });\\n        return message;\\n    };\\n    const lowerMessage = (wasmExports, message) => {\\n        const template = message.reduce((template, value) => {\\n            if (typeof value === 'number') {\\n                template.push(wasmExports.MSG_FLOAT_TOKEN.valueOf());\\n            }\\n            else if (typeof value === 'string') {\\n                template.push(wasmExports.MSG_STRING_TOKEN.valueOf());\\n                template.push(value.length);\\n            }\\n            else {\\n                throw new Error(`invalid message value ${value}`);\\n            }\\n            return template;\\n        }, []);\\n        const templateArrayPointer = wasmExports.msg_createTemplate(template.length);\\n        const loweredTemplateArray = readTypedArray(wasmExports, Int32Array, templateArrayPointer);\\n        loweredTemplateArray.set(template);\\n        const messagePointer = wasmExports.msg_create(templateArrayPointer);\\n        message.forEach((value, index) => {\\n            if (typeof value === 'number') {\\n                wasmExports.msg_writeFloatToken(messagePointer, index, value);\\n            }\\n            else if (typeof value === 'string') {\\n                const stringPointer = lowerString(wasmExports, value);\\n                wasmExports.msg_writeStringToken(messagePointer, index, stringPointer);\\n            }\\n        });\\n        return messagePointer;\\n    };\\n\\n    const instantiateWasmModule = async (wasmBuffer, wasmImports = {}) => {\\n        const instanceAndModule = await WebAssembly.instantiate(wasmBuffer, {\\n            env: {\\n                abort: (messagePointer, _, lineNumber, columnNumber) => {\\n                    const message = liftString(wasmExports, messagePointer);\\n                    lineNumber = lineNumber;\\n                    columnNumber = columnNumber;\\n                    (() => {\\n                        throw Error(`${message} at ${lineNumber}:${columnNumber}`);\\n                    })();\\n                },\\n                seed: () => {\\n                    return (() => {\\n                        return Date.now() * Math.random();\\n                    })();\\n                },\\n                'console.log': (textPointer) => {\\n                    console.log(liftString(wasmExports, textPointer));\\n                },\\n            },\\n            ...wasmImports,\\n        });\\n        const wasmExports = instanceAndModule.instance\\n            .exports;\\n        return instanceAndModule.instance;\\n    };\\n\\n    const mapObject = (src, func) => {\\n        const dest = {};\\n        Object.entries(src).forEach(([key, srcValue], i) => {\\n            dest[key] = func(srcValue, key, i);\\n        });\\n        return dest;\\n    };\\n    const mapArray = (src, func) => {\\n        const dest = {};\\n        src.forEach((srcValue, i) => {\\n            const [key, destValue] = func(srcValue, i);\\n            dest[key] = destValue;\\n        });\\n        return dest;\\n    };\\n\\n    const createEngine = async (wasmBuffer) => {\\n        const engine = new AssemblyScriptWasmEngine(wasmBuffer);\\n        await engine.initialize();\\n        return engine;\\n    };\\n    class AssemblyScriptWasmEngine {\\n        constructor(wasmBuffer) {\\n            this.wasmBuffer = wasmBuffer;\\n        }\\n        async initialize() {\\n            this.metadata = await readMetadata(this.wasmBuffer);\\n            this.bitDepth = this.metadata.audioSettings.bitDepth;\\n            this.arrayType = getFloatArrayType(this.bitDepth);\\n            const wasmImports = {\\n                ...this._fsImports(),\\n                ...this._outletListenersImports(),\\n            };\\n            const wasmInstance = await instantiateWasmModule(this.wasmBuffer, {\\n                input: wasmImports,\\n            });\\n            this.wasmExports =\\n                wasmInstance.exports;\\n            this.commons = this._bindCommons();\\n            this.fs = this._bindFs();\\n            this.inletCallers = this._bindInletCallers();\\n            this.outletListeners = this._bindOutletListeners();\\n        }\\n        configure(sampleRate, blockSize) {\\n            this.blockSize = blockSize;\\n            this.metadata.audioSettings.blockSize = blockSize;\\n            this.metadata.audioSettings.sampleRate = sampleRate;\\n            this.wasmExports.configure(sampleRate, blockSize);\\n            this._updateWasmInOuts();\\n        }\\n        loop(input, output) {\\n            for (let channel = 0; channel < input.length; channel++) {\\n                this.wasmInput.set(input[channel], channel * this.blockSize);\\n            }\\n            this._updateWasmInOuts();\\n            this.wasmExports.loop();\\n            this._updateWasmInOuts();\\n            for (let channel = 0; channel < output.length; channel++) {\\n                output[channel].set(this.wasmOutput.subarray(this.blockSize * channel, this.blockSize * (channel + 1)));\\n            }\\n        }\\n        _updateWasmInOuts() {\\n            this.wasmOutput = readTypedArray(this.wasmExports, this.arrayType, this.wasmExports.getOutput());\\n            this.wasmInput = readTypedArray(this.wasmExports, this.arrayType, this.wasmExports.getInput());\\n        }\\n        _bindCommons() {\\n            return {\\n                getArray: (arrayName) => {\\n                    const arrayNamePointer = lowerString(this.wasmExports, arrayName);\\n                    const arrayPointer = this.wasmExports.commons_getArray(arrayNamePointer);\\n                    return readTypedArray(this.wasmExports, this.arrayType, arrayPointer);\\n                },\\n                setArray: (arrayName, array) => {\\n                    const stringPointer = lowerString(this.wasmExports, arrayName);\\n                    const { arrayPointer } = lowerFloatArray(this.wasmExports, this.bitDepth, array);\\n                    this.wasmExports.commons_setArray(stringPointer, arrayPointer);\\n                    this._updateWasmInOuts();\\n                },\\n            };\\n        }\\n        _bindFs() {\\n            return {\\n                sendReadSoundFileResponse: (operationId, status, sound) => {\\n                    let soundPointer = 0;\\n                    if (sound) {\\n                        soundPointer = lowerListOfFloatArrays(this.wasmExports, this.bitDepth, sound);\\n                    }\\n                    this.wasmExports.fs_onReadSoundFileResponse(operationId, status, soundPointer);\\n                    this._updateWasmInOuts();\\n                },\\n                sendWriteSoundFileResponse: this.wasmExports.fs_onWriteSoundFileResponse,\\n                sendSoundStreamData: (operationId, sound) => {\\n                    const soundPointer = lowerListOfFloatArrays(this.wasmExports, this.bitDepth, sound);\\n                    const writtenFrameCount = this.wasmExports.fs_onSoundStreamData(operationId, soundPointer);\\n                    this._updateWasmInOuts();\\n                    return writtenFrameCount;\\n                },\\n                closeSoundStream: this.wasmExports.fs_onCloseSoundStream,\\n                onReadSoundFile: () => undefined,\\n                onWriteSoundFile: () => undefined,\\n                onOpenSoundReadStream: () => undefined,\\n                onOpenSoundWriteStream: () => undefined,\\n                onSoundStreamData: () => undefined,\\n                onCloseSoundStream: () => undefined,\\n            };\\n        }\\n        _fsImports() {\\n            let wasmImports = {\\n                i_fs_readSoundFile: (operationId, urlPointer, infoPointer) => {\\n                    const url = liftString(this.wasmExports, urlPointer);\\n                    const info = liftMessage(this.wasmExports, infoPointer);\\n                    this.fs.onReadSoundFile(operationId, url, info);\\n                },\\n                i_fs_writeSoundFile: (operationId, soundPointer, urlPointer, infoPointer) => {\\n                    const sound = readListOfFloatArrays(this.wasmExports, this.bitDepth, soundPointer);\\n                    const url = liftString(this.wasmExports, urlPointer);\\n                    const info = liftMessage(this.wasmExports, infoPointer);\\n                    this.fs.onWriteSoundFile(operationId, sound, url, info);\\n                },\\n                i_fs_openSoundReadStream: (operationId, urlPointer, infoPointer) => {\\n                    const url = liftString(this.wasmExports, urlPointer);\\n                    const info = liftMessage(this.wasmExports, infoPointer);\\n                    this._updateWasmInOuts();\\n                    this.fs.onOpenSoundReadStream(operationId, url, info);\\n                },\\n                i_fs_openSoundWriteStream: (operationId, urlPointer, infoPointer) => {\\n                    const url = liftString(this.wasmExports, urlPointer);\\n                    const info = liftMessage(this.wasmExports, infoPointer);\\n                    this.fs.onOpenSoundWriteStream(operationId, url, info);\\n                },\\n                i_fs_sendSoundStreamData: (operationId, blockPointer) => {\\n                    const block = readListOfFloatArrays(this.wasmExports, this.bitDepth, blockPointer);\\n                    this.fs.onSoundStreamData(operationId, block);\\n                },\\n                i_fs_closeSoundStream: (...args) => this.fs.onCloseSoundStream(...args),\\n            };\\n            return wasmImports;\\n        }\\n        _bindInletCallers() {\\n            return mapObject(this.metadata.compilation.inletCallerSpecs, (inletIds, nodeId) => mapArray(inletIds, (inletId) => [\\n                inletId,\\n                (message) => {\\n                    const messagePointer = lowerMessage(this.wasmExports, message);\\n                    this.wasmExports[this.metadata.compilation.codeVariableNames\\n                        .inletCallers[nodeId][inletId]](messagePointer);\\n                },\\n            ]));\\n        }\\n        _bindOutletListeners() {\\n            return mapObject(this.metadata.compilation.outletListenerSpecs, (outletIds) => mapArray(outletIds, (outletId) => [\\n                outletId,\\n                {\\n                    onMessage: () => undefined,\\n                },\\n            ]));\\n        }\\n        _outletListenersImports() {\\n            const wasmImports = {};\\n            const { codeVariableNames } = this.metadata.compilation;\\n            Object.entries(this.metadata.compilation.outletListenerSpecs).forEach(([nodeId, outletIds]) => {\\n                outletIds.forEach((outletId) => {\\n                    const listenerName = codeVariableNames.outletListeners[nodeId][outletId];\\n                    wasmImports[listenerName] = (messagePointer) => {\\n                        const message = liftMessage(this.wasmExports, messagePointer);\\n                        this.outletListeners[nodeId][outletId].onMessage(message);\\n                    };\\n                });\\n            });\\n            return wasmImports;\\n        }\\n    }\\n    const readMetadata = async (wasmBuffer) => {\\n        const inputImports = {};\\n        const wasmModule = WebAssembly.Module.imports(new WebAssembly.Module(wasmBuffer));\\n        wasmModule\\n            .filter((imprt) => imprt.module === 'input' && imprt.kind === 'function')\\n            .forEach((imprt) => (inputImports[imprt.name] = () => undefined));\\n        const wasmInstance = await instantiateWasmModule(wasmBuffer, {\\n            input: inputImports,\\n        });\\n        const wasmExports = wasmInstance.exports;\\n        const stringPointer = wasmExports.metadata.valueOf();\\n        const metadataJSON = liftString(wasmExports, stringPointer);\\n        return JSON.parse(metadataJSON);\\n    };\\n\\n    exports.AssemblyScriptWasmEngine = AssemblyScriptWasmEngine;\\n    exports.createEngine = createEngine;\\n    exports.readMetadata = readMetadata;\\n\\n    return exports;\\n\\n})({});\\n//# sourceMappingURL=assemblyscript-wasm-bindings.iife.js.map\\n\";\n\n  var fetchRetry$1 = function (fetch, defaults) {\n    defaults = defaults || {};\n    if (typeof fetch !== 'function') {\n      throw new ArgumentError('fetch must be a function');\n    }\n\n    if (typeof defaults !== 'object') {\n      throw new ArgumentError('defaults must be an object');\n    }\n\n    if (defaults.retries !== undefined && !isPositiveInteger(defaults.retries)) {\n      throw new ArgumentError('retries must be a positive integer');\n    }\n\n    if (defaults.retryDelay !== undefined && !isPositiveInteger(defaults.retryDelay) && typeof defaults.retryDelay !== 'function') {\n      throw new ArgumentError('retryDelay must be a positive integer or a function returning a positive integer');\n    }\n\n    if (defaults.retryOn !== undefined && !Array.isArray(defaults.retryOn) && typeof defaults.retryOn !== 'function') {\n      throw new ArgumentError('retryOn property expects an array or function');\n    }\n\n    var baseDefaults = {\n      retries: 3,\n      retryDelay: 1000,\n      retryOn: [],\n    };\n\n    defaults = Object.assign(baseDefaults, defaults);\n\n    return function fetchRetry(input, init) {\n      var retries = defaults.retries;\n      var retryDelay = defaults.retryDelay;\n      var retryOn = defaults.retryOn;\n\n      if (init && init.retries !== undefined) {\n        if (isPositiveInteger(init.retries)) {\n          retries = init.retries;\n        } else {\n          throw new ArgumentError('retries must be a positive integer');\n        }\n      }\n\n      if (init && init.retryDelay !== undefined) {\n        if (isPositiveInteger(init.retryDelay) || (typeof init.retryDelay === 'function')) {\n          retryDelay = init.retryDelay;\n        } else {\n          throw new ArgumentError('retryDelay must be a positive integer or a function returning a positive integer');\n        }\n      }\n\n      if (init && init.retryOn) {\n        if (Array.isArray(init.retryOn) || (typeof init.retryOn === 'function')) {\n          retryOn = init.retryOn;\n        } else {\n          throw new ArgumentError('retryOn property expects an array or function');\n        }\n      }\n\n      // eslint-disable-next-line no-undef\n      return new Promise(function (resolve, reject) {\n        var wrappedFetch = function (attempt) {\n          // As of node 18, this is no longer needed since node comes with native support for fetch:\n          /* istanbul ignore next */\n          var _input =\n            typeof Request !== 'undefined' && input instanceof Request\n              ? input.clone()\n              : input;\n          fetch(_input, init)\n            .then(function (response) {\n              if (Array.isArray(retryOn) && retryOn.indexOf(response.status) === -1) {\n                resolve(response);\n              } else if (typeof retryOn === 'function') {\n                try {\n                  // eslint-disable-next-line no-undef\n                  return Promise.resolve(retryOn(attempt, null, response))\n                    .then(function (retryOnResponse) {\n                      if(retryOnResponse) {\n                        retry(attempt, null, response);\n                      } else {\n                        resolve(response);\n                      }\n                    }).catch(reject);\n                } catch (error) {\n                  reject(error);\n                }\n              } else {\n                if (attempt < retries) {\n                  retry(attempt, null, response);\n                } else {\n                  resolve(response);\n                }\n              }\n            })\n            .catch(function (error) {\n              if (typeof retryOn === 'function') {\n                try {\n                  // eslint-disable-next-line no-undef\n                  Promise.resolve(retryOn(attempt, error, null))\n                    .then(function (retryOnResponse) {\n                      if(retryOnResponse) {\n                        retry(attempt, error, null);\n                      } else {\n                        reject(error);\n                      }\n                    })\n                    .catch(function(error) {\n                      reject(error);\n                    });\n                } catch(error) {\n                  reject(error);\n                }\n              } else if (attempt < retries) {\n                retry(attempt, error, null);\n              } else {\n                reject(error);\n              }\n            });\n        };\n\n        function retry(attempt, error, response) {\n          var delay = (typeof retryDelay === 'function') ?\n            retryDelay(attempt, error, response) : retryDelay;\n          setTimeout(function () {\n            wrappedFetch(++attempt);\n          }, delay);\n        }\n\n        wrappedFetch(0);\n      });\n    };\n  };\n\n  function isPositiveInteger(value) {\n    return Number.isInteger(value) && value >= 0;\n  }\n\n  function ArgumentError(message) {\n    this.name = 'ArgumentError';\n    this.message = message;\n  }\n\n  const fetchRetry = fetchRetry$1(fetch);\n  const addModule = async (context, processorCode) => {\n      const blob = new Blob([processorCode], { type: 'text/javascript' });\n      const workletProcessorUrl = URL.createObjectURL(blob);\n      return context.audioWorklet.addModule(workletProcessorUrl);\n  };\n  // TODO : testing\n  const fetchFile = async (url) => {\n      let response;\n      try {\n          response = await fetchRetry(url, { retries: 3 });\n      }\n      catch (err) {\n          throw new FileError(response.status, err.toString());\n      }\n      if (!response.ok) {\n          const responseText = await response.text();\n          throw new FileError(response.status, responseText);\n      }\n      return response.arrayBuffer();\n  };\n  const audioBufferToArray = (audioBuffer) => {\n      const sound = [];\n      for (let channel = 0; channel < audioBuffer.numberOfChannels; channel++) {\n          sound.push(audioBuffer.getChannelData(channel));\n      }\n      return sound;\n  };\n  // TODO : testing\n  const fixSoundChannelCount = (sound, targetChannelCount) => {\n      if (sound.length === 0) {\n          throw new Error(`Received empty sound`);\n      }\n      const floatArrayType = sound[0].constructor;\n      const frameCount = sound[0].length;\n      const fixedSound = sound.slice(0, targetChannelCount);\n      while (sound.length < targetChannelCount) {\n          fixedSound.push(new floatArrayType(frameCount));\n      }\n      return fixedSound;\n  };\n  class FileError extends Error {\n      constructor(status, msg) {\n          super(`Error ${status} : ${msg}`);\n      }\n  }\n\n  /*\n   * Copyright (c) 2012-2020 Sébastien Piquemal <sebpiq@gmail.com>\n   *\n   * BSD Simplified License.\n   * For information on usage and redistribution, and for a DISCLAIMER OF ALL\n   * WARRANTIES, see the file, \"LICENSE.txt,\" in this distribution.\n   *\n   * See https://github.com/sebpiq/WebPd_pd-parser for documentation\n   *\n   */\n  // Concatenate WorkletProcessor code with the Wasm bindings it needs\n  const WebPdWorkletProcessorCode = AssemblyscriptWasmBindingsCode + ';\\n' + _WebPdWorkletProcessorCode;\n  const registerWebPdWorkletNode = (context) => {\n      return addModule(context, WebPdWorkletProcessorCode);\n  };\n\n  /*\n   * Copyright (c) 2012-2020 Sébastien Piquemal <sebpiq@gmail.com>\n   *\n   * BSD Simplified License.\n   * For information on usage and redistribution, and for a DISCLAIMER OF ALL\n   * WARRANTIES, see the file, \"LICENSE.txt,\" in this distribution.\n   *\n   * See https://github.com/sebpiq/WebPd_pd-parser for documentation\n   *\n   */\n  const FILES = {};\n  const STREAMS = {};\n  class FakeStream {\n      constructor(url, sound) {\n          this.url = url;\n          this.sound = sound;\n          this.frameCount = sound[0].length;\n          this.readPosition = 0;\n      }\n  }\n  const read = async (url) => {\n      if (FILES[url]) {\n          return FILES[url];\n      }\n      const arrayBuffer = await fetchFile(url);\n      return {\n          type: 'binary',\n          data: arrayBuffer,\n      };\n  };\n  // TODO : testing\n  const readSound = async (url, context) => {\n      let fakeFile = FILES[url] || (await read(url));\n      switch (fakeFile.type) {\n          case 'binary':\n              const audioBuffer = await context.decodeAudioData(fakeFile.data);\n              return audioBufferToArray(audioBuffer);\n          case 'sound':\n              // We copy the data here o it can be manipulated freely by the host.\n              // e.g. if the buffer is sent as transferrable to the node we don't want the original to be transferred.\n              return fakeFile.data.map((array) => array.slice());\n      }\n  };\n  const writeSound = async (sound, url) => {\n      FILES[url] = {\n          type: 'sound',\n          data: sound,\n      };\n  };\n  const readStreamSound = async (operationId, url, channelCount, context) => {\n      const sound = await readSound(url, context);\n      STREAMS[operationId] = new FakeStream(url, fixSoundChannelCount(sound, channelCount));\n      return STREAMS[operationId];\n  };\n  const writeStreamSound = async (operationId, url, channelCount) => {\n      const emptySound = [];\n      for (let channel = 0; channel < channelCount; channel++) {\n          emptySound.push(new Float32Array(0));\n      }\n      STREAMS[operationId] = new FakeStream(url, emptySound);\n      FILES[url] = {\n          type: 'sound',\n          data: emptySound,\n      };\n      return STREAMS[operationId];\n  };\n  const getStream = (operationId) => {\n      return STREAMS[operationId];\n  };\n  const killStream = (operationId) => {\n      console.log('KILL STREAM', operationId);\n      delete STREAMS[operationId];\n  };\n  const pullBlock = (stream, frameCount) => {\n      const block = stream.sound.map((array) => array.slice(stream.readPosition, stream.readPosition + frameCount));\n      stream.readPosition += frameCount;\n      return block;\n  };\n  const pushBlock = (stream, block) => {\n      stream.sound = stream.sound.map((channelData, channel) => {\n          const concatenated = new Float32Array(channelData.length + block[channel].length);\n          concatenated.set(channelData);\n          concatenated.set(block[channel], channelData.length);\n          return concatenated;\n      });\n      stream.frameCount = stream.sound[0].length;\n      FILES[stream.url].data = stream.sound;\n  };\n  var fakeFs = {\n      writeSound,\n      readSound,\n      readStreamSound,\n      writeStreamSound,\n      pullBlock,\n      pushBlock,\n  };\n\n  var closeSoundStream = async (node, payload) => {\n      if (payload.functionName === 'onCloseSoundStream') {\n          killStream(payload.arguments[0]);\n      }\n  };\n\n  const FS_OPERATION_SUCCESS = 0;\n  const FS_OPERATION_FAILURE = 1;\n\n  var readSoundFile = async (node, payload) => {\n      if (payload.functionName === 'onReadSoundFile') {\n          const [operationId, url, [channelCount]] = payload.arguments;\n          let operationStatus = FS_OPERATION_SUCCESS;\n          let sound = null;\n          try {\n              sound = await fakeFs.readSound(url, node.context);\n          }\n          catch (err) {\n              operationStatus = FS_OPERATION_FAILURE;\n              console.error(err);\n          }\n          if (sound) {\n              sound = fixSoundChannelCount(sound, channelCount);\n          }\n          node.port.postMessage({\n              type: 'fs',\n              payload: {\n                  functionName: 'sendReadSoundFileResponse',\n                  arguments: [operationId, operationStatus, sound],\n              },\n          }, \n          // Add as transferables to avoid copies between threads\n          sound.map((array) => array.buffer));\n      }\n      else if (payload.functionName === 'sendReadSoundFileResponse_return') ;\n  };\n\n  const BUFFER_HIGH = 10 * 44100;\n  const BUFFER_LOW = BUFFER_HIGH / 2;\n  var readSoundStream = async (node, payload) => {\n      if (payload.functionName === 'onOpenSoundReadStream') {\n          const [operationId, url, [channelCount]] = payload.arguments;\n          try {\n              await fakeFs.readStreamSound(operationId, url, channelCount, node.context);\n          }\n          catch (err) {\n              console.error(err);\n              node.port.postMessage({\n                  type: 'fs',\n                  payload: {\n                      functionName: 'closeSoundStream',\n                      arguments: [operationId, FS_OPERATION_FAILURE],\n                  },\n              });\n              return;\n          }\n          streamLoop(node, operationId, 0);\n      }\n      else if (payload.functionName === 'sendSoundStreamData_return') {\n          const stream = getStream(payload.operationId);\n          if (!stream) {\n              throw new Error(`unknown stream ${payload.operationId}`);\n          }\n          streamLoop(node, payload.operationId, payload.returned);\n      }\n      else if (payload.functionName === 'closeSoundStream_return') {\n          const stream = getStream(payload.operationId);\n          if (stream) {\n              killStream(payload.operationId);\n          }\n      }\n  };\n  const streamLoop = (node, operationId, framesAvailableInEngine) => {\n      const sampleRate = node.context.sampleRate;\n      const secondsToThreshold = Math.max(framesAvailableInEngine - BUFFER_LOW, 10) / sampleRate;\n      const framesToSend = BUFFER_HIGH -\n          (framesAvailableInEngine - secondsToThreshold * sampleRate);\n      setTimeout(() => {\n          const stream = getStream(operationId);\n          if (!stream) {\n              console.log(`stream ${operationId} was maybe closed`);\n              return;\n          }\n          if (stream.readPosition < stream.frameCount) {\n              const block = pullBlock(stream, framesToSend);\n              node.port.postMessage({\n                  type: 'fs',\n                  payload: {\n                      functionName: 'sendSoundStreamData',\n                      arguments: [operationId, block],\n                  },\n              }, \n              // Add as transferables to avoid copies between threads\n              block.map((array) => array.buffer));\n          }\n          else {\n              node.port.postMessage({\n                  type: 'fs',\n                  payload: {\n                      functionName: 'closeSoundStream',\n                      arguments: [operationId, FS_OPERATION_SUCCESS],\n                  },\n              });\n          }\n      }, secondsToThreshold * 1000);\n  };\n\n  var writeSoundFile = async (node, payload) => {\n      if (payload.functionName === 'onWriteSoundFile') {\n          const [operationId, sound, url, [channelCount]] = payload.arguments;\n          const fixedSound = fixSoundChannelCount(sound, channelCount);\n          await fakeFs.writeSound(fixedSound, url);\n          let operationStatus = FS_OPERATION_SUCCESS;\n          node.port.postMessage({\n              type: 'fs',\n              payload: {\n                  functionName: 'sendWriteSoundFileResponse',\n                  arguments: [operationId, operationStatus],\n              },\n          });\n      }\n      else if (payload.functionName === 'sendWriteSoundFileResponse_return') ;\n  };\n\n  var writeSoundStream = async (_, payload) => {\n      if (payload.functionName === 'onOpenSoundWriteStream') {\n          const [operationId, url, [channelCount]] = payload.arguments;\n          await fakeFs.writeStreamSound(operationId, url, channelCount);\n      }\n      else if (payload.functionName === 'onSoundStreamData') {\n          const [operationId, sound] = payload.arguments;\n          const stream = getStream(operationId);\n          if (!stream) {\n              throw new Error(`unknown stream ${operationId}`);\n          }\n          pushBlock(stream, sound);\n      }\n      else if (payload.functionName === 'closeSoundStream_return') {\n          const stream = getStream(payload.operationId);\n          if (stream) {\n              killStream(payload.operationId);\n          }\n      }\n  };\n\n  var index = async (node, messageEvent) => {\n      const message = messageEvent.data;\n      const { payload } = message;\n      if (message.type !== 'fs') {\n          throw new Error(`Unknown message type from node ${message.type}`);\n      }\n      if (payload.functionName === 'onReadSoundFile' ||\n          payload.functionName === 'sendReadSoundFileResponse_return') {\n          readSoundFile(node, payload);\n      }\n      else if (payload.functionName === 'onOpenSoundReadStream' ||\n          payload.functionName === 'sendSoundStreamData_return') {\n          readSoundStream(node, payload);\n      }\n      else if (payload.functionName === 'onWriteSoundFile' ||\n          payload.functionName === 'sendWriteSoundFileResponse_return') {\n          writeSoundFile(node, payload);\n      }\n      else if (payload.functionName === 'onOpenSoundWriteStream' ||\n          payload.functionName === 'onSoundStreamData') {\n          writeSoundStream(node, payload);\n      }\n      else if (payload.functionName === 'closeSoundStream_return') {\n          writeSoundStream(node, payload);\n          readSoundStream(node, payload);\n      }\n      else if (payload.functionName === 'onCloseSoundStream') {\n          closeSoundStream(node, payload);\n      }\n      else {\n          throw new Error(`Unknown callback ${payload.functionName}`);\n      }\n  };\n\n  /*\n   * Copyright (c) 2012-2020 Sébastien Piquemal <sebpiq@gmail.com>\n   *\n   * BSD Simplified License.\n   * For information on usage and redistribution, and for a DISCLAIMER OF ALL\n   * WARRANTIES, see the file, \"LICENSE.txt,\" in this distribution.\n   *\n   * See https://github.com/sebpiq/WebPd_pd-parser for documentation\n   *\n   */\n  // TODO : manage transferables\n  class WebPdWorkletNode extends AudioWorkletNode {\n      constructor(context) {\n          super(context, 'webpd-node', {\n              numberOfOutputs: 1,\n              outputChannelCount: [2],\n          });\n      }\n      destroy() {\n          this.port.postMessage({\n              type: 'destroy',\n              payload: {},\n          });\n      }\n  }\n\n  exports.WebPdWorkletNode = WebPdWorkletNode;\n  exports.fsWeb = index;\n  exports.registerWebPdWorkletNode = registerWebPdWorkletNode;\n\n  return exports;\n\n})({});\n";
-
-const WEBPD_RUNTIME_FILENAME = 'webpd-runtime.js';
-var appGenerator = (template, artefacts) => {
-    switch (template) {
-        case 'bare-bones':
-            const generated = bareBonesApp({ artefacts });
-            return {
-                ...generated,
-                [WEBPD_RUNTIME_FILENAME]: WEBPD_RUNTIME_CODE,
-            };
-        default:
-            throw new Error(`Unknown template ${template}`);
-    }
-};
-const bareBonesApp = (settings) => {
-    const { artefacts } = settings;
-    if (!artefacts.compiledJs && !artefacts.wasm) {
-        throw new Error(`Needs at least compiledJs or wasm to run`);
-    }
-    const compiledPatchFilename = artefacts.compiledJs
-        ? 'patch.js'
-        : 'patch.wasm';
-    // prettier-ignore
-    const generatedApp = {
-        'index.html': `
-<!DOCTYPE html>
-<html lang="en">
-    <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <meta http-equiv="X-UA-Compatible" content="ie=edge">
-        <title>WebPd boilerplate</title>
-        <style>
-            #start {
-                display: none;
-                position: fixed;
-                top: 50%;
-                left: 50%;
-                transform: translate(-50%, -50%);
-            }
-            #loading {
-                width: 100%;
-                height: 100%;
-                display: flex;
-                justify-content: center;
-                align-items: center;
-            }
-        </style>
-    </head>
-    <body>
-        <button id="start"> Start </button>
-        <div id="loading"> Loading ... </div>
-        <script src="${WEBPD_RUNTIME_FILENAME}"></script>
-        <script>
-            const loadingDiv = document.querySelector('#loading')
-            const startButton = document.querySelector('#start')
-            const audioContext = new AudioContext()
-
-            let patch = null
-            let stream = null
-            let webpdNode = null
-
-            const initApp = async () => {
-                // Register the worklet
-                await WebPdRuntime.registerWebPdWorkletNode(audioContext)
-
-                // Fetch the patch code
-                response = await fetch('${compiledPatchFilename}')
-                patch = await ${artefacts.compiledJs ?
-            'response.text()' : 'response.arrayBuffer()'}
-
-                // Get audio input
-                stream = await navigator.mediaDevices.getUserMedia({ audio: true })
-
-                // Hide loading and show start button
-                loadingDiv.style.display = 'none'
-                startButton.style.display = 'block'
-            }
-
-            const startApp = async () => {
-                // AudioContext needs to be resumed on click to protects users 
-                // from being spammed with autoplay.
-                // See : https://github.com/WebAudio/web-audio-api/issues/345
-                if (audioContext.state === 'suspended') {
-                    audioContext.resume()
-                }
-
-                // Setup web audio graph
-                const sourceNode = audioContext.createMediaStreamSource(stream)
-                webpdNode = new WebPdRuntime.WebPdWorkletNode(audioContext)
-                sourceNode.connect(webpdNode)
-                webpdNode.connect(audioContext.destination)
-
-                // Setup filesystem management
-                webpdNode.port.onmessage = (message) => WebPdRuntime.fs.web(webpdNode, message)
-
-                // Send code to the worklet
-                ${artefacts.compiledJs ? `
-                webpdNode.port.postMessage({
-                    type: 'code:JS',
-                    payload: {
-                        jsCode: patch,
-                    },
-                })` : `
-                webpdNode.port.postMessage({
-                    type: 'code:WASM',
-                    payload: {
-                        wasmBuffer: patch,
-                    },
-                })`}
-
-                // Hide the start button
-                startButton.style.display = 'none'
-            }
-
-            startButton.onclick = startApp
-
-            initApp().
-                then(() => {
-                    console.log('App initialized')
-                })
-
-            // You can then use this function to interact with your patch
-            // e.g. :
-            // sendMsgToWebPd('n_0_1', '0', ['bang'])
-            // sendMsgToWebPd('n_0_2', '0', [123])
-            const sendMsgToWebPd = (nodeId, portletId, message) => {
-                webpdNode.port.postMessage({
-                    type: 'inletCaller',
-                    payload: {
-                        nodeId,
-                        portletId,
-                        message,
-                    },
-                })
-            }
-            ${artefacts.dspGraph && artefacts.dspGraph.inletCallerSpecs ? `
-            // For info, compilation has opened the following ports in your patch.
-            // You can send messages to them :`
-            + Object.entries(artefacts.dspGraph.inletCallerSpecs)
-                .flatMap(([nodeId, portletIds]) => portletIds.map(portletId => `
-            //     - Node of type "${artefacts.dspGraph.graph[nodeId].type}", nodeId "${nodeId}", portletId "${portletId}"`)).join('')
-            : ''}
-        </script>
-    </body>
-</html>`
-    };
-    if (artefacts.compiledJs) {
-        generatedApp[compiledPatchFilename] = artefacts.compiledJs;
-    }
-    else {
-        generatedApp[compiledPatchFilename] = artefacts.wasm;
-    }
-    return generatedApp;
-};
+var WEBPD_RUNTIME_CODE = "var WebPdRuntime = (function (exports) {\n  'use strict';\n\n  var _WebPdWorkletProcessorCode = \"/*\\n * Copyright (c) 2022-2023 Sébastien Piquemal <sebpiq@protonmail.com>, Chris McCormick.\\n *\\n * This file is part of WebPd\\n * (see https://github.com/sebpiq/WebPd).\\n *\\n * This program is free software: you can redistribute it and/or modify\\n * it under the terms of the GNU Lesser General Public License as published by\\n * the Free Software Foundation, either version 3 of the License, or\\n * (at your option) any later version.\\n *\\n * This program is distributed in the hope that it will be useful,\\n * but WITHOUT ANY WARRANTY; without even the implied warranty of\\n * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the\\n * GNU Lesser General Public License for more details.\\n *\\n * You should have received a copy of the GNU Lesser General Public License\\n * along with this program. If not, see <http://www.gnu.org/licenses/>.\\n */\\nconst FS_CALLBACK_NAMES = [\\n    'onReadSoundFile',\\n    'onOpenSoundReadStream',\\n    'onWriteSoundFile',\\n    'onOpenSoundWriteStream',\\n    'onSoundStreamData',\\n    'onCloseSoundStream',\\n];\\nclass WasmWorkletProcessor extends AudioWorkletProcessor {\\n    constructor() {\\n        super();\\n        this.port.onmessage = this.onMessage.bind(this);\\n        this.settings = {\\n            blockSize: null,\\n            sampleRate,\\n        };\\n        this.dspConfigured = false;\\n        this.engine = null;\\n    }\\n    process(inputs, outputs) {\\n        const output = outputs[0];\\n        const input = inputs[0];\\n        if (!this.dspConfigured) {\\n            if (!this.engine) {\\n                return true;\\n            }\\n            this.settings.blockSize = output[0].length;\\n            this.engine.configure(this.settings.sampleRate, this.settings.blockSize);\\n            this.dspConfigured = true;\\n        }\\n        this.engine.loop(input, output);\\n        return true;\\n    }\\n    onMessage(messageEvent) {\\n        const message = messageEvent.data;\\n        switch (message.type) {\\n            case 'code:WASM':\\n                this.setWasm(message.payload.wasmBuffer);\\n                break;\\n            case 'code:JS':\\n                this.setJsCode(message.payload.jsCode);\\n                break;\\n            case 'inletCaller':\\n                this.engine.inletCallers[message.payload.nodeId][message.payload.portletId](message.payload.message);\\n                break;\\n            case 'fs':\\n                const returned = this.engine.fs[message.payload.functionName].apply(null, message.payload.arguments);\\n                this.port.postMessage({\\n                    type: 'fs',\\n                    payload: {\\n                        functionName: message.payload.functionName + '_return',\\n                        operationId: message.payload.arguments[0],\\n                        returned,\\n                    },\\n                });\\n                break;\\n            case 'destroy':\\n                this.destroy();\\n                break;\\n            default:\\n                new Error(`unknown message type ${message.type}`);\\n        }\\n    }\\n    // TODO : control for channelCount of wasmModule\\n    setWasm(wasmBuffer) {\\n        return AssemblyScriptWasmBindings.createEngine(wasmBuffer).then((engine) => this.setEngine(engine));\\n    }\\n    setJsCode(code) {\\n        const engine = JavaScriptBindings.createEngine(code);\\n        this.setEngine(engine);\\n    }\\n    setEngine(engine) {\\n        FS_CALLBACK_NAMES.forEach((functionName) => {\\n            ;\\n            engine.fs[functionName] = (...args) => {\\n                // We don't use transferables, because that would imply reallocating each time new array in the engine.\\n                this.port.postMessage({\\n                    type: 'fs',\\n                    payload: {\\n                        functionName,\\n                        arguments: args,\\n                    },\\n                });\\n            };\\n        });\\n        this.engine = engine;\\n        this.dspConfigured = false;\\n    }\\n    destroy() {\\n        this.process = () => false;\\n    }\\n}\\nregisterProcessor('webpd-node', WasmWorkletProcessor);\\n\";\n\n  var AssemblyScriptWasmBindingsCode = \"var AssemblyScriptWasmBindings = (function (exports) {\\n    'use strict';\\n\\n    const getFloatArrayType = (bitDepth) => bitDepth === 64 ? Float64Array : Float32Array;\\n    const createModule = (rawModule, bindings) => new Proxy({}, {\\n        get: (_, k) => {\\n            if (bindings.hasOwnProperty(k)) {\\n                const key = String(k);\\n                const bindingSpec = bindings[key];\\n                switch (bindingSpec.type) {\\n                    case 'raw':\\n                        if (k in rawModule) {\\n                            return rawModule[key];\\n                        }\\n                        else {\\n                            throw new Error(`Key ${String(key)} doesn't exist in raw module`);\\n                        }\\n                    case 'proxy':\\n                    case 'callback':\\n                        return bindingSpec.value;\\n                }\\n            }\\n            else {\\n                return undefined;\\n            }\\n        },\\n        set: (_, k, newValue) => {\\n            if (bindings.hasOwnProperty(String(k))) {\\n                const key = String(k);\\n                const bindingSpec = bindings[key];\\n                if (bindingSpec.type === 'callback') {\\n                    bindingSpec.value = newValue;\\n                }\\n                else {\\n                    throw new Error(`Binding key ${String(key)} is read-only`);\\n                }\\n            }\\n            else {\\n                throw new Error(`Key ${String(k)} is not defined in bindings`);\\n            }\\n            return true;\\n        },\\n    });\\n\\n    const liftString = (wasmExports, pointer) => {\\n        if (!pointer)\\n            return null;\\n        pointer = pointer >>> 0;\\n        const end = (pointer +\\n            new Uint32Array(wasmExports.memory.buffer)[(pointer - 4) >>> 2]) >>>\\n            1;\\n        const memoryU16 = new Uint16Array(wasmExports.memory.buffer);\\n        let start = pointer >>> 1;\\n        let string = '';\\n        while (end - start > 1024) {\\n            string += String.fromCharCode(...memoryU16.subarray(start, (start += 1024)));\\n        }\\n        return string + String.fromCharCode(...memoryU16.subarray(start, end));\\n    };\\n    const lowerString = (wasmExports, value) => {\\n        if (value == null)\\n            return 0;\\n        const length = value.length, pointer = wasmExports.__new(length << 1, 1) >>> 0, memoryU16 = new Uint16Array(wasmExports.memory.buffer);\\n        for (let i = 0; i < length; ++i)\\n            memoryU16[(pointer >>> 1) + i] = value.charCodeAt(i);\\n        return pointer;\\n    };\\n    const readTypedArray = (wasmExports, constructor, pointer) => {\\n        if (!pointer)\\n            return null;\\n        const memoryU32 = new Uint32Array(wasmExports.memory.buffer);\\n        return new constructor(wasmExports.memory.buffer, memoryU32[(pointer + 4) >>> 2], memoryU32[(pointer + 8) >>> 2] / constructor.BYTES_PER_ELEMENT);\\n    };\\n    const lowerFloatArray = (wasmExports, bitDepth, data) => {\\n        const arrayType = getFloatArrayType(bitDepth);\\n        const arrayPointer = wasmExports.createFloatArray(data.length);\\n        const array = readTypedArray(wasmExports, arrayType, arrayPointer);\\n        array.set(data);\\n        return { array, arrayPointer };\\n    };\\n    const lowerListOfFloatArrays = (wasmExports, bitDepth, data) => {\\n        const arraysPointer = wasmExports.x_core_createListOfArrays();\\n        data.forEach((array) => {\\n            const { arrayPointer } = lowerFloatArray(wasmExports, bitDepth, array);\\n            wasmExports.x_core_pushToListOfArrays(arraysPointer, arrayPointer);\\n        });\\n        return arraysPointer;\\n    };\\n    const readListOfFloatArrays = (wasmExports, bitDepth, listOfArraysPointer) => {\\n        const listLength = wasmExports.x_core_getListOfArraysLength(listOfArraysPointer);\\n        const arrays = [];\\n        const arrayType = getFloatArrayType(bitDepth);\\n        for (let i = 0; i < listLength; i++) {\\n            const arrayPointer = wasmExports.x_core_getListOfArraysElem(listOfArraysPointer, i);\\n            arrays.push(readTypedArray(wasmExports, arrayType, arrayPointer));\\n        }\\n        return arrays;\\n    };\\n\\n    const liftMessage = (wasmExports, messagePointer) => {\\n        const messageTokenTypesPointer = wasmExports.x_msg_getTokenTypes(messagePointer);\\n        const messageTokenTypes = readTypedArray(wasmExports, Int32Array, messageTokenTypesPointer);\\n        const message = [];\\n        messageTokenTypes.forEach((tokenType, tokenIndex) => {\\n            if (tokenType === wasmExports.MSG_FLOAT_TOKEN.valueOf()) {\\n                message.push(wasmExports.msg_readFloatToken(messagePointer, tokenIndex));\\n            }\\n            else if (tokenType === wasmExports.MSG_STRING_TOKEN.valueOf()) {\\n                const stringPointer = wasmExports.msg_readStringToken(messagePointer, tokenIndex);\\n                message.push(liftString(wasmExports, stringPointer));\\n            }\\n        });\\n        return message;\\n    };\\n    const lowerMessage = (wasmExports, message) => {\\n        const template = message.reduce((template, value) => {\\n            if (typeof value === 'number') {\\n                template.push(wasmExports.MSG_FLOAT_TOKEN.valueOf());\\n            }\\n            else if (typeof value === 'string') {\\n                template.push(wasmExports.MSG_STRING_TOKEN.valueOf());\\n                template.push(value.length);\\n            }\\n            else {\\n                throw new Error(`invalid message value ${value}`);\\n            }\\n            return template;\\n        }, []);\\n        const templateArrayPointer = wasmExports.x_msg_createTemplate(template.length);\\n        const loweredTemplateArray = readTypedArray(wasmExports, Int32Array, templateArrayPointer);\\n        loweredTemplateArray.set(template);\\n        const messagePointer = wasmExports.x_msg_create(templateArrayPointer);\\n        message.forEach((value, index) => {\\n            if (typeof value === 'number') {\\n                wasmExports.msg_writeFloatToken(messagePointer, index, value);\\n            }\\n            else if (typeof value === 'string') {\\n                const stringPointer = lowerString(wasmExports, value);\\n                wasmExports.msg_writeStringToken(messagePointer, index, stringPointer);\\n            }\\n        });\\n        return messagePointer;\\n    };\\n\\n    const mapObject = (src, func) => {\\n        const dest = {};\\n        Object.entries(src).forEach(([key, srcValue], i) => {\\n            dest[key] = func(srcValue, key, i);\\n        });\\n        return dest;\\n    };\\n    const mapArray = (src, func) => {\\n        const dest = {};\\n        src.forEach((srcValue, i) => {\\n            const [key, destValue] = func(srcValue, i);\\n            dest[key] = destValue;\\n        });\\n        return dest;\\n    };\\n\\n    const instantiateWasmModule = async (wasmBuffer, wasmImports = {}) => {\\n        const instanceAndModule = await WebAssembly.instantiate(wasmBuffer, {\\n            env: {\\n                abort: (messagePointer, _, lineNumber, columnNumber) => {\\n                    const message = liftString(wasmExports, messagePointer);\\n                    lineNumber = lineNumber;\\n                    columnNumber = columnNumber;\\n                    (() => {\\n                        throw Error(`${message} at ${lineNumber}:${columnNumber}`);\\n                    })();\\n                },\\n                seed: () => {\\n                    return (() => {\\n                        return Date.now() * Math.random();\\n                    })();\\n                },\\n                'console.log': (textPointer) => {\\n                    console.log(liftString(wasmExports, textPointer));\\n                },\\n            },\\n            ...wasmImports,\\n        });\\n        const wasmExports = instanceAndModule.instance\\n            .exports;\\n        return instanceAndModule.instance;\\n    };\\n\\n    const updateWasmInOuts = (rawModule, engineData) => {\\n        engineData.wasmOutput = readTypedArray(rawModule, engineData.arrayType, rawModule.getOutput());\\n        engineData.wasmInput = readTypedArray(rawModule, engineData.arrayType, rawModule.getInput());\\n    };\\n    const createEngineLifecycleBindings = (rawModule, engineData) => {\\n        return {\\n            configure: {\\n                type: 'proxy',\\n                value: (sampleRate, blockSize) => {\\n                    engineData.metadata.audioSettings.blockSize = blockSize;\\n                    engineData.metadata.audioSettings.sampleRate = sampleRate;\\n                    engineData.blockSize = blockSize;\\n                    rawModule.configure(sampleRate, blockSize);\\n                    updateWasmInOuts(rawModule, engineData);\\n                },\\n            },\\n            loop: {\\n                type: 'proxy',\\n                value: (input, output) => {\\n                    for (let channel = 0; channel < input.length; channel++) {\\n                        engineData.wasmInput.set(input[channel], channel * engineData.blockSize);\\n                    }\\n                    updateWasmInOuts(rawModule, engineData);\\n                    rawModule.loop();\\n                    updateWasmInOuts(rawModule, engineData);\\n                    for (let channel = 0; channel < output.length; channel++) {\\n                        output[channel].set(engineData.wasmOutput.subarray(engineData.blockSize * channel, engineData.blockSize * (channel + 1)));\\n                    }\\n                },\\n            },\\n        };\\n    };\\n    const createInletCallersBindings = (rawModule, engineData) => mapObject(engineData.metadata.compilation.inletCallerSpecs, (inletIds, nodeId) => ({\\n        type: 'proxy',\\n        value: mapArray(inletIds, (inletId) => [\\n            inletId,\\n            (message) => {\\n                const messagePointer = lowerMessage(rawModule, message);\\n                rawModule[engineData.metadata.compilation.codeVariableNames\\n                    .inletCallers[nodeId][inletId]](messagePointer);\\n            },\\n        ]),\\n    }));\\n    const createOutletListenersBindings = (_, engineData) => mapObject(engineData.metadata.compilation.outletListenerSpecs, (outletIds) => ({\\n        type: 'proxy',\\n        value: mapArray(outletIds, (outletId) => [\\n            outletId,\\n            {\\n                onMessage: () => undefined,\\n            },\\n        ]),\\n    }));\\n    const outletListenersImports = (forwardReferences, metadata) => {\\n        const wasmImports = {};\\n        const { codeVariableNames } = metadata.compilation;\\n        Object.entries(metadata.compilation.outletListenerSpecs).forEach(([nodeId, outletIds]) => {\\n            outletIds.forEach((outletId) => {\\n                const listenerName = codeVariableNames.outletListeners[nodeId][outletId];\\n                wasmImports[listenerName] = (messagePointer) => {\\n                    const message = liftMessage(forwardReferences.rawModule, messagePointer);\\n                    forwardReferences.modules.outletListeners[nodeId][outletId].onMessage(message);\\n                };\\n            });\\n        });\\n        return wasmImports;\\n    };\\n    const readMetadata = async (wasmBuffer) => {\\n        const inputImports = {};\\n        const wasmModule = WebAssembly.Module.imports(new WebAssembly.Module(wasmBuffer));\\n        wasmModule\\n            .filter((imprt) => imprt.module === 'input' && imprt.kind === 'function')\\n            .forEach((imprt) => (inputImports[imprt.name] = () => undefined));\\n        const wasmInstance = await instantiateWasmModule(wasmBuffer, {\\n            input: inputImports,\\n        });\\n        const wasmExports = wasmInstance.exports;\\n        const stringPointer = wasmExports.metadata.valueOf();\\n        const metadataJSON = liftString(wasmExports, stringPointer);\\n        return JSON.parse(metadataJSON);\\n    };\\n\\n    const createFsBindings = (rawModule, engineData) => ({\\n        sendReadSoundFileResponse: {\\n            type: 'proxy',\\n            value: (operationId, status, sound) => {\\n                let soundPointer = 0;\\n                if (sound) {\\n                    soundPointer = lowerListOfFloatArrays(rawModule, engineData.bitDepth, sound);\\n                }\\n                rawModule.x_fs_onReadSoundFileResponse(operationId, status, soundPointer);\\n                updateWasmInOuts(rawModule, engineData);\\n            },\\n        },\\n        sendWriteSoundFileResponse: {\\n            type: 'proxy',\\n            value: rawModule.x_fs_onWriteSoundFileResponse,\\n        },\\n        sendSoundStreamData: {\\n            type: 'proxy',\\n            value: (operationId, sound) => {\\n                const soundPointer = lowerListOfFloatArrays(rawModule, engineData.bitDepth, sound);\\n                const writtenFrameCount = rawModule.x_fs_onSoundStreamData(operationId, soundPointer);\\n                updateWasmInOuts(rawModule, engineData);\\n                return writtenFrameCount;\\n            },\\n        },\\n        closeSoundStream: {\\n            type: 'proxy',\\n            value: rawModule.x_fs_onCloseSoundStream,\\n        },\\n        onReadSoundFile: { type: 'callback', value: () => undefined },\\n        onWriteSoundFile: { type: 'callback', value: () => undefined },\\n        onOpenSoundReadStream: { type: 'callback', value: () => undefined },\\n        onOpenSoundWriteStream: { type: 'callback', value: () => undefined },\\n        onSoundStreamData: { type: 'callback', value: () => undefined },\\n        onCloseSoundStream: { type: 'callback', value: () => undefined },\\n    });\\n    const createFsImports = (forwardReferences) => {\\n        let wasmImports = {\\n            i_fs_readSoundFile: (operationId, urlPointer, infoPointer) => {\\n                const url = liftString(forwardReferences.rawModule, urlPointer);\\n                const info = liftMessage(forwardReferences.rawModule, infoPointer);\\n                forwardReferences.modules.fs.onReadSoundFile(operationId, url, info);\\n            },\\n            i_fs_writeSoundFile: (operationId, soundPointer, urlPointer, infoPointer) => {\\n                const sound = readListOfFloatArrays(forwardReferences.rawModule, forwardReferences.engineData.bitDepth, soundPointer);\\n                const url = liftString(forwardReferences.rawModule, urlPointer);\\n                const info = liftMessage(forwardReferences.rawModule, infoPointer);\\n                forwardReferences.modules.fs.onWriteSoundFile(operationId, sound, url, info);\\n            },\\n            i_fs_openSoundReadStream: (operationId, urlPointer, infoPointer) => {\\n                const url = liftString(forwardReferences.rawModule, urlPointer);\\n                const info = liftMessage(forwardReferences.rawModule, infoPointer);\\n                updateWasmInOuts(forwardReferences.rawModule, forwardReferences.engineData);\\n                forwardReferences.modules.fs.onOpenSoundReadStream(operationId, url, info);\\n            },\\n            i_fs_openSoundWriteStream: (operationId, urlPointer, infoPointer) => {\\n                const url = liftString(forwardReferences.rawModule, urlPointer);\\n                const info = liftMessage(forwardReferences.rawModule, infoPointer);\\n                forwardReferences.modules.fs.onOpenSoundWriteStream(operationId, url, info);\\n            },\\n            i_fs_sendSoundStreamData: (operationId, blockPointer) => {\\n                const block = readListOfFloatArrays(forwardReferences.rawModule, forwardReferences.engineData.bitDepth, blockPointer);\\n                forwardReferences.modules.fs.onSoundStreamData(operationId, block);\\n            },\\n            i_fs_closeSoundStream: (...args) => forwardReferences.modules.fs.onCloseSoundStream(...args),\\n        };\\n        return wasmImports;\\n    };\\n\\n    const createCommonsBindings = (rawModule, engineData) => ({\\n        getArray: {\\n            type: 'proxy',\\n            value: (arrayName) => {\\n                const arrayNamePointer = lowerString(rawModule, arrayName);\\n                const arrayPointer = rawModule.commons_getArray(arrayNamePointer);\\n                return readTypedArray(rawModule, engineData.arrayType, arrayPointer);\\n            },\\n        },\\n        setArray: {\\n            type: 'proxy',\\n            value: (arrayName, array) => {\\n                const stringPointer = lowerString(rawModule, arrayName);\\n                const { arrayPointer } = lowerFloatArray(rawModule, engineData.bitDepth, array);\\n                rawModule.commons_setArray(stringPointer, arrayPointer);\\n                updateWasmInOuts(rawModule, engineData);\\n            },\\n        },\\n    });\\n\\n    const createEngine = async (wasmBuffer) => {\\n        const { rawModule, engineData, forwardReferences } = await createRawModule(wasmBuffer);\\n        const engineBindings = await createBindings(rawModule, engineData, forwardReferences);\\n        return createModule(rawModule, engineBindings);\\n    };\\n    const createRawModule = async (wasmBuffer) => {\\n        const metadata = await readMetadata(wasmBuffer);\\n        const forwardReferences = { modules: {} };\\n        const wasmImports = {\\n            ...createFsImports(forwardReferences),\\n            ...outletListenersImports(forwardReferences, metadata),\\n        };\\n        const bitDepth = metadata.audioSettings.bitDepth;\\n        const arrayType = getFloatArrayType(bitDepth);\\n        const engineData = {\\n            metadata,\\n            wasmOutput: new arrayType(0),\\n            wasmInput: new arrayType(0),\\n            arrayType,\\n            bitDepth,\\n            blockSize: 0,\\n        };\\n        const wasmInstance = await instantiateWasmModule(wasmBuffer, {\\n            input: wasmImports,\\n        });\\n        const rawModule = wasmInstance.exports;\\n        return { rawModule, engineData, forwardReferences };\\n    };\\n    const createBindings = async (rawModule, engineData, forwardReferences) => {\\n        const commons = createModule(rawModule, createCommonsBindings(rawModule, engineData));\\n        const fs = createModule(rawModule, createFsBindings(rawModule, engineData));\\n        const inletCallers = createModule(rawModule, createInletCallersBindings(rawModule, engineData));\\n        const outletListeners = createModule(rawModule, createOutletListenersBindings(rawModule, engineData));\\n        forwardReferences.modules.fs = fs;\\n        forwardReferences.modules.outletListeners = outletListeners;\\n        forwardReferences.engineData = engineData;\\n        forwardReferences.rawModule = rawModule;\\n        return {\\n            ...createEngineLifecycleBindings(rawModule, engineData),\\n            metadata: { type: 'proxy', value: engineData.metadata },\\n            commons: { type: 'proxy', value: commons },\\n            fs: { type: 'proxy', value: fs },\\n            inletCallers: { type: 'proxy', value: inletCallers },\\n            outletListeners: { type: 'proxy', value: outletListeners },\\n        };\\n    };\\n\\n    exports.createBindings = createBindings;\\n    exports.createEngine = createEngine;\\n    exports.createRawModule = createRawModule;\\n\\n    return exports;\\n\\n})({});\\n//# sourceMappingURL=assemblyscript-wasm-bindings.iife.js.map\\n\";\n\n  var JavaScriptBindingsCode = \"var JavaScriptBindings = (function (exports) {\\n    'use strict';\\n\\n    const getFloatArrayType = (bitDepth) => bitDepth === 64 ? Float64Array : Float32Array;\\n    const createModule = (rawModule, bindings) => new Proxy({}, {\\n        get: (_, k) => {\\n            if (bindings.hasOwnProperty(k)) {\\n                const key = String(k);\\n                const bindingSpec = bindings[key];\\n                switch (bindingSpec.type) {\\n                    case 'raw':\\n                        if (k in rawModule) {\\n                            return rawModule[key];\\n                        }\\n                        else {\\n                            throw new Error(`Key ${String(key)} doesn't exist in raw module`);\\n                        }\\n                    case 'proxy':\\n                    case 'callback':\\n                        return bindingSpec.value;\\n                }\\n            }\\n            else {\\n                return undefined;\\n            }\\n        },\\n        set: (_, k, newValue) => {\\n            if (bindings.hasOwnProperty(String(k))) {\\n                const key = String(k);\\n                const bindingSpec = bindings[key];\\n                if (bindingSpec.type === 'callback') {\\n                    bindingSpec.value = newValue;\\n                }\\n                else {\\n                    throw new Error(`Binding key ${String(key)} is read-only`);\\n                }\\n            }\\n            else {\\n                throw new Error(`Key ${String(k)} is not defined in bindings`);\\n            }\\n            return true;\\n        },\\n    });\\n\\n    const createRawModule = (code) => new Function(`\\n        ${code}\\n        return exports\\n    `)();\\n    const createBindings = (rawModule) => ({\\n        fs: { type: 'proxy', value: createFsModule(rawModule) },\\n        metadata: { type: 'raw' },\\n        configure: { type: 'raw' },\\n        loop: { type: 'raw' },\\n        inletCallers: { type: 'raw' },\\n        outletListeners: { type: 'raw' },\\n        commons: {\\n            type: 'proxy',\\n            value: createCommonsModule(rawModule, rawModule.metadata.audioSettings.bitDepth),\\n        },\\n    });\\n    const createEngine = (code) => {\\n        const rawModule = createRawModule(code);\\n        return createModule(rawModule, createBindings(rawModule));\\n    };\\n    const createFsModule = (rawModule) => {\\n        const fs = createModule(rawModule, {\\n            onReadSoundFile: { type: 'callback', value: () => undefined },\\n            onWriteSoundFile: { type: 'callback', value: () => undefined },\\n            onOpenSoundReadStream: { type: 'callback', value: () => undefined },\\n            onOpenSoundWriteStream: { type: 'callback', value: () => undefined },\\n            onSoundStreamData: { type: 'callback', value: () => undefined },\\n            onCloseSoundStream: { type: 'callback', value: () => undefined },\\n            sendReadSoundFileResponse: {\\n                type: 'proxy',\\n                value: rawModule.x_fs_onReadSoundFileResponse,\\n            },\\n            sendWriteSoundFileResponse: {\\n                type: 'proxy',\\n                value: rawModule.x_fs_onWriteSoundFileResponse,\\n            },\\n            sendSoundStreamData: {\\n                type: 'proxy',\\n                value: rawModule.x_fs_onSoundStreamData,\\n            },\\n            closeSoundStream: {\\n                type: 'proxy',\\n                value: rawModule.x_fs_onCloseSoundStream,\\n            },\\n        });\\n        rawModule.i_fs_openSoundWriteStream = (...args) => fs.onOpenSoundWriteStream(...args);\\n        rawModule.i_fs_sendSoundStreamData = (...args) => fs.onSoundStreamData(...args);\\n        rawModule.i_fs_openSoundReadStream = (...args) => fs.onOpenSoundReadStream(...args);\\n        rawModule.i_fs_closeSoundStream = (...args) => fs.onCloseSoundStream(...args);\\n        rawModule.i_fs_writeSoundFile = (...args) => fs.onWriteSoundFile(...args);\\n        rawModule.i_fs_readSoundFile = (...args) => fs.onReadSoundFile(...args);\\n        return fs;\\n    };\\n    const createCommonsModule = (rawModule, bitDepth) => {\\n        const floatArrayType = getFloatArrayType(bitDepth);\\n        return createModule(rawModule, {\\n            getArray: { type: 'proxy', value: rawModule.commons_getArray },\\n            setArray: {\\n                type: 'proxy',\\n                value: (arrayName, array) => rawModule.commons_setArray(arrayName, new floatArrayType(array)),\\n            },\\n        });\\n    };\\n\\n    exports.createBindings = createBindings;\\n    exports.createEngine = createEngine;\\n    exports.createRawModule = createRawModule;\\n\\n    return exports;\\n\\n})({});\\n//# sourceMappingURL=javascript-bindings.iife.js.map\\n\";\n\n  var fetchRetry$1 = function (fetch, defaults) {\n    defaults = defaults || {};\n    if (typeof fetch !== 'function') {\n      throw new ArgumentError('fetch must be a function');\n    }\n\n    if (typeof defaults !== 'object') {\n      throw new ArgumentError('defaults must be an object');\n    }\n\n    if (defaults.retries !== undefined && !isPositiveInteger(defaults.retries)) {\n      throw new ArgumentError('retries must be a positive integer');\n    }\n\n    if (defaults.retryDelay !== undefined && !isPositiveInteger(defaults.retryDelay) && typeof defaults.retryDelay !== 'function') {\n      throw new ArgumentError('retryDelay must be a positive integer or a function returning a positive integer');\n    }\n\n    if (defaults.retryOn !== undefined && !Array.isArray(defaults.retryOn) && typeof defaults.retryOn !== 'function') {\n      throw new ArgumentError('retryOn property expects an array or function');\n    }\n\n    var baseDefaults = {\n      retries: 3,\n      retryDelay: 1000,\n      retryOn: [],\n    };\n\n    defaults = Object.assign(baseDefaults, defaults);\n\n    return function fetchRetry(input, init) {\n      var retries = defaults.retries;\n      var retryDelay = defaults.retryDelay;\n      var retryOn = defaults.retryOn;\n\n      if (init && init.retries !== undefined) {\n        if (isPositiveInteger(init.retries)) {\n          retries = init.retries;\n        } else {\n          throw new ArgumentError('retries must be a positive integer');\n        }\n      }\n\n      if (init && init.retryDelay !== undefined) {\n        if (isPositiveInteger(init.retryDelay) || (typeof init.retryDelay === 'function')) {\n          retryDelay = init.retryDelay;\n        } else {\n          throw new ArgumentError('retryDelay must be a positive integer or a function returning a positive integer');\n        }\n      }\n\n      if (init && init.retryOn) {\n        if (Array.isArray(init.retryOn) || (typeof init.retryOn === 'function')) {\n          retryOn = init.retryOn;\n        } else {\n          throw new ArgumentError('retryOn property expects an array or function');\n        }\n      }\n\n      // eslint-disable-next-line no-undef\n      return new Promise(function (resolve, reject) {\n        var wrappedFetch = function (attempt) {\n          // As of node 18, this is no longer needed since node comes with native support for fetch:\n          /* istanbul ignore next */\n          var _input =\n            typeof Request !== 'undefined' && input instanceof Request\n              ? input.clone()\n              : input;\n          fetch(_input, init)\n            .then(function (response) {\n              if (Array.isArray(retryOn) && retryOn.indexOf(response.status) === -1) {\n                resolve(response);\n              } else if (typeof retryOn === 'function') {\n                try {\n                  // eslint-disable-next-line no-undef\n                  return Promise.resolve(retryOn(attempt, null, response))\n                    .then(function (retryOnResponse) {\n                      if(retryOnResponse) {\n                        retry(attempt, null, response);\n                      } else {\n                        resolve(response);\n                      }\n                    }).catch(reject);\n                } catch (error) {\n                  reject(error);\n                }\n              } else {\n                if (attempt < retries) {\n                  retry(attempt, null, response);\n                } else {\n                  resolve(response);\n                }\n              }\n            })\n            .catch(function (error) {\n              if (typeof retryOn === 'function') {\n                try {\n                  // eslint-disable-next-line no-undef\n                  Promise.resolve(retryOn(attempt, error, null))\n                    .then(function (retryOnResponse) {\n                      if(retryOnResponse) {\n                        retry(attempt, error, null);\n                      } else {\n                        reject(error);\n                      }\n                    })\n                    .catch(function(error) {\n                      reject(error);\n                    });\n                } catch(error) {\n                  reject(error);\n                }\n              } else if (attempt < retries) {\n                retry(attempt, error, null);\n              } else {\n                reject(error);\n              }\n            });\n        };\n\n        function retry(attempt, error, response) {\n          var delay = (typeof retryDelay === 'function') ?\n            retryDelay(attempt, error, response) : retryDelay;\n          setTimeout(function () {\n            wrappedFetch(++attempt);\n          }, delay);\n        }\n\n        wrappedFetch(0);\n      });\n    };\n  };\n\n  function isPositiveInteger(value) {\n    return Number.isInteger(value) && value >= 0;\n  }\n\n  function ArgumentError(message) {\n    this.name = 'ArgumentError';\n    this.message = message;\n  }\n\n  /*\n   * Copyright (c) 2022-2023 Sébastien Piquemal <sebpiq@protonmail.com>, Chris McCormick.\n   *\n   * This file is part of WebPd\n   * (see https://github.com/sebpiq/WebPd).\n   *\n   * This program is free software: you can redistribute it and/or modify\n   * it under the terms of the GNU Lesser General Public License as published by\n   * the Free Software Foundation, either version 3 of the License, or\n   * (at your option) any later version.\n   *\n   * This program is distributed in the hope that it will be useful,\n   * but WITHOUT ANY WARRANTY; without even the implied warranty of\n   * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the\n   * GNU Lesser General Public License for more details.\n   *\n   * You should have received a copy of the GNU Lesser General Public License\n   * along with this program. If not, see <http://www.gnu.org/licenses/>.\n   */\n  const fetchRetry = fetchRetry$1(fetch);\n  /**\n   * Note : the audio worklet feature is available only in secure context.\n   * This function will fail when used in insecure context (non-https, etc ...)\n   * @see https://developer.mozilla.org/en-US/docs/Web/API/AudioWorklet\n   */\n  const addModule = async (context, processorCode) => {\n      const blob = new Blob([processorCode], { type: 'text/javascript' });\n      const workletProcessorUrl = URL.createObjectURL(blob);\n      return context.audioWorklet.addModule(workletProcessorUrl);\n  };\n  // TODO : testing\n  const fetchFile = async (url) => {\n      let response;\n      try {\n          response = await fetchRetry(url, { retries: 3 });\n      }\n      catch (err) {\n          throw new FileError(response.status, err.toString());\n      }\n      if (!response.ok) {\n          const responseText = await response.text();\n          throw new FileError(response.status, responseText);\n      }\n      return response.arrayBuffer();\n  };\n  const audioBufferToArray = (audioBuffer) => {\n      const sound = [];\n      for (let channel = 0; channel < audioBuffer.numberOfChannels; channel++) {\n          sound.push(audioBuffer.getChannelData(channel));\n      }\n      return sound;\n  };\n  // TODO : testing\n  const fixSoundChannelCount = (sound, targetChannelCount) => {\n      if (sound.length === 0) {\n          throw new Error(`Received empty sound`);\n      }\n      const floatArrayType = sound[0].constructor;\n      const frameCount = sound[0].length;\n      const fixedSound = sound.slice(0, targetChannelCount);\n      while (sound.length < targetChannelCount) {\n          fixedSound.push(new floatArrayType(frameCount));\n      }\n      return fixedSound;\n  };\n  const urlDirName = (patchUrl) => {\n      if (isExternalUrl(patchUrl)) {\n          return new URL('.', patchUrl).href;\n      }\n      else {\n          return new URL('.', new URL(patchUrl, document.URL).href).href;\n      }\n  };\n  const resolveRelativeUrl = (rootUrl, relativeUrl) => {\n      return new URL(relativeUrl, rootUrl).href;\n  };\n  // REF : https://stackoverflow.com/questions/10687099/how-to-test-if-a-url-string-is-absolute-or-relative\n  const isExternalUrl = (urlString) => {\n      try {\n          const url = new URL(urlString);\n          if (url.origin !== new URL(document.URL, document.baseURI).origin) {\n              return true;\n          }\n      }\n      catch (_e) {\n          new URL(urlString, window.document.baseURI);\n      }\n      return false;\n  };\n  class FileError extends Error {\n      constructor(status, msg) {\n          super(`Error ${status} : ${msg}`);\n      }\n  }\n\n  /*\n   * Copyright (c) 2022-2023 Sébastien Piquemal <sebpiq@protonmail.com>, Chris McCormick.\n   *\n   * This file is part of WebPd\n   * (see https://github.com/sebpiq/WebPd).\n   *\n   * This program is free software: you can redistribute it and/or modify\n   * it under the terms of the GNU Lesser General Public License as published by\n   * the Free Software Foundation, either version 3 of the License, or\n   * (at your option) any later version.\n   *\n   * This program is distributed in the hope that it will be useful,\n   * but WITHOUT ANY WARRANTY; without even the implied warranty of\n   * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the\n   * GNU Lesser General Public License for more details.\n   *\n   * You should have received a copy of the GNU Lesser General Public License\n   * along with this program. If not, see <http://www.gnu.org/licenses/>.\n   */\n  // Concatenate WorkletProcessor code with the Wasm bindings it needs\n  const WebPdWorkletProcessorCode = AssemblyScriptWasmBindingsCode + ';\\n' + JavaScriptBindingsCode + ';\\n' + _WebPdWorkletProcessorCode;\n  const registerWebPdWorkletNode = (context) => {\n      return addModule(context, WebPdWorkletProcessorCode);\n  };\n\n  /*\n   * Copyright (c) 2022-2023 Sébastien Piquemal <sebpiq@protonmail.com>, Chris McCormick.\n   *\n   * This file is part of WebPd\n   * (see https://github.com/sebpiq/WebPd).\n   *\n   * This program is free software: you can redistribute it and/or modify\n   * it under the terms of the GNU Lesser General Public License as published by\n   * the Free Software Foundation, either version 3 of the License, or\n   * (at your option) any later version.\n   *\n   * This program is distributed in the hope that it will be useful,\n   * but WITHOUT ANY WARRANTY; without even the implied warranty of\n   * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the\n   * GNU Lesser General Public License for more details.\n   *\n   * You should have received a copy of the GNU Lesser General Public License\n   * along with this program. If not, see <http://www.gnu.org/licenses/>.\n   */\n  const FILES = {};\n  const STREAMS = {};\n  class FakeStream {\n      constructor(url, sound) {\n          this.url = url;\n          this.sound = sound;\n          this.frameCount = sound[0].length;\n          this.readPosition = 0;\n      }\n  }\n  const read = async (url) => {\n      if (FILES[url]) {\n          return FILES[url];\n      }\n      const arrayBuffer = await fetchFile(url);\n      return {\n          type: 'binary',\n          data: arrayBuffer,\n      };\n  };\n  // TODO : testing\n  const readSound = async (url, context) => {\n      let fakeFile = FILES[url] || (await read(url));\n      switch (fakeFile.type) {\n          case 'binary':\n              const audioBuffer = await context.decodeAudioData(fakeFile.data);\n              return audioBufferToArray(audioBuffer);\n          case 'sound':\n              // We copy the data here o it can be manipulated freely by the host.\n              // e.g. if the buffer is sent as transferrable to the node we don't want the original to be transferred.\n              return fakeFile.data.map((array) => array.slice());\n      }\n  };\n  const writeSound = async (sound, url) => {\n      FILES[url] = {\n          type: 'sound',\n          data: sound,\n      };\n  };\n  const readStreamSound = async (operationId, url, channelCount, context) => {\n      const sound = await readSound(url, context);\n      STREAMS[operationId] = new FakeStream(url, fixSoundChannelCount(sound, channelCount));\n      return STREAMS[operationId];\n  };\n  const writeStreamSound = async (operationId, url, channelCount) => {\n      const emptySound = [];\n      for (let channel = 0; channel < channelCount; channel++) {\n          emptySound.push(new Float32Array(0));\n      }\n      STREAMS[operationId] = new FakeStream(url, emptySound);\n      FILES[url] = {\n          type: 'sound',\n          data: emptySound,\n      };\n      return STREAMS[operationId];\n  };\n  const getStream = (operationId) => {\n      return STREAMS[operationId];\n  };\n  const killStream = (operationId) => {\n      console.log('KILL STREAM', operationId);\n      delete STREAMS[operationId];\n  };\n  const pullBlock = (stream, frameCount) => {\n      const block = stream.sound.map((array) => array.slice(stream.readPosition, stream.readPosition + frameCount));\n      stream.readPosition += frameCount;\n      return block;\n  };\n  const pushBlock = (stream, block) => {\n      stream.sound = stream.sound.map((channelData, channel) => {\n          const concatenated = new Float32Array(channelData.length + block[channel].length);\n          concatenated.set(channelData);\n          concatenated.set(block[channel], channelData.length);\n          return concatenated;\n      });\n      stream.frameCount = stream.sound[0].length;\n      FILES[stream.url].data = stream.sound;\n  };\n  var fakeFs = {\n      writeSound,\n      readSound,\n      readStreamSound,\n      writeStreamSound,\n      pullBlock,\n      pushBlock,\n  };\n\n  var closeSoundStream = async (node, payload, settings) => {\n      if (payload.functionName === 'onCloseSoundStream') {\n          killStream(payload.arguments[0]);\n      }\n  };\n\n  /*\n   * Copyright (c) 2022-2023 Sébastien Piquemal <sebpiq@protonmail.com>, Chris McCormick.\n   *\n   * This file is part of WebPd\n   * (see https://github.com/sebpiq/WebPd).\n   *\n   * This program is free software: you can redistribute it and/or modify\n   * it under the terms of the GNU Lesser General Public License as published by\n   * the Free Software Foundation, either version 3 of the License, or\n   * (at your option) any later version.\n   *\n   * This program is distributed in the hope that it will be useful,\n   * but WITHOUT ANY WARRANTY; without even the implied warranty of\n   * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the\n   * GNU Lesser General Public License for more details.\n   *\n   * You should have received a copy of the GNU Lesser General Public License\n   * along with this program. If not, see <http://www.gnu.org/licenses/>.\n   */\n  const FS_OPERATION_SUCCESS = 0;\n  const FS_OPERATION_FAILURE = 1;\n\n  /*\n   * Copyright (c) 2022-2023 Sébastien Piquemal <sebpiq@protonmail.com>, Chris McCormick.\n   *\n   * This file is part of WebPd\n   * (see https://github.com/sebpiq/WebPd).\n   *\n   * This program is free software: you can redistribute it and/or modify\n   * it under the terms of the GNU Lesser General Public License as published by\n   * the Free Software Foundation, either version 3 of the License, or\n   * (at your option) any later version.\n   *\n   * This program is distributed in the hope that it will be useful,\n   * but WITHOUT ANY WARRANTY; without even the implied warranty of\n   * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the\n   * GNU Lesser General Public License for more details.\n   *\n   * You should have received a copy of the GNU Lesser General Public License\n   * along with this program. If not, see <http://www.gnu.org/licenses/>.\n   */\n  var readSoundFile = async (node, payload, settings) => {\n      if (payload.functionName === 'onReadSoundFile') {\n          const [operationId, url, [channelCount]] = payload.arguments;\n          const absoluteUrl = resolveRelativeUrl(settings.rootUrl, url);\n          let operationStatus = FS_OPERATION_SUCCESS;\n          let sound = null;\n          try {\n              sound = await fakeFs.readSound(absoluteUrl, node.context);\n          }\n          catch (err) {\n              operationStatus = FS_OPERATION_FAILURE;\n              console.error(err);\n          }\n          if (sound) {\n              sound = fixSoundChannelCount(sound, channelCount);\n          }\n          node.port.postMessage({\n              type: 'fs',\n              payload: {\n                  functionName: 'sendReadSoundFileResponse',\n                  arguments: [operationId, operationStatus, sound],\n              },\n          }, \n          // Add as transferables to avoid copies between threads\n          sound.map((array) => array.buffer));\n      }\n      else if (payload.functionName === 'sendReadSoundFileResponse_return') ;\n  };\n\n  /*\n   * Copyright (c) 2022-2023 Sébastien Piquemal <sebpiq@protonmail.com>, Chris McCormick.\n   *\n   * This file is part of WebPd\n   * (see https://github.com/sebpiq/WebPd).\n   *\n   * This program is free software: you can redistribute it and/or modify\n   * it under the terms of the GNU Lesser General Public License as published by\n   * the Free Software Foundation, either version 3 of the License, or\n   * (at your option) any later version.\n   *\n   * This program is distributed in the hope that it will be useful,\n   * but WITHOUT ANY WARRANTY; without even the implied warranty of\n   * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the\n   * GNU Lesser General Public License for more details.\n   *\n   * You should have received a copy of the GNU Lesser General Public License\n   * along with this program. If not, see <http://www.gnu.org/licenses/>.\n   */\n  const BUFFER_HIGH = 10 * 44100;\n  const BUFFER_LOW = BUFFER_HIGH / 2;\n  var readSoundStream = async (node, payload, settings) => {\n      if (payload.functionName === 'onOpenSoundReadStream') {\n          const [operationId, url, [channelCount]] = payload.arguments;\n          try {\n              const absoluteUrl = resolveRelativeUrl(settings.rootUrl, url);\n              await fakeFs.readStreamSound(operationId, absoluteUrl, channelCount, node.context);\n          }\n          catch (err) {\n              console.error(err);\n              node.port.postMessage({\n                  type: 'fs',\n                  payload: {\n                      functionName: 'closeSoundStream',\n                      arguments: [operationId, FS_OPERATION_FAILURE],\n                  },\n              });\n              return;\n          }\n          streamLoop(node, operationId, 0);\n      }\n      else if (payload.functionName === 'sendSoundStreamData_return') {\n          const stream = getStream(payload.operationId);\n          if (!stream) {\n              throw new Error(`unknown stream ${payload.operationId}`);\n          }\n          streamLoop(node, payload.operationId, payload.returned);\n      }\n      else if (payload.functionName === 'closeSoundStream_return') {\n          const stream = getStream(payload.operationId);\n          if (stream) {\n              killStream(payload.operationId);\n          }\n      }\n  };\n  const streamLoop = (node, operationId, framesAvailableInEngine) => {\n      const sampleRate = node.context.sampleRate;\n      const secondsToThreshold = Math.max(framesAvailableInEngine - BUFFER_LOW, 10) / sampleRate;\n      const framesToSend = BUFFER_HIGH -\n          (framesAvailableInEngine - secondsToThreshold * sampleRate);\n      setTimeout(() => {\n          const stream = getStream(operationId);\n          if (!stream) {\n              console.log(`stream ${operationId} was maybe closed`);\n              return;\n          }\n          if (stream.readPosition < stream.frameCount) {\n              const block = pullBlock(stream, framesToSend);\n              node.port.postMessage({\n                  type: 'fs',\n                  payload: {\n                      functionName: 'sendSoundStreamData',\n                      arguments: [operationId, block],\n                  },\n              }, \n              // Add as transferables to avoid copies between threads\n              block.map((array) => array.buffer));\n          }\n          else {\n              node.port.postMessage({\n                  type: 'fs',\n                  payload: {\n                      functionName: 'closeSoundStream',\n                      arguments: [operationId, FS_OPERATION_SUCCESS],\n                  },\n              });\n          }\n      }, secondsToThreshold * 1000);\n  };\n\n  /*\n   * Copyright (c) 2022-2023 Sébastien Piquemal <sebpiq@protonmail.com>, Chris McCormick.\n   *\n   * This file is part of WebPd\n   * (see https://github.com/sebpiq/WebPd).\n   *\n   * This program is free software: you can redistribute it and/or modify\n   * it under the terms of the GNU Lesser General Public License as published by\n   * the Free Software Foundation, either version 3 of the License, or\n   * (at your option) any later version.\n   *\n   * This program is distributed in the hope that it will be useful,\n   * but WITHOUT ANY WARRANTY; without even the implied warranty of\n   * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the\n   * GNU Lesser General Public License for more details.\n   *\n   * You should have received a copy of the GNU Lesser General Public License\n   * along with this program. If not, see <http://www.gnu.org/licenses/>.\n   */\n  var writeSoundFile = async (node, payload, settings) => {\n      if (payload.functionName === 'onWriteSoundFile') {\n          const [operationId, sound, url, [channelCount]] = payload.arguments;\n          const fixedSound = fixSoundChannelCount(sound, channelCount);\n          const absoluteUrl = resolveRelativeUrl(settings.rootUrl, url);\n          await fakeFs.writeSound(fixedSound, absoluteUrl);\n          let operationStatus = FS_OPERATION_SUCCESS;\n          node.port.postMessage({\n              type: 'fs',\n              payload: {\n                  functionName: 'sendWriteSoundFileResponse',\n                  arguments: [operationId, operationStatus],\n              },\n          });\n      }\n      else if (payload.functionName === 'sendWriteSoundFileResponse_return') ;\n  };\n\n  /*\n   * Copyright (c) 2022-2023 Sébastien Piquemal <sebpiq@protonmail.com>, Chris McCormick.\n   *\n   * This file is part of WebPd\n   * (see https://github.com/sebpiq/WebPd).\n   *\n   * This program is free software: you can redistribute it and/or modify\n   * it under the terms of the GNU Lesser General Public License as published by\n   * the Free Software Foundation, either version 3 of the License, or\n   * (at your option) any later version.\n   *\n   * This program is distributed in the hope that it will be useful,\n   * but WITHOUT ANY WARRANTY; without even the implied warranty of\n   * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the\n   * GNU Lesser General Public License for more details.\n   *\n   * You should have received a copy of the GNU Lesser General Public License\n   * along with this program. If not, see <http://www.gnu.org/licenses/>.\n   */\n  var writeSoundStream = async (_, payload, settings) => {\n      if (payload.functionName === 'onOpenSoundWriteStream') {\n          const [operationId, url, [channelCount]] = payload.arguments;\n          const absoluteUrl = resolveRelativeUrl(settings.rootUrl, url);\n          await fakeFs.writeStreamSound(operationId, absoluteUrl, channelCount);\n      }\n      else if (payload.functionName === 'onSoundStreamData') {\n          const [operationId, sound] = payload.arguments;\n          const stream = getStream(operationId);\n          if (!stream) {\n              throw new Error(`unknown stream ${operationId}`);\n          }\n          pushBlock(stream, sound);\n      }\n      else if (payload.functionName === 'closeSoundStream_return') {\n          const stream = getStream(payload.operationId);\n          if (stream) {\n              killStream(payload.operationId);\n          }\n      }\n  };\n\n  var index = async (node, messageEvent, settings) => {\n      const message = messageEvent.data;\n      const { payload } = message;\n      if (message.type !== 'fs') {\n          throw new Error(`Unknown message type from node ${message.type}`);\n      }\n      if (payload.functionName === 'onReadSoundFile' ||\n          payload.functionName === 'sendReadSoundFileResponse_return') {\n          readSoundFile(node, payload, settings);\n      }\n      else if (payload.functionName === 'onOpenSoundReadStream' ||\n          payload.functionName === 'sendSoundStreamData_return') {\n          readSoundStream(node, payload, settings);\n      }\n      else if (payload.functionName === 'onWriteSoundFile' ||\n          payload.functionName === 'sendWriteSoundFileResponse_return') {\n          writeSoundFile(node, payload, settings);\n      }\n      else if (payload.functionName === 'onOpenSoundWriteStream' ||\n          payload.functionName === 'onSoundStreamData') {\n          writeSoundStream(node, payload, settings);\n      }\n      else if (payload.functionName === 'closeSoundStream_return') {\n          writeSoundStream(node, payload, settings);\n          readSoundStream(node, payload, settings);\n      }\n      else if (payload.functionName === 'onCloseSoundStream') {\n          closeSoundStream(node, payload);\n      }\n      else {\n          throw new Error(`Unknown callback ${payload.functionName}`);\n      }\n  };\n\n  /*\n   * Copyright (c) 2022-2023 Sébastien Piquemal <sebpiq@protonmail.com>, Chris McCormick.\n   *\n   * This file is part of WebPd\n   * (see https://github.com/sebpiq/WebPd).\n   *\n   * This program is free software: you can redistribute it and/or modify\n   * it under the terms of the GNU Lesser General Public License as published by\n   * the Free Software Foundation, either version 3 of the License, or\n   * (at your option) any later version.\n   *\n   * This program is distributed in the hope that it will be useful,\n   * but WITHOUT ANY WARRANTY; without even the implied warranty of\n   * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the\n   * GNU Lesser General Public License for more details.\n   *\n   * You should have received a copy of the GNU Lesser General Public License\n   * along with this program. If not, see <http://www.gnu.org/licenses/>.\n   */\n  // TODO : manage transferables\n  class WebPdWorkletNode extends AudioWorkletNode {\n      constructor(context) {\n          super(context, 'webpd-node', {\n              numberOfOutputs: 1,\n              outputChannelCount: [2],\n          });\n      }\n      destroy() {\n          this.port.postMessage({\n              type: 'destroy',\n              payload: {},\n          });\n      }\n  }\n\n  exports.WebPdWorkletNode = WebPdWorkletNode;\n  exports.fsWeb = index;\n  exports.registerWebPdWorkletNode = registerWebPdWorkletNode;\n  exports.urlDirName = urlDirName;\n\n  return exports;\n\n})({});\n";
 
 /*
  * Copyright (c) 2022-2023 Sébastien Piquemal <sebpiq@protonmail.com>, Chris McCormick.
@@ -2726,40 +3255,232 @@ const nodeBuilders = {
  * You should have received a copy of the GNU Lesser General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
-const endpointsEqual = (a1, a2) => a1.portletId === a2.portletId && a1.nodeId === a2.nodeId;
-const testGraphIntegrity = (graph) => {
-    const inconsistentConnections = [];
-    Object.keys(graph).forEach((nodeId) => {
-        const node = getNode(graph, nodeId);
-        // For each source, we check that the corresponding node declares the equivalent sink
-        listConnectionsIn(node.sources, nodeId).forEach(([source, sink]) => {
-            const sourceNode = getNode(graph, source.nodeId);
-            const sinks = getSinks(sourceNode, source.portletId);
-            const matchedSink = sinks.filter((otherSink) => endpointsEqual(otherSink, sink))[0];
-            if (!matchedSink) {
-                inconsistentConnections.push([source, sink]);
-            }
-        });
-        // For each sink, we check that the corresponding node declares the equivalent source
-        listConnectionsOut(node.sinks, nodeId).forEach(([source, sink]) => {
-            const sinkNode = getNode(graph, sink.nodeId);
-            const matchedSource = getSources(sinkNode, sink.portletId);
-            if (!matchedSource) {
-                inconsistentConnections.push([source, sink]);
-            }
-        });
-    });
-    if (inconsistentConnections.length) {
-        return { inconsistentConnections };
+const assertNumber = (value) => {
+    if (typeof value !== 'number') {
+        throw new ValidationError(`${value} is not a number`);
     }
-    return null;
+    return value;
+};
+const assertString = (value) => {
+    if (typeof value !== 'string') {
+        throw new ValidationError(`${value} is not a string`);
+    }
+    return value;
+};
+const assertOptionalNumber = (value) => {
+    return value !== undefined ? assertNumber(value) : undefined;
+};
+const assertOptionalString = (value) => {
+    return value !== undefined ? assertString(value) : undefined;
+};
+class ValidationError extends Error {
+}
+
+/*
+ * Copyright (c) 2022-2023 Sébastien Piquemal <sebpiq@protonmail.com>, Chris McCormick.
+ *
+ * This file is part of WebPd
+ * (see https://github.com/sebpiq/WebPd).
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with this program. If not, see <http://www.gnu.org/licenses/>.
+ */
+const stateVariables$W = {};
+// ------------------------------- node builder ------------------------------ //
+const builder$U = {
+    translateArgs: (pdNode) => ({
+        channelCount: assertNumber(pdNode.args[0]),
+    }),
+    build: (nodeArgs) => ({
+        inlets: mapArray(countTo(nodeArgs.channelCount), (channel) => [`${channel}`, { type: 'signal', id: `${channel}` }]),
+        outlets: {
+            '0': { type: 'signal', id: '0' },
+        },
+    }),
+};
+// ------------------------------- generateLoop ------------------------------ //
+const generateLoop$l = ({ node, ins, outs }) => `
+    ${outs.$0} = ${Object.keys(node.inlets)
+    .map((inletId) => ins[inletId])
+    .join(' + ')}
+`;
+// ------------------------------------------------------------------- //
+const nodeImplementation$M = { generateLoop: generateLoop$l, stateVariables: stateVariables$W };
+
+/*
+ * Copyright (c) 2022-2023 Sébastien Piquemal <sebpiq@protonmail.com>, Chris McCormick.
+ *
+ * This file is part of WebPd
+ * (see https://github.com/sebpiq/WebPd).
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with this program. If not, see <http://www.gnu.org/licenses/>.
+ */
+const coldFloatInlet = (messageName, storageName) => {
+    return `if (msg_isMatching(${messageName}, [MSG_FLOAT_TOKEN])) {
+        ${storageName} = msg_readFloatToken(${messageName}, 0)
+        return
+    }`;
+};
+const coldStringInlet = (messageName, storageName) => {
+    return `if (msg_isMatching(${messageName}, [MSG_STRING_TOKEN])) {
+        ${storageName} = msg_readStringToken(${messageName}, 0)
+        return
+    }`;
+};
+const coldFloatInletWithSetter = (messageName, setterName) => {
+    return `if (msg_isMatching(${messageName}, [MSG_FLOAT_TOKEN])) {
+        ${setterName}(msg_readFloatToken(${messageName}, 0))
+        return
+    }`;
 };
 
-var graphHelpers = /*#__PURE__*/Object.freeze({
-    __proto__: null,
-    endpointsEqual: endpointsEqual,
-    testGraphIntegrity: testGraphIntegrity
+/*
+ * Copyright (c) 2022-2023 Sébastien Piquemal <sebpiq@protonmail.com>, Chris McCormick.
+ *
+ * This file is part of WebPd
+ * (see https://github.com/sebpiq/WebPd).
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with this program. If not, see <http://www.gnu.org/licenses/>.
+ */
+const stateVariables$V = {
+    currentValue: 1,
+};
+// ------------------------------- node builder ------------------------------ //
+const builder$T = {
+    translateArgs: ({ args }) => ({
+        initValue: assertOptionalNumber(args[0]) || 0,
+    }),
+    build: () => ({
+        inlets: {
+            '0': { type: 'message', id: '0' },
+        },
+        outlets: {
+            '0': { type: 'signal', id: '0' },
+        },
+    }),
+};
+// ------------------------------- generateDeclarations ------------------------------ //
+const generateDeclarations$E = ({ node: { args }, state, macros: { Var } }) => `
+    let ${Var(state.currentValue, 'Float')} = ${args.initValue}
+`;
+// ------------------------------- generateLoop ------------------------------ //
+const generateLoop$k = ({ outs, state }) => `
+    ${outs.$0} = ${state.currentValue}
+`;
+// ------------------------------- generateMessageReceivers ------------------------------ //
+const generateMessageReceivers$G = ({ state, globs }) => ({
+    '0': coldFloatInlet(globs.m, state.currentValue),
 });
+// ------------------------------------------------------------------- //
+const nodeImplementation$L = {
+    generateLoop: generateLoop$k,
+    stateVariables: stateVariables$V,
+    generateMessageReceivers: generateMessageReceivers$G,
+    generateDeclarations: generateDeclarations$E,
+};
+
+/*
+ * Copyright (c) 2022-2023 Sébastien Piquemal <sebpiq@protonmail.com>, Chris McCormick.
+ *
+ * This file is part of WebPd
+ * (see https://github.com/sebpiq/WebPd).
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with this program. If not, see <http://www.gnu.org/licenses/>.
+ */
+const stateVariables$U = {};
+// ------------------------------- node builder ------------------------------ //
+const builder$S = {
+    translateArgs: () => ({}),
+    build: () => ({
+        inlets: {
+            '0': { type: 'message', id: '0' },
+        },
+        outlets: {
+            '0': { type: 'message', id: '0' },
+            '1': { type: 'message', id: '1' },
+        },
+    }),
+};
+// ------------------------------- generateMessageReceivers ------------------------------ //
+const generateMessageReceivers$F = ({ globs, snds }) => ({
+    '0': `
+    if (msg_isMatching(${globs.m}, [MSG_FLOAT_TOKEN])) {
+        ${snds.$0}(m)
+        return
+    } else {
+        ${snds.$1}(m)
+        return
+    }`,
+});
+// ------------------------------------------------------------------- //
+const nodeImplementation$K = {
+    stateVariables: stateVariables$U,
+    generateMessageReceivers: generateMessageReceivers$F,
+};
+
+/*
+ * Copyright (c) 2022-2023 Sébastien Piquemal <sebpiq@protonmail.com>, Chris McCormick.
+ *
+ * This file is part of WebPd
+ * (see https://github.com/sebpiq/WebPd).
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with this program. If not, see <http://www.gnu.org/licenses/>.
+ */
+const endpointsEqual = (a1, a2) => a1.portletId === a2.portletId && a1.nodeId === a2.nodeId;
 
 /*
  * Copyright (c) 2022-2023 Sébastien Piquemal <sebpiq@protonmail.com>, Chris McCormick.
@@ -2783,6 +3504,9 @@ var graphHelpers = /*#__PURE__*/Object.freeze({
 const addNode = (graph, node) => {
     if (!graph[node.id]) {
         graph[node.id] = node;
+    }
+    else {
+        throw new Error(`Node "${node.id}" already exists`);
     }
     return graph[node.id];
 };
@@ -2814,15 +3538,6 @@ const connect = (graph, source, sink) => {
     _ensureConnectionEndpointArray(sinkNode.sources, sink.portletId).push(source);
     _ensureConnectionEndpointArray(sourceNode.sinks, source.portletId).push(sink);
 };
-/** If it exists, remove single connection from `sourceNodeId` to `sinkNodeId`. */
-const disconnect = (graph, source, sink) => {
-    const sinkNode = getNode(graph, sink.nodeId);
-    const sourceNode = getNode(graph, source.nodeId);
-    const sinks = getSinks(sourceNode, source.portletId);
-    sourceNode.sinks[source.portletId] = sinks.filter((otherSink) => !endpointsEqual(sink, otherSink));
-    const sources = getSources(sinkNode, sink.portletId);
-    sinkNode.sources[sink.portletId] = sources.filter((otherSource) => !endpointsEqual(source, otherSource));
-};
 /** Remove all existing connections from `sourceNodeId` to `sinkNodeId`. */
 const disconnectNodes = (graph, sourceNodeId, sinkNodeId) => {
     const sourceNode = getNode(graph, sourceNodeId);
@@ -2847,17 +3562,6 @@ const deleteNode = (graph, nodeId) => {
 };
 const _ensureConnectionEndpointArray = (portletMap, portletId) => (portletMap[portletId] = portletMap[portletId] || []);
 
-var graphMutations = /*#__PURE__*/Object.freeze({
-    __proto__: null,
-    addNode: addNode,
-    connect: connect,
-    deleteNode: deleteNode,
-    disconnect: disconnect,
-    disconnectNodes: disconnectNodes
-});
-
-const dspGraph = { getters: graphGetters, traversal: graphTraversal, mutation: graphMutations, helpers: graphHelpers };
-
 /*
  * Copyright (c) 2022-2023 Sébastien Piquemal <sebpiq@protonmail.com>, Chris McCormick.
  *
@@ -2877,17 +3581,25 @@ const dspGraph = { getters: graphGetters, traversal: graphTraversal, mutation: g
  * You should have received a copy of the GNU Lesser General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
-const MIXER_NODE_TYPE = 'mixer~';
+const IMPLICIT_NODE_TYPES = {
+    MIXER: '_mixer~',
+    ROUTE_MSG: '_routemsg',
+    CONSTANT_SIGNAL: 'sig~',
+};
 var IdNamespaces;
 (function (IdNamespaces) {
     IdNamespaces["PD"] = "n";
-    IdNamespaces["MIXER"] = "m";
+    /** Node added for enabling translation from pd to dp graph  */
+    IdNamespaces["IMPLICIT_NODE"] = "m";
 })(IdNamespaces || (IdNamespaces = {}));
 const buildGraphNodeId = (patchId, nodeLocalId) => {
     return `${IdNamespaces.PD}_${patchId}_${nodeLocalId}`;
 };
-const buildMixerNodeId = (sinkId, inletId) => {
-    return `${IdNamespaces.MIXER}_${sinkId}_${inletId}`;
+const buildGraphPortletId = (pdPortletId) => pdPortletId.toString(10);
+/** Node id for nodes added while converting from PdJson */
+const buildImplicitGraphNodeId = (sink, nodeType) => {
+    nodeType = nodeType.replaceAll(/[^a-zA-Z0-9_]/g, '');
+    return `${IdNamespaces.IMPLICIT_NODE}_${sink.nodeId}_${sink.portletId}_${nodeType}`;
 };
 // ================================== MAIN ================================== //
 var toDspGraph = async (pd, nodeBuilders$1, abstractionLoader = async (nodeType) => ({
@@ -2916,7 +3628,7 @@ var toDspGraph = async (pd, nodeBuilders$1, abstractionLoader = async (nodeType)
     _buildConnections(compilation, [rootPatch]);
     Object.values(compilation.graph).forEach((node) => {
         if (Object.keys(nodeBuilders).includes(node.type)) {
-            dspGraph.mutation.deleteNode(compilation.graph, node.id);
+            deleteNode(compilation.graph, node.id);
         }
     });
     const arrays = Object.values(compilation.pd.arrays).reduce((arrays, array) => {
@@ -2935,7 +3647,7 @@ var toDspGraph = async (pd, nodeBuilders$1, abstractionLoader = async (nodeType)
             : undefined,
     };
 };
-// ================================== NODES ================================== //
+// ================================== DSP GRAPH NODES ================================== //
 const _buildNodes = (compilation, patchPath) => {
     const patch = _currentPatch(patchPath);
     const rootPatch = _rootPatch(patchPath);
@@ -2961,7 +3673,7 @@ const _buildNode = (compilation, rootPatch, patch, pdNode, nodeId) => {
     }
     const nodeArgs = nodeBuilder.translateArgs(pdNode, patch, compilation.pd);
     const partialNode = nodeBuilder.build(nodeArgs);
-    return dspGraph.mutation.addNode(compilation.graph, {
+    return addNode(compilation.graph, {
         id: nodeId,
         type: nodeType,
         args: nodeArgs,
@@ -2970,109 +3682,234 @@ const _buildNode = (compilation, rootPatch, patch, pdNode, nodeId) => {
         ...partialNode,
     });
 };
-// ================================== CONNECTIONS ================================== //
+// ==================================  DSP GRAPH CONNECTIONS ================================== //
 const _buildConnections = (compilation, rootPatchPath) => {
+    const { graph } = compilation;
     let pdConnections = [];
     // 1. Get recursively through the patches and collect all pd connections
     // in one single array. In the process, we also resolve subpatch's portlets.
     _traversePatches(compilation, rootPatchPath, (compilation, patchPath) => {
-        _collectPdConnections(compilation, patchPath, pdConnections);
+        _resolveSubpatches(compilation, patchPath, pdConnections);
     });
-    // 2. In Pd, several signal sources are summed when connected to the same inlet.
-    // `_buildConnection` is making that behavior explicit, therefore we can't create
-    // all connections one by one, and need to batch all connections to the same sink.
-    while (pdConnections.length) {
-        const [_, pdGlobSink] = pdConnections[0];
+    // 2. Convert connections from PdJson to DspGraph, and group them by source
+    const groupedGraphConnections = _groupAndResolveGraphConnections(compilation, pdConnections);
+    // 3. Finally, we iterate over the grouped sources and build the graph connections.
+    Object.values(graph).forEach((node) => {
+        Object.values(node.inlets).forEach((inlet) => {
+            const graphSink = {
+                nodeId: node.id,
+                portletId: inlet.id,
+            };
+            const graphSources = (groupedGraphConnections[node.id]
+                ? groupedGraphConnections[node.id][inlet.id]
+                : undefined) || { signalSources: [], messageSources: [] };
+            if (inlet.type === 'signal') {
+                const { nodeBuilder: sinkNodeBuilder } = resolveNodeType(compilation.nodeBuilders, node.type);
+                const messageToSignalConfig = sinkNodeBuilder.configureMessageToSignalConnection
+                    ? sinkNodeBuilder.configureMessageToSignalConnection(graphSink.portletId, node.args)
+                    : undefined;
+                _buildConnectionToSignalSink(graph, graphSources.signalSources, graphSources.messageSources, graphSink, messageToSignalConfig);
+            }
+            else {
+                if (graphSources.signalSources.length !== 0) {
+                    throw new Error(`Unexpected signal connection to node id ${graphSink.nodeId}, inlet ${graphSink.portletId}`);
+                }
+                _buildConnectionToMessageSink(graph, graphSources.messageSources, graphSink);
+            }
+        });
+    });
+};
+const _buildConnectionToMessageSink = (graph, sources, sink) => sources.forEach((source) => {
+    connect(graph, source, sink);
+});
+/**
+ * Build a graph connection. Add nodes that are implicit in Pd, and that we want explicitely
+ * declared in our graph.
+ *
+ * Implicit Pd behavior made explicit by this compilation :
+ * - Multiple DSP inputs mixed into one
+ *
+ * ```
+ * [ signal1~ ]   [ signal2~ ]
+ *           \      /
+ *         [ _mixer~ ]
+ *           |
+ *         [ someNode~ ]
+ *
+ * ```
+ *
+ * - When messages to DSP input, automatically turned into a signal
+ *
+ * ```
+ *    [ sig~ ]
+ *      |
+ *    [  someNode~ ]
+ * ```
+ *
+ * - Re-route messages from signal inlet to a message inlet
+ *
+ * ```
+ *    [ message1 ]
+ *      |
+ *    [ _routemsg ]     ( on the left inlet float messages, on the the right inlet, the rest. )
+ *      |       \
+ *    [ sig~ ]   |
+ *      |        |
+ *    [  someNode~ ]
+ * ```
+ *
+ * - Initial value of DSP input
+ *
+ *
+ */
+const _buildConnectionToSignalSink = (graph, signalSources, messageSources, sink, messageToSignalConfig) => {
+    let implicitSigNode = null;
+    // 1. SIGNAL SOURCES
+    // 1.1. if single signal source, we just put a normal connection
+    if (signalSources.length === 1) {
+        connect(graph, signalSources[0], sink);
+        // 1.2. if several signal sources, we put a mixer node in between.
+    }
+    else if (signalSources.length > 1) {
+        const mixerNodeArgs = {
+            channelCount: signalSources.length,
+        };
+        const implicitMixerNode = addNode(graph, {
+            id: buildImplicitGraphNodeId(sink, IMPLICIT_NODE_TYPES.MIXER),
+            type: IMPLICIT_NODE_TYPES.MIXER,
+            args: mixerNodeArgs,
+            sources: {},
+            sinks: {},
+            ...builder$U.build(mixerNodeArgs),
+        });
+        connect(graph, {
+            nodeId: implicitMixerNode.id,
+            portletId: '0',
+        }, sink);
+        signalSources.forEach((source, i) => {
+            connect(graph, source, {
+                nodeId: implicitMixerNode.id,
+                portletId: buildGraphPortletId(i),
+            });
+        });
+        // 1.3. if no signal source, we need to simulate one by plugging a sig node to the inlet
+    }
+    else {
+        const sigNodeArgs = {
+            initValue: messageToSignalConfig
+                ? messageToSignalConfig.initialSignalValue
+                : 0,
+        };
+        implicitSigNode = addNode(graph, {
+            id: buildImplicitGraphNodeId(sink, IMPLICIT_NODE_TYPES.CONSTANT_SIGNAL),
+            type: IMPLICIT_NODE_TYPES.CONSTANT_SIGNAL,
+            args: sigNodeArgs,
+            sources: {},
+            sinks: {},
+            ...builder$T.build(sigNodeArgs),
+        });
+        connect(graph, {
+            nodeId: implicitSigNode.id,
+            portletId: '0',
+        }, sink);
+    }
+    // 2. MESSAGE SOURCES
+    // If message sources, we split the incoming message flow in 2 using `_routemsg`.
+    // - outlet 0 : float messages are proxied to the sig~ if present, so they set its value
+    // - outlet 1 : other messages must be proxied to a different sink (cause here we are dealing
+    // with a signal sink which can't accept messages).
+    if (messageSources.length) {
+        const routeMsgArgs = {};
+        const implicitRouteMsgNode = addNode(graph, {
+            id: buildImplicitGraphNodeId(sink, IMPLICIT_NODE_TYPES.ROUTE_MSG),
+            type: IMPLICIT_NODE_TYPES.ROUTE_MSG,
+            args: routeMsgArgs,
+            sources: {},
+            sinks: {},
+            ...builder$S.build(routeMsgArgs),
+        });
+        let isMsgSortNodeConnected = false;
+        if (implicitSigNode) {
+            connect(graph, { nodeId: implicitRouteMsgNode.id, portletId: '0' }, { nodeId: implicitSigNode.id, portletId: '0' });
+            isMsgSortNodeConnected = true;
+        }
+        if (messageToSignalConfig &&
+            messageToSignalConfig.reroutedMessageInletId !== undefined) {
+            connect(graph, { nodeId: implicitRouteMsgNode.id, portletId: '1' }, {
+                nodeId: sink.nodeId,
+                portletId: messageToSignalConfig.reroutedMessageInletId,
+            });
+            isMsgSortNodeConnected = true;
+        }
+        if (isMsgSortNodeConnected) {
+            messageSources.forEach((graphMessageSource) => {
+                connect(graph, graphMessageSource, {
+                    nodeId: implicitRouteMsgNode.id,
+                    portletId: '0',
+                });
+            });
+        }
+    }
+};
+/**
+ * Take an array of global PdJson connections and :
+ * - group them by sink
+ * - convert them to graph connections
+ * - split them into signal and message connections
+ */
+const _groupAndResolveGraphConnections = (compilation, pdConnections) => {
+    const { graph } = compilation;
+    const groupedGraphConnections = {};
+    pdConnections.forEach((connection) => {
+        const [_, pdGlobSink] = connection;
+        // Resolve the graph sink corresponding with the connection,
+        // if already handled, we move on.
+        const [patchPath, pdSink] = pdGlobSink;
+        const graphNodeId = buildGraphNodeId(_currentPatch(patchPath).id, pdSink.nodeId);
+        groupedGraphConnections[graphNodeId] = groupedGraphConnections[graphNodeId] || {};
+        const graphPortletId = buildGraphPortletId(pdSink.portletId);
+        if (groupedGraphConnections[graphNodeId][graphPortletId]) {
+            return;
+        }
+        // Collect all sources for `pdGlobSink`
         let pdGlobSources = [];
-        let remainingConnections = [];
         pdConnections.forEach((connection) => {
             const [pdGlobSource, otherPdGlobSink] = connection;
             if (_arePdGlobEndpointsEqual(pdGlobSink, otherPdGlobSink)) {
                 pdGlobSources.push(pdGlobSource);
             }
+        });
+        // For each source, resolve it to a graph source, and split between
+        // signal and message sources.
+        const graphSignalSources = [];
+        const graphMessageSources = [];
+        pdGlobSources.forEach(([sourcePatchPath, pdSource]) => {
+            const sourcePatch = _currentPatch(sourcePatchPath);
+            const graphSource = {
+                nodeId: buildGraphNodeId(sourcePatch.id, pdSource.nodeId),
+                portletId: buildGraphPortletId(pdSource.portletId),
+            };
+            const sourceNode = getNode(graph, graphSource.nodeId);
+            const outlet = getOutlet(sourceNode, graphSource.portletId);
+            if (outlet.type === 'signal') {
+                graphSignalSources.push(graphSource);
+            }
             else {
-                remainingConnections.push(connection);
+                graphMessageSources.push(graphSource);
             }
         });
-        pdConnections = remainingConnections;
-        _buildConnection(compilation, pdGlobSources, pdGlobSink);
-    }
-};
-const _buildConnection = (compilation, pdSources, [sinkPatchPath, pdSink]) => {
-    const { graph } = compilation;
-    const sinkPatch = _currentPatch(sinkPatchPath);
-    const sinkRootPatch = _rootPatch(sinkPatchPath);
-    const graphSink = {
-        nodeId: buildGraphNodeId(sinkPatch.id, pdSink.nodeId),
-        portletId: pdSink.portletId.toString(10),
-    };
-    const { nodeBuilder: sinkNodeBuilder } = resolveNodeType(compilation.nodeBuilders, resolvePdNode(sinkPatch, pdSink.nodeId).type);
-    const connections = [];
-    // 1. We separate signal sources from message sources
-    const signalSources = [];
-    const messageSources = [];
-    pdSources.forEach(([sourcePatchPath, pdSource]) => {
-        const sourcePatch = _currentPatch(sourcePatchPath);
-        const graphSource = {
-            nodeId: buildGraphNodeId(sourcePatch.id, pdSource.nodeId),
-            portletId: pdSource.portletId.toString(10),
+        groupedGraphConnections[graphNodeId][graphPortletId] = {
+            signalSources: graphSignalSources,
+            messageSources: graphMessageSources,
         };
-        const sourceNode = dspGraph.getters.getNode(graph, graphSource.nodeId);
-        const outlet = dspGraph.getters.getOutlet(sourceNode, graphSource.portletId);
-        if (outlet.type === 'signal') {
-            signalSources.push(graphSource);
-        }
-        else {
-            messageSources.push(graphSource);
-        }
     });
-    // 2. If several signal sources, we place a mixer node in between
-    // to make sure we really always have ONE signal inlet = ONE connection.
-    if (signalSources.length > 1) {
-        const mixerNode = _buildNode(compilation, sinkRootPatch, sinkPatch, {
-            id: 'dummy',
-            type: MIXER_NODE_TYPE,
-            args: [signalSources.length],
-            nodeClass: 'generic',
-        }, buildMixerNodeId(graphSink.nodeId, graphSink.portletId));
-        dspGraph.mutation.connect(graph, {
-            nodeId: mixerNode.id,
-            portletId: '0',
-        }, graphSink);
-        signalSources.forEach((source, i) => {
-            connections.push([
-                source,
-                { nodeId: mixerNode.id, portletId: i.toString() },
-            ]);
-        });
-    }
-    else {
-        signalSources.forEach((source) => connections.push([source, graphSink]));
-    }
-    // 3. We re-route message connections if re-routing is declared on the node builder.
-    messageSources.forEach((source) => {
-        let reroutedSink = graphSink;
-        if (sinkNodeBuilder.rerouteMessageConnection) {
-            const newInletId = sinkNodeBuilder.rerouteMessageConnection(graphSink.portletId);
-            if (newInletId !== undefined) {
-                reroutedSink = {
-                    nodeId: graphSink.nodeId,
-                    portletId: newInletId,
-                };
-            }
-        }
-        connections.push([source, reroutedSink]);
-    });
-    // Finally, we connect
-    connections.forEach(([source, sink]) => {
-        dspGraph.mutation.connect(graph, source, sink);
-    });
+    return groupedGraphConnections;
 };
 /**
  * Traverse the graph recursively and collect all connections in a flat list,
  * by navigating inside and outside subpatches through their portlets.
  */
-const _collectPdConnections = (compilation, patchPath, pdConnections) => {
+const _resolveSubpatches = (compilation, patchPath, pdConnections) => {
     const { graph } = compilation;
     const patch = _currentPatch(patchPath);
     // First we remove connections for pd nodes that have been removed
@@ -3232,6 +4069,217 @@ const _resolveSubpatchNode = (patch, patchId) => {
 const _arePdGlobEndpointsEqual = ([pp1, ep1], [pp2, ep2]) => _currentPatch(pp1).id === _currentPatch(pp2).id &&
     ep1.nodeId === ep2.nodeId &&
     ep1.portletId === ep2.portletId;
+
+const WEBPD_RUNTIME_FILENAME = 'webpd-runtime.js';
+var appGenerator = (template, artefacts) => {
+    switch (template) {
+        case 'bare-bones':
+            const generated = bareBonesApp({ artefacts });
+            return {
+                ...generated,
+                [WEBPD_RUNTIME_FILENAME]: WEBPD_RUNTIME_CODE,
+            };
+        default:
+            throw new Error(`Unknown template ${template}`);
+    }
+};
+const bareBonesApp = (settings) => {
+    const { artefacts } = settings;
+    if (!artefacts.compiledJs && !artefacts.wasm) {
+        throw new Error(`Needs at least compiledJs or wasm to run`);
+    }
+    const compiledPatchFilename = artefacts.compiledJs
+        ? 'patch.js'
+        : 'patch.wasm';
+    // prettier-ignore
+    const generatedApp = {
+        'index.html': `
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <meta http-equiv="X-UA-Compatible" content="ie=edge">
+        <title>WebPd boilerplate</title>
+        <style>
+            #start {
+                display: none;
+                position: fixed;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+            }
+            #loading {
+                width: 100%;
+                height: 100%;
+                position: fixed;
+                top: 50%;
+                transform: translateY(-50%);
+                display: flex;
+                justify-content: center;
+                align-items: center;
+            }
+        </style>
+    </head>
+    <body>
+        <h1>My Web Page</h1>
+        <div>For more info about usage (how to interact with the patch), you can open this HTML file in a code editor.</div>
+        <button id="start"> Start </button>
+        <div id="loading"> Loading ... </div>
+        <script src="${WEBPD_RUNTIME_FILENAME}"></script>
+        <script>
+            // SUMMARY
+            // 1. WEB PAGE INITIALIZATION
+            // 2. SENDING MESSAGES FROM JAVASCRIPT TO THE PATCH
+            // 3. SENDING MESSAGES FROM THE PATCH TO JAVASCRIPT (coming soon ...)
+
+
+            // ------------- 1. WEB PAGE INITIALIZATION
+            const loadingDiv = document.querySelector('#loading')
+            const startButton = document.querySelector('#start')
+            const audioContext = new AudioContext()
+
+            let patch = null
+            let stream = null
+            let webpdNode = null
+
+            const initApp = async () => {
+                // Register the worklet
+                await WebPdRuntime.registerWebPdWorkletNode(audioContext)
+
+                // Fetch the patch code
+                response = await fetch('${compiledPatchFilename}')
+                patch = await ${artefacts.compiledJs ?
+            'response.text()' : 'response.arrayBuffer()'}
+
+                // Get audio input
+                stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+
+                // Hide loading and show start button
+                loadingDiv.style.display = 'none'
+                startButton.style.display = 'block'
+            }
+
+            const startApp = async () => {
+                // AudioContext needs to be resumed on click to protects users 
+                // from being spammed with autoplay.
+                // See : https://github.com/WebAudio/web-audio-api/issues/345
+                if (audioContext.state === 'suspended') {
+                    audioContext.resume()
+                }
+
+                // Setup web audio graph
+                const sourceNode = audioContext.createMediaStreamSource(stream)
+                webpdNode = new WebPdRuntime.WebPdWorkletNode(audioContext)
+                sourceNode.connect(webpdNode)
+                webpdNode.connect(audioContext.destination)
+
+                // Setup filesystem management
+                webpdNode.port.onmessage = (message) => 
+                    WebPdRuntime.fsWeb(webpdNode, message, { 
+                        rootUrl: WebPdRuntime.urlDirName(location.pathname) 
+                    })
+
+                // Send code to the worklet
+                ${artefacts.compiledJs ? `
+                webpdNode.port.postMessage({
+                    type: 'code:JS',
+                    payload: {
+                        jsCode: patch,
+                    },
+                })` : `
+                webpdNode.port.postMessage({
+                    type: 'code:WASM',
+                    payload: {
+                        wasmBuffer: patch,
+                    },
+                })`}
+
+                // Hide the start button
+                startButton.style.display = 'none'
+            }
+
+            startButton.onclick = startApp
+
+            initApp().
+                then(() => {
+                    console.log('App initialized')
+                })
+
+            
+            // ------------- 2. SENDING MESSAGES FROM JAVASCRIPT TO THE PATCH
+            // Use the function sendMsgToWebPd to send a message from JavaScript to an object inside your patch.
+            // 
+            // Parameters : 
+            // - nodeId: the ID of the object you want to send a message to. 
+            //          This ID is a string that has been assigned by WebPd at compilation.
+            //          You can find below the list of available IDs with hints to help you 
+            //          identify the object you want to interact with.
+            // - portletId : the ID of the object portlet to which the message should be sent. 
+            // - message : the message to send. This must be a list of strings and / or numbers.
+            // 
+            // Examples :
+            // - sending a message to a bang node of ID 'n_0_1' :
+            //          sendMsgToWebPd('n_0_1', '0', ['bang'])
+            // - sending a message to a number object of ID 'n_0_2' :
+            //          sendMsgToWebPd('n_0_2', '0', [123])
+            // 
+            const sendMsgToWebPd = (nodeId, portletId, message) => {
+                webpdNode.port.postMessage({
+                    type: 'inletCaller',
+                    payload: {
+                        nodeId,
+                        portletId,
+                        message,
+                    },
+                })
+            }
+            
+            // Here is an index of objects IDs to which you can send messages, with hints so you can find the right ID.
+            // Note that by default only GUI objects (bangs, sliders, etc ...) are available.${artefacts.dspGraph
+            && artefacts.dspGraph.inletCallerSpecs
+            && Object.keys(artefacts.dspGraph.inletCallerSpecs).length ?
+            Object.entries(artefacts.dspGraph.inletCallerSpecs)
+                .flatMap(([nodeId, portletIds]) => portletIds.map(portletId => {
+                const pdNode = resolvePdNodeFromGraphNodeId(artefacts.pdJson, nodeId);
+                if (!pdNode) {
+                    throw new Error(`Failed to resolve pd node`);
+                }
+                return `
+            //  - nodeId "${nodeId}" portletId "${portletId}"
+            //      * type "${pdNode.type}"
+            //      * args ${JSON.stringify(pdNode.args)}`
+                    + (pdNode.layout.label ? `
+            //      * label "${pdNode.layout.label}"` : '');
+            })).join('')
+            : `
+            // EMPTY (did you place a GUI object in your patch ?)
+`}
+
+
+            // ------------- 3. SENDING MESSAGES FROM THE PATCH TO JAVASCRIPT
+            // Coming soon ... 
+
+        </script>
+    </body>
+</html>`
+    };
+    if (artefacts.compiledJs) {
+        generatedApp[compiledPatchFilename] = artefacts.compiledJs;
+    }
+    else {
+        generatedApp[compiledPatchFilename] = artefacts.wasm;
+    }
+    return generatedApp;
+};
+const resolvePdNodeFromGraphNodeId = (pd, graphNodeId) => {
+    let node = null;
+    Object.entries(pd.patches).some(([patchId, patch]) => {
+        node = Object.values(patch.nodes).find((node) => buildGraphNodeId(patchId, node.id) === graphNodeId);
+        return !!node;
+    });
+    return node;
+};
 
 const discoverGuiControls = (pdJson) => {
     const rootPatch = pdJson.patches[pdJson.rootPatchId];
@@ -3481,20 +4529,20 @@ const lowerFloatArray = (wasmExports, bitDepth, data) => {
 };
 /** @param bitDepth : Must be the same value as what was used to compile the engine. */
 const lowerListOfFloatArrays = (wasmExports, bitDepth, data) => {
-    const arraysPointer = wasmExports.core_createListOfArrays();
+    const arraysPointer = wasmExports.x_core_createListOfArrays();
     data.forEach((array) => {
         const { arrayPointer } = lowerFloatArray(wasmExports, bitDepth, array);
-        wasmExports.core_pushToListOfArrays(arraysPointer, arrayPointer);
+        wasmExports.x_core_pushToListOfArrays(arraysPointer, arrayPointer);
     });
     return arraysPointer;
 };
 /** @param bitDepth : Must be the same value as what was used to compile the engine. */
 const readListOfFloatArrays = (wasmExports, bitDepth, listOfArraysPointer) => {
-    const listLength = wasmExports.core_getListOfArraysLength(listOfArraysPointer);
+    const listLength = wasmExports.x_core_getListOfArraysLength(listOfArraysPointer);
     const arrays = [];
     const arrayType = getFloatArrayType(bitDepth);
     for (let i = 0; i < listLength; i++) {
-        const arrayPointer = wasmExports.core_getListOfArraysElem(listOfArraysPointer, i);
+        const arrayPointer = wasmExports.x_core_getListOfArraysElem(listOfArraysPointer, i);
         arrays.push(readTypedArray(wasmExports, arrayType, arrayPointer));
     }
     return arrays;
@@ -3520,7 +4568,7 @@ const readListOfFloatArrays = (wasmExports, bitDepth, listOfArraysPointer) => {
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 const liftMessage = (wasmExports, messagePointer) => {
-    const messageTokenTypesPointer = wasmExports.msg_getTokenTypes(messagePointer);
+    const messageTokenTypesPointer = wasmExports.x_msg_getTokenTypes(messagePointer);
     const messageTokenTypes = readTypedArray(wasmExports, Int32Array, messageTokenTypesPointer);
     const message = [];
     messageTokenTypes.forEach((tokenType, tokenIndex) => {
@@ -3550,10 +4598,10 @@ const lowerMessage = (wasmExports, message) => {
     }, []);
     // Here we should ideally pass an array of Int, but I am not sure how
     // to lower a typed array in a generic manner, so using the available bindings from `commons`.
-    const templateArrayPointer = wasmExports.msg_createTemplate(template.length);
+    const templateArrayPointer = wasmExports.x_msg_createTemplate(template.length);
     const loweredTemplateArray = readTypedArray(wasmExports, Int32Array, templateArrayPointer);
     loweredTemplateArray.set(template);
-    const messagePointer = wasmExports.msg_create(templateArrayPointer);
+    const messagePointer = wasmExports.x_msg_create(templateArrayPointer);
     message.forEach((value, index) => {
         if (typeof value === 'number') {
             wasmExports.msg_writeFloatToken(messagePointer, index, value);
@@ -3635,179 +4683,76 @@ const instantiateWasmModule = async (wasmBuffer, wasmImports = {}) => {
  * You should have received a copy of the GNU Lesser General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
-/** Convenience function to create and initialize an engine. */
-const createEngine$1 = async (wasmBuffer) => {
-    const engine = new AssemblyScriptWasmEngine(wasmBuffer);
-    await engine.initialize();
-    return engine;
+// This must be called again when doing something on the wasm module
+// which could cause memory grow (lowerString, lowerMessage,
+//      lowerBuffer, lowerMessage) :
+// https://github.com/emscripten-core/emscripten/issues/6747
+const updateWasmInOuts = (rawModule, engineData) => {
+    engineData.wasmOutput = readTypedArray(rawModule, engineData.arrayType, rawModule.getOutput());
+    engineData.wasmInput = readTypedArray(rawModule, engineData.arrayType, rawModule.getInput());
 };
-/**
- * Class to interact more easily with a Wasm module compiled from assemblyscript code.
- * Use `createEngine` for more convenient instantiation.
- */
-class AssemblyScriptWasmEngine {
-    constructor(wasmBuffer) {
-        this.wasmBuffer = wasmBuffer;
-    }
-    async initialize() {
-        // We need to read metadata before everything, because it is used by other initialization functions
-        this.metadata = await readMetadata(this.wasmBuffer);
-        this.bitDepth = this.metadata.audioSettings.bitDepth;
-        this.arrayType = getFloatArrayType(this.bitDepth);
-        const wasmImports = {
-            ...this._fsImports(),
-            ...this._outletListenersImports(),
-        };
-        const wasmInstance = await instantiateWasmModule(this.wasmBuffer, {
-            input: wasmImports,
-        });
-        this.wasmExports =
-            wasmInstance.exports;
-        this.commons = this._bindCommons();
-        this.fs = this._bindFs();
-        this.inletCallers = this._bindInletCallers();
-        this.outletListeners = this._bindOutletListeners();
-    }
-    configure(sampleRate, blockSize) {
-        this.blockSize = blockSize;
-        this.metadata.audioSettings.blockSize = blockSize;
-        this.metadata.audioSettings.sampleRate = sampleRate;
-        this.wasmExports.configure(sampleRate, blockSize);
-        this._updateWasmInOuts();
-    }
-    loop(input, output) {
-        for (let channel = 0; channel < input.length; channel++) {
-            this.wasmInput.set(input[channel], channel * this.blockSize);
-        }
-        this._updateWasmInOuts();
-        this.wasmExports.loop();
-        this._updateWasmInOuts();
-        for (let channel = 0; channel < output.length; channel++) {
-            output[channel].set(this.wasmOutput.subarray(this.blockSize * channel, this.blockSize * (channel + 1)));
-        }
-    }
-    // This must be called again when doing something on the wasm module
-    // which could cause memory grow (lowerString, lowerMessage,
-    //      lowerBuffer, lowerMessage) :
-    // https://github.com/emscripten-core/emscripten/issues/6747
-    _updateWasmInOuts() {
-        this.wasmOutput = readTypedArray(this.wasmExports, this.arrayType, this.wasmExports.getOutput());
-        this.wasmInput = readTypedArray(this.wasmExports, this.arrayType, this.wasmExports.getInput());
-    }
-    // API for data flowing HOST -> ENGINE
-    _bindCommons() {
-        return {
-            getArray: (arrayName) => {
-                const arrayNamePointer = lowerString(this.wasmExports, arrayName);
-                const arrayPointer = this.wasmExports.commons_getArray(arrayNamePointer);
-                return readTypedArray(this.wasmExports, this.arrayType, arrayPointer);
+const createEngineLifecycleBindings = (rawModule, engineData) => {
+    return {
+        configure: {
+            type: 'proxy',
+            value: (sampleRate, blockSize) => {
+                engineData.metadata.audioSettings.blockSize = blockSize;
+                engineData.metadata.audioSettings.sampleRate = sampleRate;
+                engineData.blockSize = blockSize;
+                rawModule.configure(sampleRate, blockSize);
+                updateWasmInOuts(rawModule, engineData);
             },
-            setArray: (arrayName, array) => {
-                const stringPointer = lowerString(this.wasmExports, arrayName);
-                const { arrayPointer } = lowerFloatArray(this.wasmExports, this.bitDepth, array);
-                this.wasmExports.commons_setArray(stringPointer, arrayPointer);
-                this._updateWasmInOuts();
-            },
-        };
-    }
-    // API for data flowing HOST -> ENGINE
-    _bindFs() {
-        return {
-            sendReadSoundFileResponse: (operationId, status, sound) => {
-                let soundPointer = 0;
-                if (sound) {
-                    soundPointer = lowerListOfFloatArrays(this.wasmExports, this.bitDepth, sound);
+        },
+        loop: {
+            type: 'proxy',
+            value: (input, output) => {
+                for (let channel = 0; channel < input.length; channel++) {
+                    engineData.wasmInput.set(input[channel], channel * engineData.blockSize);
                 }
-                this.wasmExports.fs_onReadSoundFileResponse(operationId, status, soundPointer);
-                this._updateWasmInOuts();
+                updateWasmInOuts(rawModule, engineData);
+                rawModule.loop();
+                updateWasmInOuts(rawModule, engineData);
+                for (let channel = 0; channel < output.length; channel++) {
+                    output[channel].set(engineData.wasmOutput.subarray(engineData.blockSize * channel, engineData.blockSize * (channel + 1)));
+                }
             },
-            sendWriteSoundFileResponse: this.wasmExports.fs_onWriteSoundFileResponse,
-            sendSoundStreamData: (operationId, sound) => {
-                const soundPointer = lowerListOfFloatArrays(this.wasmExports, this.bitDepth, sound);
-                const writtenFrameCount = this.wasmExports.fs_onSoundStreamData(operationId, soundPointer);
-                this._updateWasmInOuts();
-                return writtenFrameCount;
-            },
-            closeSoundStream: this.wasmExports.fs_onCloseSoundStream,
-            onReadSoundFile: () => undefined,
-            onWriteSoundFile: () => undefined,
-            onOpenSoundReadStream: () => undefined,
-            onOpenSoundWriteStream: () => undefined,
-            onSoundStreamData: () => undefined,
-            onCloseSoundStream: () => undefined,
-        };
-    }
-    // API for data flowing ENGINE -> HOST
-    _fsImports() {
-        let wasmImports = {
-            i_fs_readSoundFile: (operationId, urlPointer, infoPointer) => {
-                const url = liftString(this.wasmExports, urlPointer);
-                const info = liftMessage(this.wasmExports, infoPointer);
-                this.fs.onReadSoundFile(operationId, url, info);
-            },
-            i_fs_writeSoundFile: (operationId, soundPointer, urlPointer, infoPointer) => {
-                const sound = readListOfFloatArrays(this.wasmExports, this.bitDepth, soundPointer);
-                const url = liftString(this.wasmExports, urlPointer);
-                const info = liftMessage(this.wasmExports, infoPointer);
-                this.fs.onWriteSoundFile(operationId, sound, url, info);
-            },
-            i_fs_openSoundReadStream: (operationId, urlPointer, infoPointer) => {
-                const url = liftString(this.wasmExports, urlPointer);
-                const info = liftMessage(this.wasmExports, infoPointer);
-                // Called here because this call means that some sound buffers were allocated
-                // inside the wasm module.
-                this._updateWasmInOuts();
-                this.fs.onOpenSoundReadStream(operationId, url, info);
-            },
-            i_fs_openSoundWriteStream: (operationId, urlPointer, infoPointer) => {
-                const url = liftString(this.wasmExports, urlPointer);
-                const info = liftMessage(this.wasmExports, infoPointer);
-                this.fs.onOpenSoundWriteStream(operationId, url, info);
-            },
-            i_fs_sendSoundStreamData: (operationId, blockPointer) => {
-                const block = readListOfFloatArrays(this.wasmExports, this.bitDepth, blockPointer);
-                this.fs.onSoundStreamData(operationId, block);
-            },
-            i_fs_closeSoundStream: (...args) => this.fs.onCloseSoundStream(...args),
-        };
-        return wasmImports;
-    }
-    // API for data flowing HOST -> ENGINE
-    _bindInletCallers() {
-        return mapObject(this.metadata.compilation.inletCallerSpecs, (inletIds, nodeId) => mapArray(inletIds, (inletId) => [
-            inletId,
-            (message) => {
-                const messagePointer = lowerMessage(this.wasmExports, message);
-                this.wasmExports[this.metadata.compilation.codeVariableNames
-                    .inletCallers[nodeId][inletId]](messagePointer);
-            },
-        ]));
-    }
-    // API for data flowing HOST -> ENGINE
-    _bindOutletListeners() {
-        return mapObject(this.metadata.compilation.outletListenerSpecs, (outletIds) => mapArray(outletIds, (outletId) => [
-            outletId,
-            {
-                onMessage: () => undefined,
-            },
-        ]));
-    }
-    // API for data flowing ENGINE -> HOST
-    _outletListenersImports() {
-        const wasmImports = {};
-        const { codeVariableNames } = this.metadata.compilation;
-        Object.entries(this.metadata.compilation.outletListenerSpecs).forEach(([nodeId, outletIds]) => {
-            outletIds.forEach((outletId) => {
-                const listenerName = codeVariableNames.outletListeners[nodeId][outletId];
-                wasmImports[listenerName] = (messagePointer) => {
-                    const message = liftMessage(this.wasmExports, messagePointer);
-                    this.outletListeners[nodeId][outletId].onMessage(message);
-                };
-            });
+        },
+    };
+};
+const createInletCallersBindings = (rawModule, engineData) => mapObject(engineData.metadata.compilation.inletCallerSpecs, (inletIds, nodeId) => ({
+    type: 'proxy',
+    value: mapArray(inletIds, (inletId) => [
+        inletId,
+        (message) => {
+            const messagePointer = lowerMessage(rawModule, message);
+            rawModule[engineData.metadata.compilation.codeVariableNames
+                .inletCallers[nodeId][inletId]](messagePointer);
+        },
+    ]),
+}));
+const createOutletListenersBindings = (_, engineData) => mapObject(engineData.metadata.compilation.outletListenerSpecs, (outletIds) => ({
+    type: 'proxy',
+    value: mapArray(outletIds, (outletId) => [
+        outletId,
+        {
+            onMessage: () => undefined,
+        },
+    ]),
+}));
+const outletListenersImports = (forwardReferences, metadata) => {
+    const wasmImports = {};
+    const { codeVariableNames } = metadata.compilation;
+    Object.entries(metadata.compilation.outletListenerSpecs).forEach(([nodeId, outletIds]) => {
+        outletIds.forEach((outletId) => {
+            const listenerName = codeVariableNames.outletListeners[nodeId][outletId];
+            wasmImports[listenerName] = (messagePointer) => {
+                const message = liftMessage(forwardReferences.rawModule, messagePointer);
+                forwardReferences.modules.outletListeners[nodeId][outletId].onMessage(message);
+            };
         });
-        return wasmImports;
-    }
-}
+    });
+    return wasmImports;
+};
 const readMetadata = async (wasmBuffer) => {
     // In order to read metadata, we need to introspect the module to get the imports
     const inputImports = {};
@@ -3824,6 +4769,205 @@ const readMetadata = async (wasmBuffer) => {
     const stringPointer = wasmExports.metadata.valueOf();
     const metadataJSON = liftString(wasmExports, stringPointer);
     return JSON.parse(metadataJSON);
+};
+
+/*
+ * Copyright (c) 2022-2023 Sébastien Piquemal <sebpiq@protonmail.com>, Chris McCormick.
+ *
+ * This file is part of WebPd
+ * (see https://github.com/sebpiq/WebPd).
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with this program. If not, see <http://www.gnu.org/licenses/>.
+ */
+const createFsBindings = (rawModule, engineData) => ({
+    sendReadSoundFileResponse: {
+        type: 'proxy',
+        value: (operationId, status, sound) => {
+            let soundPointer = 0;
+            if (sound) {
+                soundPointer = lowerListOfFloatArrays(rawModule, engineData.bitDepth, sound);
+            }
+            rawModule.x_fs_onReadSoundFileResponse(operationId, status, soundPointer);
+            updateWasmInOuts(rawModule, engineData);
+        },
+    },
+    sendWriteSoundFileResponse: {
+        type: 'proxy',
+        value: rawModule.x_fs_onWriteSoundFileResponse,
+    },
+    sendSoundStreamData: {
+        type: 'proxy',
+        value: (operationId, sound) => {
+            const soundPointer = lowerListOfFloatArrays(rawModule, engineData.bitDepth, sound);
+            const writtenFrameCount = rawModule.x_fs_onSoundStreamData(operationId, soundPointer);
+            updateWasmInOuts(rawModule, engineData);
+            return writtenFrameCount;
+        },
+    },
+    closeSoundStream: {
+        type: 'proxy',
+        value: rawModule.x_fs_onCloseSoundStream,
+    },
+    onReadSoundFile: { type: 'callback', value: () => undefined },
+    onWriteSoundFile: { type: 'callback', value: () => undefined },
+    onOpenSoundReadStream: { type: 'callback', value: () => undefined },
+    onOpenSoundWriteStream: { type: 'callback', value: () => undefined },
+    onSoundStreamData: { type: 'callback', value: () => undefined },
+    onCloseSoundStream: { type: 'callback', value: () => undefined },
+});
+const createFsImports = (forwardReferences) => {
+    let wasmImports = {
+        i_fs_readSoundFile: (operationId, urlPointer, infoPointer) => {
+            const url = liftString(forwardReferences.rawModule, urlPointer);
+            const info = liftMessage(forwardReferences.rawModule, infoPointer);
+            forwardReferences.modules.fs.onReadSoundFile(operationId, url, info);
+        },
+        i_fs_writeSoundFile: (operationId, soundPointer, urlPointer, infoPointer) => {
+            const sound = readListOfFloatArrays(forwardReferences.rawModule, forwardReferences.engineData.bitDepth, soundPointer);
+            const url = liftString(forwardReferences.rawModule, urlPointer);
+            const info = liftMessage(forwardReferences.rawModule, infoPointer);
+            forwardReferences.modules.fs.onWriteSoundFile(operationId, sound, url, info);
+        },
+        i_fs_openSoundReadStream: (operationId, urlPointer, infoPointer) => {
+            const url = liftString(forwardReferences.rawModule, urlPointer);
+            const info = liftMessage(forwardReferences.rawModule, infoPointer);
+            // Called here because this call means that some sound buffers were allocated
+            // inside the wasm module.
+            updateWasmInOuts(forwardReferences.rawModule, forwardReferences.engineData);
+            forwardReferences.modules.fs.onOpenSoundReadStream(operationId, url, info);
+        },
+        i_fs_openSoundWriteStream: (operationId, urlPointer, infoPointer) => {
+            const url = liftString(forwardReferences.rawModule, urlPointer);
+            const info = liftMessage(forwardReferences.rawModule, infoPointer);
+            forwardReferences.modules.fs.onOpenSoundWriteStream(operationId, url, info);
+        },
+        i_fs_sendSoundStreamData: (operationId, blockPointer) => {
+            const block = readListOfFloatArrays(forwardReferences.rawModule, forwardReferences.engineData.bitDepth, blockPointer);
+            forwardReferences.modules.fs.onSoundStreamData(operationId, block);
+        },
+        i_fs_closeSoundStream: (...args) => forwardReferences.modules.fs.onCloseSoundStream(...args),
+    };
+    return wasmImports;
+};
+
+/*
+ * Copyright (c) 2022-2023 Sébastien Piquemal <sebpiq@protonmail.com>, Chris McCormick.
+ *
+ * This file is part of WebPd
+ * (see https://github.com/sebpiq/WebPd).
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with this program. If not, see <http://www.gnu.org/licenses/>.
+ */
+const createCommonsBindings = (rawModule, engineData) => ({
+    getArray: {
+        type: 'proxy',
+        value: (arrayName) => {
+            const arrayNamePointer = lowerString(rawModule, arrayName);
+            const arrayPointer = rawModule.commons_getArray(arrayNamePointer);
+            return readTypedArray(rawModule, engineData.arrayType, arrayPointer);
+        },
+    },
+    setArray: {
+        type: 'proxy',
+        value: (arrayName, array) => {
+            const stringPointer = lowerString(rawModule, arrayName);
+            const { arrayPointer } = lowerFloatArray(rawModule, engineData.bitDepth, array);
+            rawModule.commons_setArray(stringPointer, arrayPointer);
+            updateWasmInOuts(rawModule, engineData);
+        },
+    },
+});
+
+/*
+ * Copyright (c) 2022-2023 Sébastien Piquemal <sebpiq@protonmail.com>, Chris McCormick.
+ *
+ * This file is part of WebPd
+ * (see https://github.com/sebpiq/WebPd).
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with this program. If not, see <http://www.gnu.org/licenses/>.
+ */
+const createEngine$1 = async (wasmBuffer) => {
+    const { rawModule, engineData, forwardReferences } = await createRawModule(wasmBuffer);
+    const engineBindings = await createBindings(rawModule, engineData, forwardReferences);
+    return createModule(rawModule, engineBindings);
+};
+const createRawModule = async (wasmBuffer) => {
+    // We need to read metadata before everything, because it is used by other initialization functions
+    const metadata = await readMetadata(wasmBuffer);
+    const forwardReferences = { modules: {} };
+    const wasmImports = {
+        ...createFsImports(forwardReferences),
+        ...outletListenersImports(forwardReferences, metadata),
+    };
+    const bitDepth = metadata.audioSettings.bitDepth;
+    const arrayType = getFloatArrayType(bitDepth);
+    const engineData = {
+        metadata,
+        wasmOutput: new arrayType(0),
+        wasmInput: new arrayType(0),
+        arrayType,
+        bitDepth,
+        blockSize: 0,
+    };
+    const wasmInstance = await instantiateWasmModule(wasmBuffer, {
+        input: wasmImports,
+    });
+    const rawModule = wasmInstance.exports;
+    return { rawModule, engineData, forwardReferences };
+};
+const createBindings = async (rawModule, engineData, forwardReferences) => {
+    // Create bindings for core modules
+    const commons = createModule(rawModule, createCommonsBindings(rawModule, engineData));
+    const fs = createModule(rawModule, createFsBindings(rawModule, engineData));
+    const inletCallers = createModule(rawModule, createInletCallersBindings(rawModule, engineData));
+    const outletListeners = createModule(rawModule, createOutletListenersBindings(rawModule, engineData));
+    // Update forward refs for use in Wasm imports
+    forwardReferences.modules.fs = fs;
+    forwardReferences.modules.outletListeners = outletListeners;
+    forwardReferences.engineData = engineData;
+    forwardReferences.rawModule = rawModule;
+    // Build the full module
+    return {
+        ...createEngineLifecycleBindings(rawModule, engineData),
+        metadata: { type: 'proxy', value: engineData.metadata },
+        commons: { type: 'proxy', value: commons },
+        fs: { type: 'proxy', value: fs },
+        inletCallers: { type: 'proxy', value: inletCallers },
+        outletListeners: { type: 'proxy', value: outletListeners },
+    };
 };
 
 /*
@@ -5276,6 +6420,7 @@ function roundToEven(n) {
  *
  */
 
+
 /**
  * Read a string of UTF-8 characters from a byte buffer.
  * @param {!(Uint8Array|Array<number>)} buffer A byte buffer.
@@ -5511,6 +6656,7 @@ function getParser_(bits, fp, signed) {
  *
  */
 
+
 /**
  * A class to perform low-level reading of RIFF/RIFX files.
  */
@@ -5732,6 +6878,7 @@ class RIFFFile {
  * WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  *
  */
+
 
 /**
  * A class to read wav files.
@@ -6428,6 +7575,7 @@ class WaveFileReader extends RIFFFile {
  *
  */
 
+
 /**
  * Pack a string an array of bytes. If the packed string length is smaller
  * than the desired byte length the output array is filled with 0s.
@@ -6467,6 +7615,7 @@ function writeString(str, byteLength) {
  * WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  *
  */
+
 
 /**
  * A class to read and write wav files.
@@ -7138,6 +8287,7 @@ function validateSampleRate(channels, bits, sampleRate) {
  *
  */
 
+
 /**
  * A class to read, write and create wav files.
  * @extends WaveFileParser
@@ -7618,6 +8768,7 @@ function dwChannelMask_(numChannels) {
  *
  */
 
+
 /**
  * A class to edit meta information in wav files.
  * @extends WaveFileCreator
@@ -7787,6 +8938,7 @@ function fixRIFFTag_(tag) {
  * WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  *
  */
+
 
 /**
  * A class to edit meta information in wav files.
@@ -8676,6 +9828,7 @@ class ButterworthLPF {
  *
  */
 
+
 /**
  * Default use of LPF for each resampling method.
  * @readonly
@@ -8851,6 +10004,7 @@ function downsample_(samples, newSamples, interpolator, filter) {
  * WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  *
  */
+
 
 /**
  * A class to convert wav files to other types of wav files.
@@ -9195,6 +10349,7 @@ function outputSize_(byteLen, byteOffset) {
  *
  */
 
+
 /**
  * A class to manipulate wav files.
  * @extends WaveFileConverter
@@ -9402,7 +10557,7 @@ const performBuildStep = async (artefacts, buildStep, { nodeBuilders, nodeImplem
             }
         case 'compiledJs':
         case 'compiledAsc':
-            const compileCodeResult = compile(artefacts.dspGraph.graph, nodeImplementations, {
+            const compileCodeResult = index(artefacts.dspGraph.graph, nodeImplementations, {
                 target: buildStep === 'compiledJs'
                     ? 'javascript'
                     : 'assemblyscript',
@@ -9467,50 +10622,10 @@ const _makeParseErrorMessages = (errorOrWarnings) => errorOrWarnings.map(({ mess
  * You should have received a copy of the GNU Lesser General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
-const assertNumber = (value) => {
-    if (typeof value !== 'number') {
-        throw new ValidationError(`${value} is not a number`);
-    }
-    return value;
-};
-const assertString = (value) => {
-    if (typeof value !== 'string') {
-        throw new ValidationError(`${value} is not a string`);
-    }
-    return value;
-};
-const assertOptionalNumber = (value) => {
-    return value !== undefined ? assertNumber(value) : undefined;
-};
-const assertOptionalString = (value) => {
-    return value !== undefined ? assertString(value) : undefined;
-};
-class ValidationError extends Error {
-}
-
-/*
- * Copyright (c) 2022-2023 Sébastien Piquemal <sebpiq@protonmail.com>, Chris McCormick.
- *
- * This file is part of WebPd
- * (see https://github.com/sebpiq/WebPd).
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public License
- * along with this program. If not, see <http://www.gnu.org/licenses/>.
- */
-const stateVariables$V = {};
+const stateVariables$T = {};
 // TODO : set message not supported
 // ------------------------------- node builder ------------------------------ //
-const builder$T = {
+const builder$R = {
     translateArgs: (pdNode, patch) => {
         let channelMapping;
         if (pdNode.args.length) {
@@ -9540,8 +10655,8 @@ const builder$T = {
         isPullingSignal: true,
     }),
 };
-// ------------------------------- loop ------------------------------ //
-const loop$n = ({ ins, globs, node, compilation: { audioSettings, target }, }) => node.args.channelMapping
+// ------------------------------- generateLoop ------------------------------ //
+const generateLoop$j = ({ ins, globs, node, compilation: { audioSettings, target }, }) => node.args.channelMapping
     // Save the original index
     .map((destination, i) => [destination, i])
     // Ignore channels that are out of bounds
@@ -9551,7 +10666,7 @@ const loop$n = ({ ins, globs, node, compilation: { audioSettings, target }, }) =
     : `${globs.output}[${globs.iterFrame} + ${globs.blockSize} * ${destination}] = ${ins[`${i}`]}`)
     .join('\n') + '\n';
 // ------------------------------------------------------------------- //
-const nodeImplementation$L = { loop: loop$n, stateVariables: stateVariables$V };
+const nodeImplementation$J = { generateLoop: generateLoop$j, stateVariables: stateVariables$T };
 
 /*
  * Copyright (c) 2022-2023 Sébastien Piquemal <sebpiq@protonmail.com>, Chris McCormick.
@@ -9572,10 +10687,10 @@ const nodeImplementation$L = { loop: loop$n, stateVariables: stateVariables$V };
  * You should have received a copy of the GNU Lesser General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
-const stateVariables$U = {};
+const stateVariables$S = {};
 // TODO : set message not supported
 // ------------------------------- node builder ------------------------------ //
-const builder$S = {
+const builder$Q = {
     translateArgs: (pdNode, patch) => {
         let channelMapping;
         if (pdNode.args.length) {
@@ -9604,8 +10719,8 @@ const builder$S = {
         outlets: mapArray(nodeArgs.channelMapping, (_, i) => [`${i}`, { type: 'signal', id: `${i}` }]),
     }),
 };
-// ------------------------------- loop ------------------------------ //
-const loop$m = ({ outs, globs, node, compilation: { audioSettings, target }, }) => node.args.channelMapping
+// ------------------------------- generateLoop ------------------------------ //
+const generateLoop$i = ({ outs, globs, node, compilation: { audioSettings, target }, }) => node.args.channelMapping
     // Save the original index 
     .map((source, i) => [source, i])
     // Ignore channels that are out of bounds
@@ -9615,12 +10730,30 @@ const loop$m = ({ outs, globs, node, compilation: { audioSettings, target }, }) 
     : `${outs[`${i}`]} = ${globs.input}[${globs.iterFrame} + ${globs.blockSize} * ${source}]`)
     .join('\n') + '\n';
 // ------------------------------------------------------------------- //
-const nodeImplementation$K = { loop: loop$m, stateVariables: stateVariables$U };
+const nodeImplementation$I = { generateLoop: generateLoop$i, stateVariables: stateVariables$S };
 
-const bangUtils = ({ macros: { Func, Var } }) => `
-    function msg_isBang ${Func([
-    Var('message', 'Message'),
-], 'boolean')} {
+/*
+ * Copyright (c) 2022-2023 Sébastien Piquemal <sebpiq@protonmail.com>, Chris McCormick.
+ *
+ * This file is part of WebPd
+ * (see https://github.com/sebpiq/WebPd).
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with this program. If not, see <http://www.gnu.org/licenses/>.
+ */
+const bangUtils = {
+    codeGenerator: ({ macros: { Func, Var } }) => `
+    function msg_isBang ${Func([Var('message', 'Message')], 'boolean')} {
         return (
             msg_isStringToken(message, 0) 
             && msg_readStringToken(message, 0) === 'bang'
@@ -9633,23 +10766,20 @@ const bangUtils = ({ macros: { Func, Var } }) => `
         return message
     }
 
-    function msg_emptyToBang ${Func([
-    Var('message', 'Message'),
-], 'Message')} {
+    function msg_emptyToBang ${Func([Var('message', 'Message')], 'Message')} {
         if (msg_getLength(message) === 0) {
             return msg_bang()
         } else {
             return message
         }
     }
-`;
-const msgUtils = ({ macros: { Func, Var } }) => `
+`,
+    dependencies: [msg],
+};
+const msgUtils = {
+    codeGenerator: ({ macros: { Func, Var } }) => `
 
-    function msg_copyTemplate ${Func([
-    Var('src', 'Message'),
-    Var('start', 'Int'),
-    Var('end', 'Int'),
-], 'MessageTemplate')} {
+    function msg_copyTemplate ${Func([Var('src', 'Message'), Var('start', 'Int'), Var('end', 'Int')], 'MessageTemplate')} {
         const ${Var('template', 'MessageTemplate')} = []
         for (let ${Var('i', 'Int')} = start; i < end; i++) {
             const ${Var('tokenType', 'Int')} = msg_getTokenType(src, i)
@@ -9662,12 +10792,12 @@ const msgUtils = ({ macros: { Func, Var } }) => `
     }
 
     function msg_copyMessage ${Func([
-    Var('src', 'Message'),
-    Var('dest', 'Message'),
-    Var('srcStart', 'Int'),
-    Var('srcEnd', 'Int'),
-    Var('destStart', 'Int'),
-], 'void')} {
+        Var('src', 'Message'),
+        Var('dest', 'Message'),
+        Var('srcStart', 'Int'),
+        Var('srcEnd', 'Int'),
+        Var('destStart', 'Int'),
+    ], 'void')} {
         let ${Var('i', 'Int')} = srcStart
         let ${Var('j', 'Int')} = destStart
         for (i, j; i < srcEnd; i++, j++) {
@@ -9679,11 +10809,7 @@ const msgUtils = ({ macros: { Func, Var } }) => `
         }
     }
 
-    function msg_slice ${Func([
-    Var('message', 'Message'),
-    Var('start', 'Int'),
-    Var('end', 'Int'),
-], 'Message')} {
+    function msg_slice ${Func([Var('message', 'Message'), Var('start', 'Int'), Var('end', 'Int')], 'Message')} {
         if (msg_getLength(message) <= start) {
             throw new Error('message empty')
         }
@@ -9693,10 +10819,7 @@ const msgUtils = ({ macros: { Func, Var } }) => `
         return newMessage
     }
 
-    function msg_concat  ${Func([
-    Var('message1', 'Message'),
-    Var('message2', 'Message'),
-], 'Message')} {
+    function msg_concat  ${Func([Var('message1', 'Message'), Var('message2', 'Message')], 'Message')} {
         const ${Var('newMessage', 'Message')} = msg_create(
             msg_copyTemplate(message1, 0, msg_getLength(message1))
                 .concat(msg_copyTemplate(message2, 0, msg_getLength(message2))))
@@ -9705,9 +10828,7 @@ const msgUtils = ({ macros: { Func, Var } }) => `
         return newMessage
     }
 
-    function msg_shift ${Func([
-    Var('message', 'Message'),
-], 'Message')} {
+    function msg_shift ${Func([Var('message', 'Message')], 'Message')} {
         switch (msg_getLength(message)) {
             case 0:
                 throw new Error('message empty')
@@ -9717,16 +10838,18 @@ const msgUtils = ({ macros: { Func, Var } }) => `
                 return msg_slice(message, 1, msg_getLength(message))
         }
     }
-`;
-const stringMsgUtils = ({ macros: { Func, Var } }) => `
-    function msg_isAction ${Func([
-    Var('message', 'Message'),
-    Var('action', 'string'),
-], 'boolean')} {
+`,
+    dependencies: [msg],
+};
+const stringMsgUtils = {
+    codeGenerator: ({ macros: { Func, Var } }) => `
+    function msg_isAction ${Func([Var('message', 'Message'), Var('action', 'string')], 'boolean')} {
         return msg_isMatching(message, [MSG_STRING_TOKEN])
             && msg_readStringToken(message, 0) === action
     }
-`;
+`,
+    dependencies: [msg],
+};
 
 /*
  * Copyright (c) 2022-2023 Sébastien Piquemal <sebpiq@protonmail.com>, Chris McCormick.
@@ -9747,9 +10870,9 @@ const stringMsgUtils = ({ macros: { Func, Var } }) => `
  * You should have received a copy of the GNU Lesser General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
-const stateVariables$T = {};
+const stateVariables$R = {};
 // ------------------------------- node builder ------------------------------ //
-const builder$R = {
+const builder$P = {
     translateArgs: () => ({}),
     build: () => ({
         inlets: {
@@ -9760,8 +10883,8 @@ const builder$R = {
         },
     }),
 };
-// ------------------------------- messages ------------------------------ //
-const messages$G = ({ globs, snds }) => ({
+// ------------------------------- generateMessageReceivers ------------------------------ //
+const generateMessageReceivers$E = ({ globs, snds }) => ({
     '0': `
     if (msg_isBang(${globs.m})) { 
         ${snds.$0}(msg_floats([${globs.sampleRate}])) 
@@ -9769,247 +10892,10 @@ const messages$G = ({ globs, snds }) => ({
     }`,
 });
 // ------------------------------------------------------------------- //
-const nodeImplementation$J = {
-    stateVariables: stateVariables$T,
-    messages: messages$G,
-    sharedCode: [bangUtils]
-};
-
-/*
- * Copyright (c) 2022-2023 Sébastien Piquemal <sebpiq@protonmail.com>, Chris McCormick.
- *
- * This file is part of WebPd
- * (see https://github.com/sebpiq/WebPd).
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public License
- * along with this program. If not, see <http://www.gnu.org/licenses/>.
- */
-const coldFloatInlet = (messageName, storageName) => {
-    return `if (msg_isMatching(${messageName}, [MSG_FLOAT_TOKEN])) {
-        ${storageName} = msg_readFloatToken(${messageName}, 0)
-        return
-    }`;
-};
-const coldStringInlet = (messageName, storageName) => {
-    return `if (msg_isMatching(${messageName}, [MSG_STRING_TOKEN])) {
-        ${storageName} = msg_readStringToken(${messageName}, 0)
-        return
-    }`;
-};
-const coldFloatInletWithSetter = (messageName, setterName) => {
-    return `if (msg_isMatching(${messageName}, [MSG_FLOAT_TOKEN])) {
-        ${setterName}(msg_readFloatToken(${messageName}, 0))
-        return
-    }`;
-};
-
-/*
- * Copyright (c) 2022-2023 Sébastien Piquemal <sebpiq@protonmail.com>, Chris McCormick.
- *
- * This file is part of WebPd
- * (see https://github.com/sebpiq/WebPd).
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public License
- * along with this program. If not, see <http://www.gnu.org/licenses/>.
- */
-const stateVariables$S = {
-    phase: 1,
-    frequency: 1,
-    J: 1,
-    K: 1,
-    funcSetFrequency: 1,
-    funcSetPhase: 1,
-};
-// ------------------------------- node builder ------------------------------ //
-const builder$Q = {
-    translateArgs: (pdNode) => ({
-        frequency: assertOptionalNumber(pdNode.args[0]) || 0,
-    }),
-    build: () => ({
-        inlets: {
-            '0_message': { type: 'message', id: '0_message' },
-            '0': { type: 'signal', id: '0' },
-            '1': { type: 'message', id: '1' },
-        },
-        outlets: {
-            '0': { type: 'signal', id: '0' },
-        },
-    }),
-    rerouteMessageConnection: (inletId) => {
-        if (inletId === '0') {
-            return '0_message';
-        }
-        return undefined;
-    },
-};
-const makeNodeImplementation$9 = ({ coeff, generateOperation, }) => {
-    // ------------------------------ declare ------------------------------ //
-    const declare = (context) => {
-        const { state, macros: { Var, Func } } = context;
-        return (_hasSignalInput$5(context.node)
-            ? declareSignal(context)
-            : declareMessage(context)) + `
-                function ${state.funcSetPhase} ${Func([
-            Var('phase', 'Float')
-        ], 'void')} {${state.phase} = phase % 1.0${coeff ? ` * ${coeff}` : ''}}
-            `;
-    };
-    const declareSignal = ({ state, globs, macros: { Var }, }) => `
-        let ${Var(state.phase, 'Float')} = 0
-        let ${Var(state.J, 'Float')}
-
-        commons_waitEngineConfigure(() => {
-            ${state.J} = ${coeff ? `${coeff}` : '1'} / ${globs.sampleRate}
-        })
-    `;
-    const declareMessage = ({ state, globs, node: { args }, macros: { Func, Var }, }) => `
-        let ${Var(state.phase, 'Float')} = 0
-        let ${Var(state.frequency, 'Float')} = ${args.frequency}
-        let ${Var(state.K, 'Float')} = 0
-
-        function ${state.funcSetFrequency} ${Func([
-        Var('frequency', 'Float')
-    ], 'void')} {
-            ${state.frequency} = frequency
-            ${state.K} = ${coeff ? `${coeff} * ` : ''}${state.frequency} / ${globs.sampleRate}
-        }
-
-        commons_waitEngineConfigure(() => {
-            ${state.funcSetFrequency}(${state.frequency})
-        })
-    `;
-    // ------------------------------- loop ------------------------------ //
-    const loop = (context) => _hasSignalInput$5(context.node)
-        ? loopSignal(context)
-        : loopMessage(context);
-    const loopSignal = ({ ins, state, outs }) => `
-        ${outs.$0} = ${generateOperation(state.phase)}
-        ${state.phase} += (${state.J} * ${ins.$0})
-    `;
-    // Take only the last received frequency message (first in the list)
-    const loopMessage = ({ state, outs }) => `
-        ${outs.$0} = ${generateOperation(state.phase)}
-        ${state.phase} += ${state.K}
-    `;
-    // ------------------------------- messages ------------------------------ //
-    const messages = ({ globs, state }) => ({
-        '0_message': coldFloatInletWithSetter(globs.m, state.funcSetFrequency),
-        '1': coldFloatInletWithSetter(globs.m, state.funcSetPhase),
-    });
-    return {
-        declare,
-        messages,
-        loop,
-        stateVariables: stateVariables$S,
-    };
-};
-// ------------------------------------------------------------------- //
-const _hasSignalInput$5 = (node) => node.sources['0'] && node.sources['0'].length;
-const nodeImplementations$b = {
-    'osc~': makeNodeImplementation$9({
-        coeff: '2 * Math.PI',
-        generateOperation: (phase) => `Math.cos(${phase})`
-    }),
-    'phasor~': makeNodeImplementation$9({
-        generateOperation: (phase) => `${phase} % 1`
-    }),
-};
-const builders$b = {
-    'osc~': builder$Q,
-    'phasor~': builder$Q,
-};
-
-/*
- * Copyright (c) 2022-2023 Sébastien Piquemal <sebpiq@protonmail.com>, Chris McCormick.
- *
- * This file is part of WebPd
- * (see https://github.com/sebpiq/WebPd).
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public License
- * along with this program. If not, see <http://www.gnu.org/licenses/>.
- */
-const stateVariables$R = {
-    minValue: 1,
-    maxValue: 1,
-    inputValue: 1,
-};
-// ------------------------------- node builder ------------------------------ //
-const builder$P = {
-    translateArgs: ({ args }) => ({
-        minValue: assertOptionalNumber(args[0]) || 0,
-        maxValue: assertOptionalNumber(args[1]) || 0,
-    }),
-    build: () => ({
-        inlets: {
-            '0': { type: 'signal', id: '0' },
-            '0_message': { type: 'message', id: '0_message' },
-            '1': { type: 'message', id: '1' },
-            '2': { type: 'message', id: '2' },
-        },
-        outlets: {
-            '0': { type: 'signal', id: '0' },
-        },
-    }),
-    rerouteMessageConnection: (inletId) => {
-        if (inletId === '0') {
-            return '0_message';
-        }
-        return undefined;
-    },
-};
-// ------------------------------- declare ------------------------------ //
-const declare$E = ({ node: { args }, state, macros: { Var } }) => `
-    let ${Var(state.inputValue, 'Float')} = 0
-    let ${Var(state.minValue, 'Float')} = ${args.minValue}
-    let ${Var(state.maxValue, 'Float')} = ${args.maxValue}
-`;
-// ------------------------------- loop ------------------------------ //
-const loop$l = ({ ins, outs, state, node }) => `
-    ${outs.$0} = Math.max(Math.min(${state.maxValue}, ${_hasSignalInput$4(node) ? ins.$0 : state.inputValue}), ${state.minValue})
-`;
-// ------------------------------- messages ------------------------------ //
-const messages$F = ({ state, globs }) => ({
-    '0_message': coldFloatInlet(globs.m, state.inputValue),
-    '1': coldFloatInlet(globs.m, state.minValue),
-    '2': coldFloatInlet(globs.m, state.maxValue),
-});
-// ------------------------------------------------------------------- //
-const _hasSignalInput$4 = (node) => node.sources['0'] && node.sources['0'].length;
-const nodeImplementation$I = {
-    loop: loop$l,
+const nodeImplementation$H = {
     stateVariables: stateVariables$R,
-    messages: messages$F,
-    declare: declare$E,
+    generateMessageReceivers: generateMessageReceivers$E,
+    dependencies: [bangUtils]
 };
 
 /*
@@ -10032,40 +10918,75 @@ const nodeImplementation$I = {
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 const stateVariables$Q = {
-    currentValue: 1,
+    phase: 1,
+    J: 1,
+    funcSetPhase: 1,
 };
 // ------------------------------- node builder ------------------------------ //
 const builder$O = {
-    translateArgs: ({ args }) => ({
-        initValue: assertOptionalNumber(args[0]) || 0,
+    translateArgs: (pdNode) => ({
+        frequency: assertOptionalNumber(pdNode.args[0]) || 0,
     }),
     build: () => ({
         inlets: {
-            '0': { type: 'message', id: '0' },
+            '0': { type: 'signal', id: '0' },
+            '1': { type: 'message', id: '1' },
         },
         outlets: {
             '0': { type: 'signal', id: '0' },
         },
     }),
+    configureMessageToSignalConnection: (inletId, { frequency }) => {
+        if (inletId === '0') {
+            return { initialSignalValue: frequency };
+        }
+        return undefined;
+    },
 };
-// ------------------------------- declare ------------------------------ //
-const declare$D = ({ node: { args }, state, macros: { Var } }) => `
-    let ${Var(state.currentValue, 'Float')} = ${args.initValue}
-`;
-// ------------------------------- loop ------------------------------ //
-const loop$k = ({ ins, outs, state }) => `
-    ${outs.$0} = ${state.currentValue}
-`;
-// ------------------------------- messages ------------------------------ //
-const messages$E = ({ state, globs }) => ({
-    '0': coldFloatInlet(globs.m, state.currentValue),
-});
+const makeNodeImplementation$9 = ({ coeff, generateOperation, }) => {
+    // ------------------------------ generateDeclarations ------------------------------ //
+    const generateDeclarations = ({ state, globs, macros: { Var, Func }, }) => `
+        let ${Var(state.phase, 'Float')} = 0
+        let ${Var(state.J, 'Float')}
+
+        function ${state.funcSetPhase} ${Func([
+        Var('phase', 'Float')
+    ], 'void')} { ${state.phase} = phase % 1.0${coeff ? ` * ${coeff}` : ''} }
+
+        commons_waitEngineConfigure(() => {
+            ${state.J} = ${coeff ? `${coeff}` : '1'} / ${globs.sampleRate}
+        })
+    `;
+    // ------------------------------- generateLoop ------------------------------ //
+    const generateLoop = ({ ins, state, outs }) => `
+        ${outs.$0} = ${generateOperation(state.phase)}
+        ${state.phase} += (${state.J} * ${ins.$0})
+    `;
+    // ------------------------------- generateMessageReceivers ------------------------------ //
+    const generateMessageReceivers = ({ globs, state }) => ({
+        '1': coldFloatInletWithSetter(globs.m, state.funcSetPhase),
+    });
+    return {
+        generateDeclarations,
+        generateMessageReceivers,
+        generateLoop,
+        stateVariables: stateVariables$Q,
+        dependencies: [commonsWaitEngineConfigure]
+    };
+};
 // ------------------------------------------------------------------- //
-const nodeImplementation$H = {
-    loop: loop$k,
-    stateVariables: stateVariables$Q,
-    messages: messages$E,
-    declare: declare$D,
+const nodeImplementations$b = {
+    'osc~': makeNodeImplementation$9({
+        coeff: '2 * Math.PI',
+        generateOperation: (phase) => `Math.cos(${phase})`
+    }),
+    'phasor~': makeNodeImplementation$9({
+        generateOperation: (phase) => `${phase} % 1`
+    }),
+};
+const builders$b = {
+    'osc~': builder$O,
+    'phasor~': builder$O,
 };
 
 /*
@@ -10088,11 +11009,73 @@ const nodeImplementation$H = {
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 const stateVariables$P = {
+    minValue: 1,
+    maxValue: 1,
+};
+// ------------------------------- node builder ------------------------------ //
+const builder$N = {
+    translateArgs: ({ args }) => ({
+        minValue: assertOptionalNumber(args[0]) || 0,
+        maxValue: assertOptionalNumber(args[1]) || 0,
+    }),
+    build: () => ({
+        inlets: {
+            '0': { type: 'signal', id: '0' },
+            '1': { type: 'message', id: '1' },
+            '2': { type: 'message', id: '2' },
+        },
+        outlets: {
+            '0': { type: 'signal', id: '0' },
+        },
+    })
+};
+// ------------------------------- generateDeclarations ------------------------------ //
+const generateDeclarations$D = ({ node: { args }, state, macros: { Var } }) => `
+    let ${Var(state.minValue, 'Float')} = ${args.minValue}
+    let ${Var(state.maxValue, 'Float')} = ${args.maxValue}
+`;
+// ------------------------------- generateLoop ------------------------------ //
+const generateLoop$h = ({ ins, outs, state }) => `
+    ${outs.$0} = Math.max(Math.min(${state.maxValue}, ${ins.$0}), ${state.minValue})
+`;
+// ------------------------------- generateMessageReceivers ------------------------------ //
+const generateMessageReceivers$D = ({ state, globs }) => ({
+    '1': coldFloatInlet(globs.m, state.minValue),
+    '2': coldFloatInlet(globs.m, state.maxValue),
+});
+// ------------------------------------------------------------------- //
+const nodeImplementation$G = {
+    generateLoop: generateLoop$h,
+    stateVariables: stateVariables$P,
+    generateMessageReceivers: generateMessageReceivers$D,
+    generateDeclarations: generateDeclarations$D,
+};
+
+/*
+ * Copyright (c) 2022-2023 Sébastien Piquemal <sebpiq@protonmail.com>, Chris McCormick.
+ *
+ * This file is part of WebPd
+ * (see https://github.com/sebpiq/WebPd).
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with this program. If not, see <http://www.gnu.org/licenses/>.
+ */
+const stateVariables$O = {
     signalMemory: 1,
     controlMemory: 1,
 };
 // ------------------------------- node builder ------------------------------ //
-const builder$N = {
+const builder$M = {
     translateArgs: () => ({}),
     build: () => ({
         inlets: {
@@ -10104,25 +11087,25 @@ const builder$N = {
             '0': { type: 'signal', id: '0' },
         },
     }),
-    rerouteMessageConnection: (inletId) => {
+    configureMessageToSignalConnection: (inletId) => {
         if (inletId === '0') {
-            return '0_message';
+            return { reroutedMessageInletId: '0_message' };
         }
         return undefined;
     },
 };
-// ------------------------------- declare ------------------------------ //
-const declare$C = ({ state, macros: { Var } }) => `
+// ------------------------------- generateDeclarations ------------------------------ //
+const generateDeclarations$C = ({ state, macros: { Var } }) => `
     let ${Var(state.signalMemory, 'Float')} = 0
     let ${Var(state.controlMemory, 'Float')} = 0
 `;
-// ------------------------------- loop ------------------------------ //
-const loop$j = ({ ins, outs, state }) => `
+// ------------------------------- generateLoop ------------------------------ //
+const generateLoop$g = ({ ins, outs, state }) => `
     ${state.signalMemory} = ${outs.$0} = ${ins.$1} < ${state.controlMemory} ? ${ins.$0}: ${state.signalMemory}
     ${state.controlMemory} = ${ins.$1}
 `;
-// ------------------------------- messages ------------------------------ //
-const messages$D = ({ state, globs }) => ({
+// ------------------------------- generateMessageReceivers ------------------------------ //
+const generateMessageReceivers$C = ({ state, globs }) => ({
     '0_message': `
         if (
             msg_isMatching(${globs.m}, [MSG_STRING_TOKEN, MSG_FLOAT_TOKEN])
@@ -10148,11 +11131,11 @@ const messages$D = ({ state, globs }) => ({
     `,
 });
 // ------------------------------------------------------------------- //
-const nodeImplementation$G = {
-    loop: loop$j,
-    stateVariables: stateVariables$P,
-    messages: messages$D,
-    declare: declare$C,
+const nodeImplementation$F = {
+    generateLoop: generateLoop$g,
+    stateVariables: stateVariables$O,
+    generateMessageReceivers: generateMessageReceivers$C,
+    generateDeclarations: generateDeclarations$C,
 };
 
 /*
@@ -10174,11 +11157,11 @@ const nodeImplementation$G = {
  * You should have received a copy of the GNU Lesser General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
-const stateVariables$O = {
+const stateVariables$N = {
     currentValue: 1,
 };
 // ------------------------------- node builder ------------------------------ //
-const builder$M = {
+const builder$L = {
     translateArgs: () => ({}),
     build: () => ({
         inlets: {
@@ -10190,23 +11173,23 @@ const builder$M = {
         },
         isPullingSignal: true,
     }),
-    rerouteMessageConnection: (inletId) => {
+    configureMessageToSignalConnection: (inletId) => {
         if (inletId === '0') {
-            return '0_message';
+            return { reroutedMessageInletId: '0_message' };
         }
         return undefined;
     },
 };
-// ------------------------------- declare ------------------------------ //
-const declare$B = ({ state, macros: { Var } }) => `
+// ------------------------------- generateDeclarations ------------------------------ //
+const generateDeclarations$B = ({ state, macros: { Var } }) => `
     let ${Var(state.currentValue, 'Float')} = 0
 `;
-// ------------------------------- loop ------------------------------ //
-const loop$i = ({ ins, state }) => `
+// ------------------------------- generateLoop ------------------------------ //
+const generateLoop$f = ({ ins, state }) => `
     ${state.currentValue} = ${ins.$0}
 `;
-// ------------------------------- messages ------------------------------ //
-const messages$C = ({ state, globs, snds }) => ({
+// ------------------------------- generateMessageReceivers ------------------------------ //
+const generateMessageReceivers$B = ({ state, globs, snds }) => ({
     '0_message': `
         if (msg_isBang(${globs.m})) {
             ${snds.$0}(msg_floats([${state.currentValue}]))
@@ -10215,12 +11198,12 @@ const messages$C = ({ state, globs, snds }) => ({
     `,
 });
 // ------------------------------------------------------------------- //
-const nodeImplementation$F = {
-    loop: loop$i,
-    stateVariables: stateVariables$O,
-    messages: messages$C,
-    declare: declare$B,
-    sharedCode: [bangUtils]
+const nodeImplementation$E = {
+    generateLoop: generateLoop$f,
+    stateVariables: stateVariables$N,
+    generateMessageReceivers: generateMessageReceivers$B,
+    generateDeclarations: generateDeclarations$B,
+    dependencies: [bangUtils]
 };
 
 const point = ({ macros: { Var } }) => `
@@ -10229,17 +11212,17 @@ const point = ({ macros: { Var } }) => `
         ${Var('y', 'Float')}
     }
 `;
-const interpolateLin = [point, ({ macros: { Var, Func } }) => `
-    function interpolateLin ${Func([
-        Var('x', 'Float'),
-        Var('p0', 'Point'),
-        Var('p1', 'Point'),
-    ], 'Float')} {
+const interpolateLin = {
+    codeGenerator: ({ macros: { Var, Func } }) => `
+    function interpolateLin ${Func([Var('x', 'Float'), Var('p0', 'Point'), Var('p1', 'Point')], 'Float')} {
         return p0.y + (x - p0.x) * (p1.y - p0.y) / (p1.x - p0.x)
     }
-`];
+`,
+    dependencies: [point],
+};
 
-const linesUtils = [...interpolateLin, ({ macros: { Var, Func } }) => `
+const linesUtils = {
+    codeGenerator: ({ macros: { Var, Func } }) => `
 
     class LineSegment {
         ${Var('p0', 'Point')}
@@ -10248,17 +11231,11 @@ const linesUtils = [...interpolateLin, ({ macros: { Var, Func } }) => `
         ${Var('dy', 'Float')}
     }
 
-    function computeSlope ${Func([
-        Var('p0', 'Point'),
-        Var('p1', 'Point'),
-    ], 'Float')} {
+    function computeSlope ${Func([Var('p0', 'Point'), Var('p1', 'Point')], 'Float')} {
         return p1.x !== p0.x ? (p1.y - p0.y) / (p1.x - p0.x) : 0
     }
 
-    function removePointsBeforeFrame ${Func([
-        Var('points', 'Array<Point>'),
-        Var('frame', 'Float'),
-    ], 'Array<Point>')} {
+    function removePointsBeforeFrame ${Func([Var('points', 'Array<Point>'), Var('frame', 'Float')], 'Array<Point>')} {
         const ${Var('newPoints', 'Array<Point>')} = []
         let ${Var('i', 'Int')} = 0
         while (i < points.length) {
@@ -10270,11 +11247,7 @@ const linesUtils = [...interpolateLin, ({ macros: { Var, Func } }) => `
         return newPoints
     }
 
-    function insertNewLinePoints ${Func([
-        Var('points', 'Array<Point>'),
-        Var('p0', 'Point'),
-        Var('p1', 'Point'),
-    ], 'Array<Point>')} {
+    function insertNewLinePoints ${Func([Var('points', 'Array<Point>'), Var('p0', 'Point'), Var('p1', 'Point')], 'Array<Point>')} {
         const ${Var('newPoints', 'Array<Point>')} = []
         let ${Var('i', 'Int')} = 0
         
@@ -10322,9 +11295,7 @@ const linesUtils = [...interpolateLin, ({ macros: { Var, Func } }) => `
         return newPoints
     }
 
-    function computeFrameAjustedPoints ${Func([
-        Var('points', 'Array<Point>'),
-    ], 'Array<Point>')} {
+    function computeFrameAjustedPoints ${Func([Var('points', 'Array<Point>')], 'Array<Point>')} {
         if (points.length < 2) {
             throw new Error('invalid length for points')
         }
@@ -10420,9 +11391,7 @@ const linesUtils = [...interpolateLin, ({ macros: { Var, Func } }) => `
         return newPoints
     }
 
-    function computeLineSegments ${Func([
-        Var('points', 'Array<Point>'),
-    ], 'Array<LineSegment>')} {
+    function computeLineSegments ${Func([Var('points', 'Array<Point>')], 'Array<LineSegment>')} {
         const ${Var('lineSegments', 'Array<LineSegment>')} = []
         let ${Var('i', 'Int')} = 0
         let ${Var('p0', 'Point')}
@@ -10441,7 +11410,9 @@ const linesUtils = [...interpolateLin, ({ macros: { Var, Func } }) => `
         return lineSegments
     }
 
-`];
+`,
+    dependencies: [interpolateLin],
+};
 
 // TODO : unit testing
 // TODO : amount = 0 ?
@@ -10485,7 +11456,7 @@ const computeUnitInSamples = ({ macros: { Func, Var } }) => `
  * You should have received a copy of the GNU Lesser General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
-const stateVariables$N = {
+const stateVariables$M = {
     points: 1,
     lineSegments: 1,
     currentValue: 1,
@@ -10496,7 +11467,7 @@ const stateVariables$N = {
     funcSetNextDelay: 1,
 };
 // ------------------------------- node builder ------------------------------ //
-const builder$L = {
+const builder$K = {
     translateArgs: () => ({}),
     build: () => ({
         inlets: {
@@ -10509,8 +11480,8 @@ const builder$L = {
         },
     }),
 };
-// ------------------------------- declare ------------------------------ //
-const declare$A = ({ globs, state, macros: { Var, Func } }) => `
+// ------------------------------- generateDeclarations ------------------------------ //
+const generateDeclarations$A = ({ globs, state, macros: { Var, Func } }) => `
     let ${Var(state.points, 'Array<Point>')} = []
     let ${Var(state.lineSegments, 'Array<LineSegment>')} = []
     let ${Var(state.currentValue, 'Float')} = 0
@@ -10551,8 +11522,8 @@ const declare$A = ({ globs, state, macros: { Var, Func } }) => `
         ${state.nextDelaySamp} = computeUnitInSamples(${globs.sampleRate}, delayMsec, 'msec')
     }
 `;
-// ------------------------------- loop ------------------------------ //
-const loop$h = ({ outs, state, globs }) => `
+// ------------------------------- generateLoop ------------------------------ //
+const generateLoop$e = ({ outs, state, globs }) => `
     if (${state.lineSegments}.length) {
         if (toFloat(${globs.frame}) < ${state.lineSegments}[0].p0.x) {
 
@@ -10571,8 +11542,8 @@ const loop$h = ({ outs, state, globs }) => `
     }
     ${outs.$0} = ${state.currentValue}
 `;
-// ------------------------------- messages ------------------------------ //
-const messages$B = ({ state, globs }) => ({
+// ------------------------------- generateMessageReceivers ------------------------------ //
+const generateMessageReceivers$A = ({ state, globs }) => ({
     '0': `
     if (
         msg_isMatching(${globs.m}, [MSG_FLOAT_TOKEN])
@@ -10599,12 +11570,12 @@ const messages$B = ({ state, globs }) => ({
     '2': coldFloatInletWithSetter(globs.m, state.funcSetNextDelay),
 });
 // ------------------------------------------------------------------- //
-const nodeImplementation$E = {
-    loop: loop$h,
-    stateVariables: stateVariables$N,
-    messages: messages$B,
-    declare: declare$A,
-    sharedCode: [...linesUtils, computeUnitInSamples, stringMsgUtils]
+const nodeImplementation$D = {
+    generateLoop: generateLoop$e,
+    stateVariables: stateVariables$M,
+    generateMessageReceivers: generateMessageReceivers$A,
+    generateDeclarations: generateDeclarations$A,
+    dependencies: [linesUtils, computeUnitInSamples, stringMsgUtils]
 };
 
 /*
@@ -10626,7 +11597,7 @@ const nodeImplementation$E = {
  * You should have received a copy of the GNU Lesser General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
-const stateVariables$M = {
+const stateVariables$L = {
     // Current value used only between 2 lines
     currentValue: 1,
     currentLine: 1,
@@ -10637,7 +11608,7 @@ const stateVariables$M = {
     funcStopCurrentLine: 1,
 };
 // ------------------------------- node builder ------------------------------ //
-const builder$K = {
+const builder$J = {
     translateArgs: ({ args }) => ({
         initValue: assertOptionalNumber(args[0]) || 0,
     }),
@@ -10651,8 +11622,8 @@ const builder$K = {
         },
     }),
 };
-// ------------------------------- declare ------------------------------ //
-const declare$z = ({ globs, state, node: { args }, macros: { Var, Func }, }) => `
+// ------------------------------- generateDeclarations ------------------------------ //
+const generateDeclarations$z = ({ globs, state, node: { args }, macros: { Var, Func }, }) => `
     const ${Var(state.defaultLine, 'LineSegment')} = {
         p0: {x: -1, y: 0},
         p1: {x: -1, y: 0},
@@ -10701,8 +11672,8 @@ const declare$z = ({ globs, state, node: { args }, macros: { Var, Func }, }) => 
         ${state.currentLine}.p1.y = ${state.currentValue}
     }
 `;
-// ------------------------------- messages ------------------------------ //
-const messages$A = ({ globs, state, macros: { Var } }) => ({
+// ------------------------------- generateMessageReceivers ------------------------------ //
+const generateMessageReceivers$z = ({ globs, state, macros: { Var } }) => ({
     '0': `
     if (
         msg_isMatching(${globs.m}, [MSG_FLOAT_TOKEN])
@@ -10724,8 +11695,8 @@ const messages$A = ({ globs, state, macros: { Var } }) => ({
     `,
     '1': coldFloatInletWithSetter(globs.m, state.funcSetNextDuration),
 });
-// ------------------------------- loop ------------------------------ //
-const loop$g = ({ outs, state, globs }) => `
+// ------------------------------- generateLoop ------------------------------ //
+const generateLoop$d = ({ outs, state, globs }) => `
     ${outs.$0} = ${state.currentValue}
     if (toFloat(${globs.frame}) < ${state.currentLine}.p1.x) {
         ${state.currentValue} += ${state.currentLine}.dy
@@ -10735,12 +11706,12 @@ const loop$g = ({ outs, state, globs }) => `
     }
 `;
 // ------------------------------------------------------------------- //
-const nodeImplementation$D = {
-    declare: declare$z,
-    messages: messages$A,
-    loop: loop$g,
-    stateVariables: stateVariables$M,
-    sharedCode: [stringMsgUtils, computeUnitInSamples, ...linesUtils]
+const nodeImplementation$C = {
+    generateDeclarations: generateDeclarations$z,
+    generateMessageReceivers: generateMessageReceivers$z,
+    generateLoop: generateLoop$d,
+    stateVariables: stateVariables$L,
+    dependencies: [stringMsgUtils, computeUnitInSamples, linesUtils]
 };
 
 /*
@@ -10762,7 +11733,7 @@ const nodeImplementation$D = {
  * You should have received a copy of the GNU Lesser General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
-const stateVariables$L = {
+const stateVariables$K = {
     currentValue: 1,
     nextSamp: 1,
     nextSampInt: 1,
@@ -10780,7 +11751,7 @@ const stateVariables$L = {
 };
 const MIN_GRAIN_MSEC = 20;
 // ------------------------------- node builder ------------------------------ //
-const builder$J = {
+const builder$I = {
     translateArgs: ({ args }) => ({
         initValue: assertOptionalNumber(args[0]) || 0,
         timeGrainMsec: Math.max(assertOptionalNumber(args[1]) || MIN_GRAIN_MSEC, MIN_GRAIN_MSEC),
@@ -10794,10 +11765,11 @@ const builder$J = {
         outlets: {
             '0': { type: 'message', id: '0' },
         },
+        isPushingMessages: true,
     }),
 };
-// ------------------------------- declare ------------------------------ //
-const declare$y = ({ globs, state, snds, node: { args }, macros: { Var, Func }, }) => `
+// ------------------------------- generateDeclarations ------------------------------ //
+const generateDeclarations$y = ({ globs, state, snds, node: { args }, macros: { Var, Func }, }) => `
     let ${Var(state.currentLine, 'LineSegment')} = {
         p0: {x: -1, y: 0},
         p1: {x: -1, y: 0},
@@ -10891,8 +11863,8 @@ const declare$y = ({ globs, state, snds, node: { args }, macros: { Var, Func }, 
         ${state.funcSetGrain}(${args.timeGrainMsec})
     })
 `;
-// ------------------------------- messages ------------------------------ //
-const messages$z = ({ snds, globs, state, macros: { Var } }) => ({
+// ------------------------------- generateMessageReceivers ------------------------------ //
+const generateMessageReceivers$y = ({ snds, globs, state, macros: { Var } }) => ({
     '0': `
     if (
         msg_isMatching(${globs.m}, [MSG_FLOAT_TOKEN])
@@ -10937,11 +11909,17 @@ const messages$z = ({ snds, globs, state, macros: { Var } }) => ({
     '2': coldFloatInletWithSetter(globs.m, state.funcSetGrain),
 });
 // ------------------------------------------------------------------- //
-const nodeImplementation$C = {
-    declare: declare$y,
-    messages: messages$z,
-    stateVariables: stateVariables$L,
-    sharedCode: [stringMsgUtils, computeUnitInSamples, ...linesUtils]
+const nodeImplementation$B = {
+    generateDeclarations: generateDeclarations$y,
+    generateMessageReceivers: generateMessageReceivers$y,
+    stateVariables: stateVariables$K,
+    dependencies: [
+        stringMsgUtils,
+        computeUnitInSamples,
+        linesUtils,
+        commonsWaitEngineConfigure,
+        commonsWaitFrame,
+    ],
 };
 
 const MAX_MIDI_FREQ = Math.pow(2, (1499 - 69) / 12) * 440;
@@ -10992,9 +11970,9 @@ const pow = ({ macros: { Func, Var } }) => `
  * You should have received a copy of the GNU Lesser General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
-const stateVariables$K = {};
+const stateVariables$J = {};
 // ------------------------------- node builder ------------------------------ //
-const builder$I = {
+const builder$H = {
     translateArgs: () => ({}),
     build: () => ({
         inlets: {
@@ -11005,12 +11983,12 @@ const builder$I = {
         },
     }),
 };
-// ------------------------------- loop ------------------------------ //
-const makeNodeImplementation$8 = ({ generateOperation, sharedCode = [], }) => {
-    const loop = ({ ins, outs }) => `
+// ------------------------------- generateLoop ------------------------------ //
+const makeNodeImplementation$8 = ({ generateOperation, dependencies = [], }) => {
+    const generateLoop = ({ ins, outs }) => `
         ${outs.$0} = ${generateOperation(ins.$0)}
     `;
-    return { loop, stateVariables: stateVariables$K, sharedCode };
+    return { generateLoop, stateVariables: stateVariables$J, dependencies };
 };
 // ------------------------------------------------------------------- //
 const nodeImplementations$a = {
@@ -11018,16 +11996,16 @@ const nodeImplementations$a = {
     'cos~': makeNodeImplementation$8({ generateOperation: (input) => `Math.cos(${input} * 2 * Math.PI)` }),
     'wrap~': makeNodeImplementation$8({ generateOperation: (input) => `(1 + (${input} % 1)) % 1` }),
     'sqrt~': makeNodeImplementation$8({ generateOperation: (input) => `${input} >= 0 ? Math.pow(${input}, 0.5): 0` }),
-    'mtof~': makeNodeImplementation$8({ generateOperation: (input) => `mtof(${input})`, sharedCode: [mtof] }),
-    'ftom~': makeNodeImplementation$8({ generateOperation: (input) => `ftom(${input})`, sharedCode: [ftom] }),
+    'mtof~': makeNodeImplementation$8({ generateOperation: (input) => `mtof(${input})`, dependencies: [mtof] }),
+    'ftom~': makeNodeImplementation$8({ generateOperation: (input) => `ftom(${input})`, dependencies: [ftom] }),
 };
 const builders$a = {
-    'abs~': builder$I,
-    'cos~': builder$I,
-    'wrap~': builder$I,
-    'sqrt~': builder$I,
-    'mtof~': builder$I,
-    'ftom~': builder$I,
+    'abs~': builder$H,
+    'cos~': builder$H,
+    'wrap~': builder$H,
+    'sqrt~': builder$H,
+    'mtof~': builder$H,
+    'ftom~': builder$H,
 };
 
 /*
@@ -11115,9 +12093,9 @@ const messageSetArrayCode = ({ globs, state, }) => `else if (
  * You should have received a copy of the GNU Lesser General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
-const stateVariables$J = stateVariablesTabBase;
+const stateVariables$I = stateVariablesTabBase;
 // ------------------------------- node builder ------------------------------ //
-const builder$H = {
+const builder$G = {
     translateArgs: translateArgsTabBase,
     build: () => ({
         inlets: {
@@ -11128,10 +12106,10 @@ const builder$H = {
         },
     }),
 };
-// ------------------------------ declare ------------------------------ //
-const declare$x = declareTabBase;
-// ------------------------------- messages ------------------------------ //
-const messages$y = (context) => {
+// ------------------------------ generateDeclarations ------------------------------ //
+const generateDeclarations$x = declareTabBase;
+// ------------------------------- generateMessageReceivers ------------------------------ //
+const generateMessageReceivers$x = (context) => {
     const { snds, state, globs } = context;
     return {
         '0': `
@@ -11149,86 +12127,11 @@ const messages$y = (context) => {
     };
 };
 // ------------------------------------------------------------------- //
-const nodeImplementation$B = {
-    declare: declare$x,
-    messages: messages$y,
-    stateVariables: stateVariables$J,
-};
-
-/*
- * Copyright (c) 2022-2023 Sébastien Piquemal <sebpiq@protonmail.com>, Chris McCormick.
- *
- * This file is part of WebPd
- * (see https://github.com/sebpiq/WebPd).
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public License
- * along with this program. If not, see <http://www.gnu.org/licenses/>.
- */
-const stateVariables$I = {
-    ...stateVariablesTabBase,
-    index: 1,
-    funcSetIndex: 1,
-};
-// ------------------------------- node builder ------------------------------ //
-const builder$G = {
-    translateArgs: translateArgsTabBase,
-    build: () => ({
-        inlets: {
-            '0': { type: 'message', id: '0' },
-            '1': { type: 'message', id: '1' },
-        },
-        outlets: {},
-    }),
-};
-// ------------------------------ declare ------------------------------ //
-const declare$w = (context) => {
-    const { state, macros: { Var, Func } } = context;
-    return `
-        let ${Var(state.index, 'Int')} = 0
-        ${declareTabBase(context)}
-
-        function ${state.funcSetIndex} ${Func([
-        Var('index', 'Float')
-    ], 'void')} {
-            ${state.index} = ${prepareIndexCode('index', context)}
-        }
-    `;
-};
-// ------------------------------- messages ------------------------------ //
-const messages$x = (context) => {
-    const { state, globs } = context;
-    return {
-        '0': `
-        if (msg_isMatching(${globs.m}, [MSG_FLOAT_TOKEN])) {        
-            if (${state.array}.length === 0) {
-                return
-
-            } else {
-                ${state.array}[${state.index}] = msg_readFloatToken(${globs.m}, 0)
-                return
-            }
-            return 
-
-        } ${messageSetArrayCode(context)}
-        `,
-        '1': coldFloatInletWithSetter(globs.m, state.funcSetIndex)
-    };
-};
-// ------------------------------------------------------------------- //
 const nodeImplementation$A = {
-    declare: declare$w,
-    messages: messages$x,
+    generateDeclarations: generateDeclarations$x,
+    generateMessageReceivers: generateMessageReceivers$x,
     stateVariables: stateVariables$I,
+    dependencies: [commonsWaitEngineConfigure, commonsArrays]
 };
 
 /*
@@ -11251,6 +12154,83 @@ const nodeImplementation$A = {
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 const stateVariables$H = {
+    ...stateVariablesTabBase,
+    index: 1,
+    funcSetIndex: 1,
+};
+// ------------------------------- node builder ------------------------------ //
+const builder$F = {
+    translateArgs: translateArgsTabBase,
+    build: () => ({
+        inlets: {
+            '0': { type: 'message', id: '0' },
+            '1': { type: 'message', id: '1' },
+        },
+        outlets: {},
+    }),
+};
+// ------------------------------ generateDeclarations ------------------------------ //
+const generateDeclarations$w = (context) => {
+    const { state, macros: { Var, Func } } = context;
+    return `
+        let ${Var(state.index, 'Int')} = 0
+        ${declareTabBase(context)}
+
+        function ${state.funcSetIndex} ${Func([
+        Var('index', 'Float')
+    ], 'void')} {
+            ${state.index} = ${prepareIndexCode('index', context)}
+        }
+    `;
+};
+// ------------------------------- generateMessageReceivers ------------------------------ //
+const generateMessageReceivers$w = (context) => {
+    const { state, globs } = context;
+    return {
+        '0': `
+        if (msg_isMatching(${globs.m}, [MSG_FLOAT_TOKEN])) {        
+            if (${state.array}.length === 0) {
+                return
+
+            } else {
+                ${state.array}[${state.index}] = msg_readFloatToken(${globs.m}, 0)
+                return
+            }
+            return 
+
+        } ${messageSetArrayCode(context)}
+        `,
+        '1': coldFloatInletWithSetter(globs.m, state.funcSetIndex)
+    };
+};
+// ------------------------------------------------------------------- //
+const nodeImplementation$z = {
+    generateDeclarations: generateDeclarations$w,
+    generateMessageReceivers: generateMessageReceivers$w,
+    stateVariables: stateVariables$H,
+    dependencies: [commonsWaitEngineConfigure, commonsArrays]
+};
+
+/*
+ * Copyright (c) 2022-2023 Sébastien Piquemal <sebpiq@protonmail.com>, Chris McCormick.
+ *
+ * This file is part of WebPd
+ * (see https://github.com/sebpiq/WebPd).
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with this program. If not, see <http://www.gnu.org/licenses/>.
+ */
+const stateVariables$G = {
     array: 1,
     arrayName: 1,
     arrayChangesSubscription: 1,
@@ -11262,7 +12242,7 @@ const stateVariables$H = {
 };
 // TODO : Should work also if array was set the play started
 // ------------------------------- node builder ------------------------------ //
-const builder$F = {
+const builder$E = {
     translateArgs: (pdNode) => ({
         arrayName: assertOptionalString(pdNode.args[0]) || '',
     }),
@@ -11276,8 +12256,8 @@ const builder$F = {
         },
     }),
 };
-// ------------------------------ declare ------------------------------ //
-const declare$v = ({ state, node, macros: { Func, Var } }) => `
+// ------------------------------ generateDeclarations ------------------------------ //
+const generateDeclarations$v = ({ state, node, macros: { Func, Var } }) => `
     let ${Var(state.array, 'FloatArray')} = createFloatArray(0)
     let ${Var(state.arrayName, 'string')} = "${node.args.arrayName}"
     let ${Var(state.arrayChangesSubscription, 'SkedId')} = SKED_ID_NULL
@@ -11322,8 +12302,8 @@ const declare$v = ({ state, node, macros: { Func, Var } }) => `
         }
     })
 `;
-// ------------------------------- loop ------------------------------ //
-const loop$f = ({ state, snds, outs }) => `
+// ------------------------------- generateLoop ------------------------------ //
+const generateLoop$c = ({ state, snds, outs }) => `
     if (${state.readPosition} < ${state.readUntil}) {
         ${outs.$0} = ${state.array}[${state.readPosition}]
         ${state.readPosition}++
@@ -11334,8 +12314,8 @@ const loop$f = ({ state, snds, outs }) => `
         ${outs.$0} = 0
     }
 `;
-// ------------------------------- messages ------------------------------ //
-const messages$w = ({ state, globs, macros: { Var } }) => ({
+// ------------------------------- generateMessageReceivers ------------------------------ //
+const generateMessageReceivers$v = ({ state, globs, macros: { Var } }) => ({
     '0': `
     if (msg_isBang(${globs.m})) {
         ${state.funcPlay}(0, ${state.array}.length)
@@ -11370,22 +12350,468 @@ const messages$w = ({ state, globs, macros: { Var } }) => ({
     `,
 });
 // ------------------------------------------------------------------- //
-const nodeImplementation$z = {
-    declare: declare$v,
-    messages: messages$w,
-    loop: loop$f,
-    stateVariables: stateVariables$H,
-    sharedCode: [bangUtils, stringMsgUtils],
+const nodeImplementation$y = {
+    generateDeclarations: generateDeclarations$v,
+    generateMessageReceivers: generateMessageReceivers$v,
+    generateLoop: generateLoop$c,
+    stateVariables: stateVariables$G,
+    dependencies: [
+        bangUtils,
+        commonsWaitEngineConfigure,
+        commonsArrays,
+        stringMsgUtils,
+    ],
 };
 
+/*
+ * Copyright (c) 2022-2023 Sébastien Piquemal <sebpiq@protonmail.com>, Chris McCormick.
+ *
+ * This file is part of WebPd
+ * (see https://github.com/sebpiq/WebPd).
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with this program. If not, see <http://www.gnu.org/licenses/>.
+ */
+const bufCore = ({ macros: { Var, Func } }) => `
+    /**
+     * Ring buffer 
+     */
+    class buf_SoundBuffer {
+        ${Var('data', 'FloatArray')}
+        ${Var('length', 'Int')}
+        ${Var('writeCursor', 'Int')}
+        ${Var('pullAvailableLength', 'Int')}
+
+        constructor (${Var('length', 'Int')}) {
+            this.length = length
+            this.data = createFloatArray(length)
+            this.writeCursor = 0
+            this.pullAvailableLength = 0
+        }
+    }
+
+    /** Erases all the content from the buffer */
+    function buf_create ${Func([Var('length', 'Int')], 'buf_SoundBuffer')} {
+        return new buf_SoundBuffer(length)
+    }
+
+    /** Erases all the content from the buffer */
+    function buf_clear ${Func([Var('buffer', 'buf_SoundBuffer')], 'void')} {
+        buffer.data.fill(0)
+    }
+`;
+const bufPushPull = {
+    codeGenerator: ({ macros: { Var, Func } }) => `
+        /**
+         * Pushes a block to the buffer, throwing an error if the buffer is full. 
+         * If the block is written successfully, {@link buf_SoundBuffer#writeCursor} 
+         * is moved corresponding with the length of data written.
+         * 
+         * @todo : Optimize by allowing to read/write directly from host
+         */
+        function buf_pushBlock ${Func([Var('buffer', 'buf_SoundBuffer'), Var('block', 'FloatArray')], 'Int')} {
+            if (buffer.pullAvailableLength + block.length > buffer.length) {
+                throw new Error('buffer full')
+            }
+
+            let ${Var('left', 'Int')} = block.length
+            while (left > 0) {
+                const lengthToWrite = toInt(Math.min(
+                    toFloat(buffer.length - buffer.writeCursor), 
+                    toFloat(left)
+                ))
+                buffer.data.set(
+                    block.subarray(
+                        block.length - left, 
+                        block.length - left + lengthToWrite
+                    ), 
+                    buffer.writeCursor
+                )
+                left -= lengthToWrite
+                buffer.writeCursor = (buffer.writeCursor + lengthToWrite) % buffer.length
+                buffer.pullAvailableLength += lengthToWrite
+            }
+            return buffer.pullAvailableLength
+        }
+
+        /**
+         * Pulls a single sample from the buffer. 
+         * This is a destructive operation, and the sample will be 
+         * unavailable for subsequent readers with the same operation.
+         */
+        function buf_pullSample ${Func([Var('buffer', 'buf_SoundBuffer')], 'Float')} {
+            if (buffer.pullAvailableLength <= 0) {
+                return 0
+            }
+            const ${Var('readCursor', 'Int')} = buffer.writeCursor - buffer.pullAvailableLength
+            buffer.pullAvailableLength -= 1
+            return buffer.data[readCursor >= 0 ? readCursor : buffer.length + readCursor]
+        }
+    `,
+    dependencies: [bufCore],
+};
+const bufWriteRead = {
+    codeGenerator: ({ macros: { Var, Func } }) => `
+        /**
+         * Writes a sample at \`@link writeCursor\` and increments \`writeCursor\` by one.
+         */
+        function buf_writeSample ${Func([Var('buffer', 'buf_SoundBuffer'), Var('value', 'Float')], 'void')} {
+            buffer.data[buffer.writeCursor] = value
+            buffer.writeCursor = (buffer.writeCursor + 1) % buffer.length
+        }
+
+        /**
+         * Reads the sample at position \`writeCursor - offset\`.
+         * @param offset Must be between 0 (for reading the last written sample)
+         *  and {@link buf_SoundBuffer#length} - 1. A value outside these bounds will not cause 
+         *  an error, but might cause unexpected results.
+         */
+        function buf_readSample ${Func([Var('buffer', 'buf_SoundBuffer'), Var('offset', 'Int')], 'Float')} {
+            // R = (buffer.writeCursor - 1 - offset) -> ideal read position
+            // W = R % buffer.length -> wrap it so that its within buffer length bounds (but could be negative)
+            // (W + buffer.length) % buffer.length -> if W negative, (W + buffer.length) shifts it back to positive.
+            return buffer.data[(buffer.length + ((buffer.writeCursor - 1 - offset) % buffer.length)) % buffer.length]
+        }
+    `,
+    dependencies: [bufCore],
+};
+
+/*
+ * Copyright (c) 2022-2023 Sébastien Piquemal <sebpiq@protonmail.com>, Chris McCormick.
+ *
+ * This file is part of WebPd
+ * (see https://github.com/sebpiq/WebPd).
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with this program. If not, see <http://www.gnu.org/licenses/>.
+ */
+const FS_OPERATION_SUCCESS = 0;
+const FS_OPERATION_FAILURE = 1;
+const fsCore = {
+    codeGenerator: ({ macros: { Var, Func }, target }) => `
+        ${renderIf(target === 'assemblyscript', `
+                type fs_OperationId = Int
+                type fs_OperationStatus = Int
+                type fs_OperationCallback = (id: fs_OperationId, status: fs_OperationStatus) => void
+                type fs_OperationSoundCallback = (id: fs_OperationId, status: fs_OperationStatus, sound: FloatArray[]) => void
+                type fs_Url = string
+            `)}
+
+        const ${Var('FS_OPERATION_SUCCESS', 'Int')} = ${FS_OPERATION_SUCCESS}
+        const ${Var('FS_OPERATION_FAILURE', 'Int')} = ${FS_OPERATION_FAILURE}
+        
+        const ${Var('_FS_OPERATIONS_IDS', 'Set<fs_OperationId>')} = new Set()
+        const ${Var('_FS_OPERATIONS_CALLBACKS', 'Map<fs_OperationId, fs_OperationCallback>')} = new Map()
+        const ${Var('_FS_OPERATIONS_SOUND_CALLBACKS', 'Map<fs_OperationId, fs_OperationSoundCallback>')} = new Map()
+
+        // We start at 1, because 0 is what ASC uses when host forgets to pass an arg to 
+        // a function. Therefore we can get false negatives when a test happens to expect a 0.
+        let ${Var('_FS_OPERATION_COUNTER', 'Int')} = 1
+
+        class fs_SoundInfo {
+            ${Var('channelCount', 'Int')}
+            ${Var('sampleRate', 'Int')}
+            ${Var('bitDepth', 'Int')}
+            ${Var('encodingFormat', 'string')}
+            ${Var('endianness', 'string')}
+            ${Var('extraOptions', 'string')}
+        }
+
+        function fs_soundInfoToMessage ${Func([Var('soundInfo', 'fs_SoundInfo')], 'Message')} {
+            const ${Var('info', 'Message')} = msg_create([
+                MSG_FLOAT_TOKEN,
+                MSG_FLOAT_TOKEN,
+                MSG_FLOAT_TOKEN,
+                MSG_STRING_TOKEN,
+                soundInfo.encodingFormat.length,
+                MSG_STRING_TOKEN,
+                soundInfo.endianness.length,
+                MSG_STRING_TOKEN,
+                soundInfo.extraOptions.length
+            ])
+            msg_writeFloatToken(info, 0, toFloat(soundInfo.channelCount))
+            msg_writeFloatToken(info, 1, toFloat(soundInfo.sampleRate))
+            msg_writeFloatToken(info, 2, toFloat(soundInfo.bitDepth))
+            msg_writeStringToken(info, 3, soundInfo.encodingFormat)
+            msg_writeStringToken(info, 4, soundInfo.endianness)
+            msg_writeStringToken(info, 5, soundInfo.extraOptions)
+            return info
+        }
+
+        function _fs_assertOperationExists ${Func([Var('id', 'fs_OperationId'), Var('operationName', 'string')], 'void')} {
+            if (!_FS_OPERATIONS_IDS.has(id)) {
+                throw new Error(operationName + ' operation unknown : ' + id.toString())
+            }
+        }
+
+        function _fs_createOperationId ${Func([], 'fs_OperationId')} {
+            const ${Var('id', 'fs_OperationId')} = _FS_OPERATION_COUNTER++
+            _FS_OPERATIONS_IDS.add(id)
+            return id
+        }   
+    `,
+    dependencies: [msg],
+};
+const fsReadSoundFile = {
+    codeGenerator: ({ macros: { Func, Var } }) => `
+        function fs_readSoundFile ${Func([
+        Var('url', 'fs_Url'),
+        Var('soundInfo', 'fs_SoundInfo'),
+        Var('callback', 'fs_OperationSoundCallback'),
+    ], 'fs_OperationId')} {
+            const ${Var('id', 'fs_OperationId')} = _fs_createOperationId()
+            _FS_OPERATIONS_SOUND_CALLBACKS.set(id, callback)
+            i_fs_readSoundFile(id, url, fs_soundInfoToMessage(soundInfo))
+            return id
+        }
+
+        function x_fs_onReadSoundFileResponse ${Func([
+        Var('id', 'fs_OperationId'),
+        Var('status', 'fs_OperationStatus'),
+        Var('sound', 'FloatArray[]'),
+    ], 'void')} {
+            _fs_assertOperationExists(id, 'x_fs_onReadSoundFileResponse')
+            _FS_OPERATIONS_IDS.delete(id)
+            // Finish cleaning before calling the callback in case it would throw an error.
+            const callback = _FS_OPERATIONS_SOUND_CALLBACKS.get(id)
+            callback(id, status, sound)
+            _FS_OPERATIONS_SOUND_CALLBACKS.delete(id)
+        }
+    `,
+    exports: [
+        {
+            name: 'x_fs_onReadSoundFileResponse',
+        },
+    ],
+    imports: [
+        {
+            name: 'i_fs_readSoundFile',
+            args: [
+                ['id', 'fs_OperationId'],
+                ['url', 'fs_Url'],
+                ['info', 'Message'],
+            ],
+            returns: 'void',
+        },
+    ],
+    dependencies: [fsCore],
+};
+const fsWriteSoundFile = {
+    codeGenerator: ({ macros: { Func, Var } }) => `
+        function fs_writeSoundFile ${Func([
+        Var('sound', 'FloatArray[]'),
+        Var('url', 'fs_Url'),
+        Var('soundInfo', 'fs_SoundInfo'),
+        Var('callback', 'fs_OperationCallback'),
+    ], 'fs_OperationId')} {
+            const id = _fs_createOperationId()
+            _FS_OPERATIONS_CALLBACKS.set(id, callback)
+            i_fs_writeSoundFile(id, sound, url, fs_soundInfoToMessage(soundInfo))
+            return id
+        }
+
+        function x_fs_onWriteSoundFileResponse ${Func([Var('id', 'fs_OperationId'), Var('status', 'fs_OperationStatus')], 'void')} {
+            _fs_assertOperationExists(id, 'x_fs_onWriteSoundFileResponse')
+            _FS_OPERATIONS_IDS.delete(id)
+            // Finish cleaning before calling the callback in case it would throw an error.
+            const callback = _FS_OPERATIONS_CALLBACKS.get(id)
+            callback(id, status)
+            _FS_OPERATIONS_CALLBACKS.delete(id)
+        }
+    `,
+    exports: [
+        {
+            name: 'x_fs_onWriteSoundFileResponse',
+        },
+    ],
+    imports: [
+        {
+            name: 'i_fs_writeSoundFile',
+            args: [
+                ['id', 'fs_OperationId'],
+                ['sound', 'FloatArray[]'],
+                ['url', 'fs_Url'],
+                ['info', 'Message'],
+            ],
+            returns: 'void',
+        },
+    ],
+    dependencies: [fsCore],
+};
+const fsSoundStreamCore = {
+    codeGenerator: ({ macros: { Func, Var } }) => `
+        const ${Var('_FS_SOUND_STREAM_BUFFERS', 'Map<fs_OperationId, Array<buf_SoundBuffer>>')} = new Map()
+
+        const ${Var('_FS_SOUND_BUFFER_LENGTH', 'Int')} = 20 * 44100
+
+        function fs_closeSoundStream ${Func([Var('id', 'fs_OperationId'), Var('status', 'fs_OperationStatus')], 'void')} {
+            if (!_FS_OPERATIONS_IDS.has(id)) {
+                return
+            }
+            _FS_OPERATIONS_IDS.delete(id)
+            _FS_OPERATIONS_CALLBACKS.get(id)(id, status)
+            _FS_OPERATIONS_CALLBACKS.delete(id)
+            // Delete this last, to give the callback 
+            // a chance to save a reference to the buffer
+            // If write stream, there won't be a buffer
+            if (_FS_SOUND_STREAM_BUFFERS.has(id)) {
+                _FS_SOUND_STREAM_BUFFERS.delete(id)
+            }
+            i_fs_closeSoundStream(id, status)
+        }
+
+        function x_fs_onCloseSoundStream ${Func([Var('id', 'fs_OperationId'), Var('status', 'fs_OperationStatus')], 'void')} {
+            fs_closeSoundStream(id, status)
+        }
+    `,
+    exports: [
+        {
+            name: 'x_fs_onCloseSoundStream',
+        },
+    ],
+    imports: [
+        {
+            name: 'i_fs_closeSoundStream',
+            args: [
+                ['id', 'fs_OperationId'],
+                ['status', 'fs_OperationStatus'],
+            ],
+            returns: 'void',
+        },
+    ],
+    dependencies: [bufCore, fsCore],
+};
+const fsReadSoundStream = {
+    codeGenerator: ({ macros: { Var, Func } }) => `
+        function fs_openSoundReadStream ${Func([
+        Var('url', 'fs_Url'),
+        Var('soundInfo', 'fs_SoundInfo'),
+        Var('callback', 'fs_OperationCallback'),
+    ], 'fs_OperationId')} {
+            const id = _fs_createOperationId()
+            const ${Var('buffers', 'Array<buf_SoundBuffer>')} = []
+            for (let channel = 0; channel < soundInfo.channelCount; channel++) {
+                buffers.push(new buf_SoundBuffer(_FS_SOUND_BUFFER_LENGTH))
+            }
+            _FS_SOUND_STREAM_BUFFERS.set(id, buffers)
+            _FS_OPERATIONS_CALLBACKS.set(id, callback)
+            i_fs_openSoundReadStream(id, url, fs_soundInfoToMessage(soundInfo))
+            return id
+        }
+
+        function x_fs_onSoundStreamData ${Func([Var('id', 'fs_OperationId'), Var('block', 'FloatArray[]')], 'Int')} {
+            _fs_assertOperationExists(id, 'x_fs_onSoundStreamData')
+            const buffers = _FS_SOUND_STREAM_BUFFERS.get(id)
+            for (let ${Var('i', 'Int')} = 0; i < buffers.length; i++) {
+                buf_pushBlock(buffers[i], block[i])
+            }
+            return buffers[0].pullAvailableLength
+        }
+    `,
+    exports: [
+        {
+            name: 'x_fs_onSoundStreamData',
+        },
+    ],
+    imports: [
+        {
+            name: 'i_fs_openSoundReadStream',
+            args: [
+                ['id', 'fs_OperationId'],
+                ['url', 'fs_Url'],
+                ['info', 'Message'],
+            ],
+            returns: 'void',
+        },
+    ],
+    dependencies: [fsSoundStreamCore, bufPushPull],
+};
+const fsWriteSoundStream = {
+    codeGenerator: ({ macros: { Func, Var } }) => `
+        function fs_openSoundWriteStream ${Func([
+        Var('url', 'fs_Url'),
+        Var('soundInfo', 'fs_SoundInfo'),
+        Var('callback', 'fs_OperationCallback'),
+    ], 'fs_OperationId')} {
+            const id = _fs_createOperationId()
+            _FS_SOUND_STREAM_BUFFERS.set(id, [])
+            _FS_OPERATIONS_CALLBACKS.set(id, callback)
+            i_fs_openSoundWriteStream(id, url, fs_soundInfoToMessage(soundInfo))
+            return id
+        }
+
+        function fs_sendSoundStreamData ${Func([Var('id', 'fs_OperationId'), Var('block', 'FloatArray[]')], 'void')} {
+            _fs_assertOperationExists(id, 'fs_sendSoundStreamData')
+            i_fs_sendSoundStreamData(id, block)
+        }
+    `,
+    imports: [
+        {
+            name: 'i_fs_openSoundWriteStream',
+            args: [
+                ['id', 'fs_OperationId'],
+                ['url', 'fs_Url'],
+                ['info', 'Message'],
+            ],
+            returns: 'void',
+        },
+        {
+            name: 'i_fs_sendSoundStreamData',
+            args: [
+                ['id', 'fs_OperationId'],
+                ['block', 'FloatArray[]'],
+            ],
+            returns: 'void',
+        },
+    ],
+    dependencies: [fsSoundStreamCore],
+};
+
+/*
+ * Copyright (c) 2022-2023 Sébastien Piquemal <sebpiq@protonmail.com>, Chris McCormick.
+ *
+ * This file is part of WebPd
+ * (see https://github.com/sebpiq/WebPd).
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with this program. If not, see <http://www.gnu.org/licenses/>.
+ */
 // TODO : support for -raw (see soundfiler help)
 // TODO : find a better way to factorize this code
 // TODO : unit testing
-const parseSoundFileOpenOpts = ({ macros: { Func, Var } }) => `
-    function parseSoundFileOpenOpts ${Func([
-    Var('m', 'Message'),
-    Var('soundInfo', 'fs_SoundInfo'),
-], 'Set<Int>')} {
+const parseSoundFileOpenOpts = {
+    codeGenerator: ({ macros: { Func, Var } }) => `
+    function parseSoundFileOpenOpts ${Func([Var('m', 'Message'), Var('soundInfo', 'fs_SoundInfo')], 'Set<Int>')} {
         const ${Var('unhandled', 'Set<Int>')} = new Set()
         let ${Var('i', 'Int')} = 0
         while (i < msg_getLength(m)) {
@@ -11431,14 +12857,17 @@ const parseSoundFileOpenOpts = ({ macros: { Func, Var } }) => `
         }
         return unhandled
     }
-`;
+`,
+    dependencies: [msg, fsCore],
+};
 // TODO : unit testing
-const parseReadWriteFsOpts = ({ macros: { Func, Var } }) => `
+const parseReadWriteFsOpts = {
+    codeGenerator: ({ macros: { Func, Var } }) => `
     function parseReadWriteFsOpts ${Func([
-    Var('m', 'Message'),
-    Var('soundInfo', 'fs_SoundInfo'),
-    Var('unhandledOptions', 'Set<Int>'),
-], 'string')} {
+        Var('m', 'Message'),
+        Var('soundInfo', 'fs_SoundInfo'),
+        Var('unhandledOptions', 'Set<Int>'),
+    ], 'string')} {
         // Remove the "open" token
         unhandledOptions.delete(0)
 
@@ -11468,7 +12897,9 @@ const parseReadWriteFsOpts = ({ macros: { Func, Var } }) => `
         }
         return url
     }
-`;
+`,
+    dependencies: [msg, fsCore],
+};
 
 /*
  * Copyright (c) 2022-2023 Sébastien Piquemal <sebpiq@protonmail.com>, Chris McCormick.
@@ -11489,7 +12920,7 @@ const parseReadWriteFsOpts = ({ macros: { Func, Var } }) => `
  * You should have received a copy of the GNU Lesser General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
-const stateVariables$G = {
+const stateVariables$F = {
     buffers: 1,
     readingStatus: 1,
     streamOperationId: 1,
@@ -11502,7 +12933,7 @@ const stateVariables$G = {
 // TODO : second arg : "buffer channel size" not implemented
 // TODO : implement raw
 // ------------------------------- node builder ------------------------------ //
-const builder$E = {
+const builder$D = {
     translateArgs: (pdNode) => ({
         channelCount: assertOptionalNumber(pdNode.args[0]) || 1,
     }),
@@ -11519,14 +12950,14 @@ const builder$E = {
         },
     })
 };
-// ------------------------------ declare ------------------------------ //
-const declare$u = ({ macros: { Var }, state, }) => `
+// ------------------------------ generateDeclarations ------------------------------ //
+const generateDeclarations$u = ({ macros: { Var }, state, }) => `
     let ${Var(state.buffers, 'Array<buf_SoundBuffer>')} = []
     let ${Var(state.streamOperationId, 'fs_OperationId')} = -1
     let ${Var(state.readingStatus, 'Int')} = 0
 `;
-// ------------------------------- loop ------------------------------ //
-const loop$e = ({ state, snds, outs, node: { args: { channelCount }, }, }) => renderCode `
+// ------------------------------- generateLoop ------------------------------ //
+const generateLoop$b = ({ state, snds, outs, node: { args: { channelCount }, }, }) => renderCode `
     switch(${state.readingStatus}) {
         case 1: 
             ${countTo(channelCount).map((i) => `${outs[i]} = buf_pullSample(${state.buffers}[${i}])`)}
@@ -11546,8 +12977,8 @@ const loop$e = ({ state, snds, outs, node: { args: { channelCount }, }, }) => re
             break
     }
 `;
-// ------------------------------- messages ------------------------------ //
-const messages$v = ({ node, state, globs, macros: { Var }, }) => ({
+// ------------------------------- generateMessageReceivers ------------------------------ //
+const generateMessageReceivers$u = ({ node, state, globs, macros: { Var }, }) => ({
     '0': `
     if (msg_getLength(${globs.m}) >= 2) {
         if (msg_isStringToken(${globs.m}, 0) 
@@ -11616,16 +13047,17 @@ const messages$v = ({ node, state, globs, macros: { Var }, }) => ({
     `,
 });
 // ------------------------------------------------------------------- //
-const nodeImplementation$y = {
-    declare: declare$u,
-    messages: messages$v,
-    loop: loop$e,
-    stateVariables: stateVariables$G,
-    sharedCode: [
+const nodeImplementation$x = {
+    generateDeclarations: generateDeclarations$u,
+    generateMessageReceivers: generateMessageReceivers$u,
+    generateLoop: generateLoop$b,
+    stateVariables: stateVariables$F,
+    dependencies: [
         parseSoundFileOpenOpts,
         parseReadWriteFsOpts,
         bangUtils,
         stringMsgUtils,
+        fsReadSoundStream,
     ],
 };
 
@@ -11649,7 +13081,7 @@ const nodeImplementation$y = {
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 const BLOCK_SIZE = 44100 * 5;
-const stateVariables$F = {
+const stateVariables$E = {
     isWriting: 1,
     operationId: 1,
     block: 1,
@@ -11662,7 +13094,7 @@ const stateVariables$F = {
 //      - what happens when stream ended and starting again ? 
 //      - etc ...
 // ------------------------------- node builder ------------------------------ //
-const builder$D = {
+const builder$C = {
     translateArgs: (pdNode) => ({
         channelCount: assertOptionalNumber(pdNode.args[0]) || 1,
     }),
@@ -11677,15 +13109,15 @@ const builder$D = {
         outlets: {},
         isPullingSignal: true,
     }),
-    rerouteMessageConnection: (inletId) => {
+    configureMessageToSignalConnection: (inletId) => {
         if (inletId === '0') {
-            return '0_message';
+            return { reroutedMessageInletId: '0_message' };
         }
         return undefined;
     },
 };
-// ------------------------------ declare ------------------------------ //
-const declare$t = ({ state, node: { args }, macros: { Func, Var } }) => renderCode `
+// ------------------------------ generateDeclarations ------------------------------ //
+const generateDeclarations$t = ({ state, node: { args }, macros: { Func, Var } }) => renderCode `
     let ${Var(state.operationId, 'fs_OperationId')} = -1
     let ${Var(state.isWriting, 'boolean')} = false
     const ${Var(state.block, 'Array<FloatArray>')} = [
@@ -11702,8 +13134,8 @@ const declare$t = ({ state, node: { args }, macros: { Func, Var } }) => renderCo
         ${state.cursor} = 0
     }
 `;
-// ------------------------------- loop ------------------------------ //
-const loop$d = ({ state, ins, node: { args } }) => renderCode `
+// ------------------------------- generateLoop ------------------------------ //
+const generateLoop$a = ({ state, ins, node: { args } }) => renderCode `
     if (${state.isWriting} === true) {
         ${countTo(args.channelCount).map((i) => `${state.block}[${i}][${state.cursor}] = ${ins[i]}`)}
         ${state.cursor}++
@@ -11712,8 +13144,8 @@ const loop$d = ({ state, ins, node: { args } }) => renderCode `
         }
     }
 `;
-// ------------------------------- messages ------------------------------ //
-const messages$u = ({ node, state, globs, macros: { Var } }) => ({
+// ------------------------------- generateMessageReceivers ------------------------------ //
+const generateMessageReceivers$t = ({ node, state, globs, macros: { Var } }) => ({
     '0_message': `
     if (msg_getLength(${globs.m}) >= 2) {
         if (
@@ -11771,15 +13203,16 @@ const messages$u = ({ node, state, globs, macros: { Var } }) => ({
     `
 });
 // ------------------------------------------------------------------- //
-const nodeImplementation$x = {
-    declare: declare$t,
-    messages: messages$u,
-    loop: loop$d,
-    stateVariables: stateVariables$F,
-    sharedCode: [
+const nodeImplementation$w = {
+    generateDeclarations: generateDeclarations$t,
+    generateMessageReceivers: generateMessageReceivers$t,
+    generateLoop: generateLoop$a,
+    stateVariables: stateVariables$E,
+    dependencies: [
         parseSoundFileOpenOpts,
         parseReadWriteFsOpts,
         stringMsgUtils,
+        fsWriteSoundStream,
     ],
 };
 
@@ -11802,7 +13235,7 @@ const nodeImplementation$x = {
  * You should have received a copy of the GNU Lesser General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
-const stateVariables$E = {
+const stateVariables$D = {
     frequency: 1,
     Q: 1,
     // Output value Y[n]
@@ -11820,7 +13253,7 @@ const stateVariables$E = {
     funcClear: 1,
 };
 // ------------------------------- node builder ------------------------------ //
-const builder$C = {
+const builder$B = {
     translateArgs: ({ args }) => ({
         frequency: assertOptionalNumber(args[0]) || 0,
         Q: assertOptionalNumber(args[1]) || 0,
@@ -11836,15 +13269,15 @@ const builder$C = {
             '0': { type: 'signal', id: '0' },
         },
     }),
-    rerouteMessageConnection: (inletId) => {
+    configureMessageToSignalConnection: (inletId) => {
         if (inletId === '0') {
-            return '0_message';
+            return { reroutedMessageInletId: '0_message' };
         }
         return undefined;
     },
 };
-// ------------------------------- declare ------------------------------ //
-const declare$s = ({ state, globs, node: { args }, macros: { Var, Func } }) => `
+// ------------------------------- generateDeclarations ------------------------------ //
+const generateDeclarations$s = ({ state, globs, node: { args }, macros: { Var, Func } }) => `
     let ${Var(state.frequency, 'Float')} = ${args.frequency}
     let ${Var(state.Q, 'Float')} = ${args.Q}
     let ${Var(state.coef1, 'Float')} = 0
@@ -11890,15 +13323,15 @@ const declare$s = ({ state, globs, node: { args }, macros: { Var, Func } }) => `
         ${state.funcUpdateCoefs}()
     })
 `;
-// ------------------------------- loop ------------------------------ //
-const loop$c = ({ ins, outs, state }) => `
+// ------------------------------- generateLoop ------------------------------ //
+const generateLoop$9 = ({ ins, outs, state }) => `
     ${state.y} = ${ins.$0} + ${state.coef1} * ${state.ym1} + ${state.coef2} * ${state.ym2}
     ${outs.$0} = ${state.gain} * ${state.y}
     ${state.ym2} = ${state.ym1}
     ${state.ym1} = ${state.y}
 `;
-// ------------------------------- messages ------------------------------ //
-const messages$t = ({ state, globs }) => ({
+// ------------------------------- generateMessageReceivers ------------------------------ //
+const generateMessageReceivers$s = ({ state, globs }) => ({
     '0_message': `
         if (
             msg_isMatching(${globs.m})
@@ -11912,11 +13345,11 @@ const messages$t = ({ state, globs }) => ({
     '2': coldFloatInletWithSetter(globs.m, state.funcSetQ),
 });
 // ------------------------------------------------------------------- //
-const nodeImplementation$w = {
-    loop: loop$c,
-    stateVariables: stateVariables$E,
-    messages: messages$t,
-    declare: declare$s,
+const nodeImplementation$v = {
+    generateLoop: generateLoop$9,
+    stateVariables: stateVariables$D,
+    generateMessageReceivers: generateMessageReceivers$s,
+    generateDeclarations: generateDeclarations$s,
 };
 
 // TODO : unit tests
@@ -11924,10 +13357,7 @@ const signalBuses = ({ macros: { Var, Func } }) => `
     const ${Var('SIGNAL_BUSES', 'Map<string, Float>')} = new Map()
     SIGNAL_BUSES.set('', 0)
 
-    function addAssignSignalBus ${Func([
-    Var('busName', 'string'),
-    Var('value', 'Float'),
-], 'Float')} {
+    function addAssignSignalBus ${Func([Var('busName', 'string'), Var('value', 'Float')], 'Float')} {
         const ${Var('newValue', 'Float')} = SIGNAL_BUSES.get(busName) + value
         SIGNAL_BUSES.set(
             busName,
@@ -11939,7 +13369,7 @@ const signalBuses = ({ macros: { Var, Func } }) => `
     function setSignalBus ${Func([
     Var('busName', 'string'),
     Var('value', 'Float'),
-], 'Float')} {
+], 'void')} {
         SIGNAL_BUSES.set(
             busName,
             value,
@@ -11952,20 +13382,16 @@ const signalBuses = ({ macros: { Var, Func } }) => `
         SIGNAL_BUSES.set(busName, 0)
     }
 
-    function readSignalBus ${Func([
-    Var('busName', 'string')
-], 'Float')} {
+    function readSignalBus ${Func([Var('busName', 'string')], 'Float')} {
         return SIGNAL_BUSES.get(busName)
     }
 `;
 // TODO : unit tests
-const messageBuses = ({ macros: { Var, Func } }) => `
+const messageBuses = {
+    codeGenerator: ({ macros: { Var, Func } }) => `
     const ${Var('MSG_BUSES', 'Map<string, Array<(m: Message) => void>>')} = new Map()
 
-    function msgBusPublish ${Func([
-    Var('busName', 'string'),
-    Var('message', 'Message'),
-], 'void')} {
+    function msgBusPublish ${Func([Var('busName', 'string'), Var('message', 'Message')], 'void')} {
         let ${Var('i', 'Int')} = 0
         const ${Var('callbacks', 'Array<(m: Message) => void>')} = MSG_BUSES.has(busName) ? MSG_BUSES.get(busName): []
         for (i = 0; i < callbacks.length; i++) {
@@ -11973,20 +13399,14 @@ const messageBuses = ({ macros: { Var, Func } }) => `
         }
     }
 
-    function msgBusSubscribe ${Func([
-    Var('busName', 'string'),
-    Var('callback', '(m: Message) => void'),
-], 'void')} {
+    function msgBusSubscribe ${Func([Var('busName', 'string'), Var('callback', '(m: Message) => void')], 'void')} {
         if (!MSG_BUSES.has(busName)) {
             MSG_BUSES.set(busName, [])
         }
         MSG_BUSES.get(busName).push(callback)
     }
 
-    function msgBusUnsubscribe ${Func([
-    Var('busName', 'string'),
-    Var('callback', '(m: Message) => void'),
-], 'void')} {
+    function msgBusUnsubscribe ${Func([Var('busName', 'string'), Var('callback', '(m: Message) => void')], 'void')} {
         if (!MSG_BUSES.has(busName)) {
             return
         }
@@ -11996,89 +13416,8 @@ const messageBuses = ({ macros: { Var, Func } }) => `
             callbacks.splice(found, 1)
         }
     }
-`;
-
-/*
- * Copyright (c) 2022-2023 Sébastien Piquemal <sebpiq@protonmail.com>, Chris McCormick.
- *
- * This file is part of WebPd
- * (see https://github.com/sebpiq/WebPd).
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public License
- * along with this program. If not, see <http://www.gnu.org/licenses/>.
- */
-const stateVariables$D = {
-    busName: 1,
-    funcSetBusName: 1,
-};
-// ------------------------------- node builder ------------------------------ //
-const builder$B = {
-    translateArgs: (pdNode) => ({
-        busName: assertOptionalString(pdNode.args[0]) || '',
-    }),
-    build: () => ({
-        inlets: {
-            '0': { type: 'signal', id: '0' },
-            '0_message': { type: 'message', id: '0_message' },
-        },
-        outlets: {},
-        isPullingSignal: true,
-    }),
-    rerouteMessageConnection: (inletId) => {
-        if (inletId === '0') {
-            return '0_message';
-        }
-        return undefined;
-    },
-};
-// ------------------------------- declare ------------------------------ //
-const declare$r = ({ state, node: { args }, macros: { Var, Func } }) => `
-    let ${Var(state.busName, 'string')} = ""
-
-    const ${state.funcSetBusName} = ${Func([
-    Var('busName', 'string')
-], 'void')} => {
-        if (busName.length) {
-            ${state.busName} = busName
-            resetSignalBus(${state.busName})
-        }
-    }
-
-    ${state.funcSetBusName}("${args.busName}")
-`;
-// ------------------------------- loop ------------------------------ //
-const loop$b = ({ ins, state }) => `
-    addAssignSignalBus(${state.busName}, ${ins.$0})
-`;
-// ------------------------------- messages ------------------------------ //
-const messages$s = ({ state, globs }) => ({
-    '0_message': `
-    if (
-        msg_isMatching(${globs.m}, [MSG_STRING_TOKEN, MSG_STRING_TOKEN])
-        && msg_readStringToken(${globs.m}, 0) === 'set'
-    ) {
-        ${state.funcSetBusName}(msg_readStringToken(${globs.m}, 1))
-        return
-    }
-    `
-});
-// ------------------------------------------------------------------- //
-const nodeImplementation$v = {
-    loop: loop$b,
-    messages: messages$s,
-    stateVariables: stateVariables$D,
-    declare: declare$r,
-    sharedCode: [signalBuses]
+`,
+    dependencies: [msg],
 };
 
 /*
@@ -12110,14 +13449,22 @@ const builder$A = {
         busName: assertOptionalString(pdNode.args[0]) || '',
     }),
     build: () => ({
-        inlets: {},
-        outlets: {
+        inlets: {
             '0': { type: 'signal', id: '0' },
+            '0_message': { type: 'message', id: '0_message' },
         },
+        outlets: {},
+        isPullingSignal: true,
     }),
+    configureMessageToSignalConnection: (inletId) => {
+        if (inletId === '0') {
+            return { reroutedMessageInletId: '0_message' };
+        }
+        return undefined;
+    },
 };
-// ------------------------------- declare ------------------------------ //
-const declare$q = ({ state, node: { args }, macros: { Var, Func } }) => `
+// ------------------------------- generateDeclarations ------------------------------ //
+const generateDeclarations$r = ({ state, node: { args }, macros: { Var, Func } }) => `
     let ${Var(state.busName, 'string')} = ""
 
     const ${state.funcSetBusName} = ${Func([
@@ -12131,17 +13478,29 @@ const declare$q = ({ state, node: { args }, macros: { Var, Func } }) => `
 
     ${state.funcSetBusName}("${args.busName}")
 `;
-// ------------------------------- loop ------------------------------ //
-const loop$a = ({ outs, state }) => `
-    ${outs.$0} = readSignalBus(${state.busName})
-    resetSignalBus(${state.busName})
+// ------------------------------- generateLoop ------------------------------ //
+const generateLoop$8 = ({ ins, state }) => `
+    addAssignSignalBus(${state.busName}, ${ins.$0})
 `;
+// ------------------------------- generateMessageReceivers ------------------------------ //
+const generateMessageReceivers$r = ({ state, globs }) => ({
+    '0_message': `
+    if (
+        msg_isMatching(${globs.m}, [MSG_STRING_TOKEN, MSG_STRING_TOKEN])
+        && msg_readStringToken(${globs.m}, 0) === 'set'
+    ) {
+        ${state.funcSetBusName}(msg_readStringToken(${globs.m}, 1))
+        return
+    }
+    `
+});
 // ------------------------------------------------------------------- //
 const nodeImplementation$u = {
-    loop: loop$a,
+    generateLoop: generateLoop$8,
+    generateMessageReceivers: generateMessageReceivers$r,
     stateVariables: stateVariables$C,
-    declare: declare$q,
-    sharedCode: [signalBuses]
+    generateDeclarations: generateDeclarations$r,
+    dependencies: [signalBuses]
 };
 
 /*
@@ -12165,6 +13524,7 @@ const nodeImplementation$u = {
  */
 const stateVariables$B = {
     busName: 1,
+    funcSetBusName: 1,
 };
 // ------------------------------- node builder ------------------------------ //
 const builder$z = {
@@ -12172,27 +13532,38 @@ const builder$z = {
         busName: assertOptionalString(pdNode.args[0]) || '',
     }),
     build: () => ({
-        inlets: {
+        inlets: {},
+        outlets: {
             '0': { type: 'signal', id: '0' },
         },
-        outlets: {},
-        isPullingSignal: true,
     }),
 };
-// ------------------------------- declare ------------------------------ //
-const declare$p = ({ state, node: { args }, macros: { Var } }) => `
-    const ${Var(state.busName, 'string')} = "${args.busName}"
+// ------------------------------- generateDeclarations ------------------------------ //
+const generateDeclarations$q = ({ state, node: { args }, macros: { Var, Func } }) => `
+    let ${Var(state.busName, 'string')} = ""
+
+    const ${state.funcSetBusName} = ${Func([
+    Var('busName', 'string')
+], 'void')} => {
+        if (busName.length) {
+            ${state.busName} = busName
+            resetSignalBus(${state.busName})
+        }
+    }
+
+    ${state.funcSetBusName}("${args.busName}")
 `;
-// ------------------------------- loop ------------------------------ //
-const loop$9 = ({ ins, state }) => `
-    setSignalBus(${state.busName}, ${ins.$0})
+// ------------------------------- generateLoop ------------------------------ //
+const generateLoop$7 = ({ outs, state }) => `
+    ${outs.$0} = readSignalBus(${state.busName})
+    resetSignalBus(${state.busName})
 `;
 // ------------------------------------------------------------------- //
 const nodeImplementation$t = {
-    loop: loop$9,
+    generateLoop: generateLoop$7,
     stateVariables: stateVariables$B,
-    declare: declare$p,
-    sharedCode: [signalBuses]
+    generateDeclarations: generateDeclarations$q,
+    dependencies: [signalBuses]
 };
 
 /*
@@ -12216,7 +13587,6 @@ const nodeImplementation$t = {
  */
 const stateVariables$A = {
     busName: 1,
-    funcSetBusName: 1,
 };
 // ------------------------------- node builder ------------------------------ //
 const builder$y = {
@@ -12225,51 +13595,26 @@ const builder$y = {
     }),
     build: () => ({
         inlets: {
-            '0': { type: 'message', id: '0' },
-        },
-        outlets: {
             '0': { type: 'signal', id: '0' },
         },
+        outlets: {},
+        isPullingSignal: true,
     }),
 };
-// ------------------------------- declare ------------------------------ //
-const declare$o = ({ state, node: { args }, macros: { Var, Func } }) => `
-    let ${Var(state.busName, 'string')} = ""
-
-    const ${state.funcSetBusName} = ${Func([
-    Var('busName', 'string')
-], 'void')} => {
-        if (busName.length) {
-            ${state.busName} = busName
-            resetSignalBus(${state.busName})
-        }
-    }
-
-    ${state.funcSetBusName}("${args.busName}")
+// ------------------------------- generateDeclarations ------------------------------ //
+const generateDeclarations$p = ({ state, node: { args }, macros: { Var } }) => `
+    const ${Var(state.busName, 'string')} = "${args.busName}"
 `;
-// ------------------------------- loop ------------------------------ //
-const loop$8 = ({ outs, state }) => `
-    ${outs.$0} = readSignalBus(${state.busName})
+// ------------------------------- generateLoop ------------------------------ //
+const generateLoop$6 = ({ ins, state }) => `
+    setSignalBus(${state.busName}, ${ins.$0})
 `;
-// ------------------------------- messages ------------------------------ //
-const messages$r = ({ state, globs }) => ({
-    '0': `
-    if (
-        msg_isMatching(${globs.m}, [MSG_STRING_TOKEN, MSG_STRING_TOKEN])
-        && msg_readStringToken(${globs.m}, 0) === 'set'
-    ) {
-        ${state.funcSetBusName}(msg_readStringToken(${globs.m}, 1))
-        return
-    }
-    `
-});
 // ------------------------------------------------------------------- //
 const nodeImplementation$s = {
-    loop: loop$8,
-    messages: messages$r,
+    generateLoop: generateLoop$6,
     stateVariables: stateVariables$A,
-    declare: declare$o,
-    sharedCode: [signalBuses]
+    generateDeclarations: generateDeclarations$p,
+    dependencies: [signalBuses]
 };
 
 /*
@@ -12292,6 +13637,83 @@ const nodeImplementation$s = {
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 const stateVariables$z = {
+    busName: 1,
+    funcSetBusName: 1,
+};
+// ------------------------------- node builder ------------------------------ //
+const builder$x = {
+    translateArgs: (pdNode) => ({
+        busName: assertOptionalString(pdNode.args[0]) || '',
+    }),
+    build: () => ({
+        inlets: {
+            '0': { type: 'message', id: '0' },
+        },
+        outlets: {
+            '0': { type: 'signal', id: '0' },
+        },
+    }),
+};
+// ------------------------------- generateDeclarations ------------------------------ //
+const generateDeclarations$o = ({ state, node: { args }, macros: { Var, Func } }) => `
+    let ${Var(state.busName, 'string')} = ""
+
+    const ${state.funcSetBusName} = ${Func([
+    Var('busName', 'string')
+], 'void')} => {
+        if (busName.length) {
+            ${state.busName} = busName
+            resetSignalBus(${state.busName})
+        }
+    }
+
+    ${state.funcSetBusName}("${args.busName}")
+`;
+// ------------------------------- generateLoop ------------------------------ //
+const generateLoop$5 = ({ outs, state }) => `
+    ${outs.$0} = readSignalBus(${state.busName})
+`;
+// ------------------------------- generateMessageReceivers ------------------------------ //
+const generateMessageReceivers$q = ({ state, globs }) => ({
+    '0': `
+    if (
+        msg_isMatching(${globs.m}, [MSG_STRING_TOKEN, MSG_STRING_TOKEN])
+        && msg_readStringToken(${globs.m}, 0) === 'set'
+    ) {
+        ${state.funcSetBusName}(msg_readStringToken(${globs.m}, 1))
+        return
+    }
+    `
+});
+// ------------------------------------------------------------------- //
+const nodeImplementation$r = {
+    generateLoop: generateLoop$5,
+    generateMessageReceivers: generateMessageReceivers$q,
+    stateVariables: stateVariables$z,
+    generateDeclarations: generateDeclarations$o,
+    dependencies: [signalBuses]
+};
+
+/*
+ * Copyright (c) 2022-2023 Sébastien Piquemal <sebpiq@protonmail.com>, Chris McCormick.
+ *
+ * This file is part of WebPd
+ * (see https://github.com/sebpiq/WebPd).
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with this program. If not, see <http://www.gnu.org/licenses/>.
+ */
+const stateVariables$y = {
     rate: 1,
     sampleRatio: 1,
     skedId: 1,
@@ -12301,7 +13723,7 @@ const stateVariables$z = {
     funcStop: 1,
 };
 // ------------------------------- node builder ------------------------------ //
-const builder$x = {
+const builder$w = {
     translateArgs: (pdNode) => ({
         rate: assertOptionalNumber(pdNode.args[0]) || 0,
         unitAmount: assertOptionalNumber(pdNode.args[1]) || 1,
@@ -12317,8 +13739,8 @@ const builder$x = {
         },
     }),
 };
-// ------------------------------ declare ------------------------------ //
-const declare$n = ({ state, globs, snds, node: { args }, macros: { Func, Var }, }) => 
+// ------------------------------ generateDeclarations ------------------------------ //
+const generateDeclarations$n = ({ state, globs, snds, node: { args }, macros: { Func, Var }, }) => 
 // Time units are all expressed in samples here
 `
         let ${Var(state.rate, 'Float')} = 0
@@ -12353,8 +13775,8 @@ const declare$n = ({ state, globs, snds, node: { args }, macros: { Func, Var }, 
             ${state.funcSetRate}(${args.rate})
         })
     `;
-// ------------------------------ messages ------------------------------ //
-const messages$q = ({ state, globs, snds }) => ({
+// ------------------------------ generateMessageReceivers ------------------------------ //
+const generateMessageReceivers$p = ({ state, globs, snds }) => ({
     '0': `
     if (msg_getLength(${globs.m}) === 1) {
         if (
@@ -12377,11 +13799,17 @@ const messages$q = ({ state, globs, snds }) => ({
     '1': coldFloatInletWithSetter(globs.m, state.funcSetRate),
 });
 // ------------------------------------------------------------------- //
-const nodeImplementation$r = {
-    declare: declare$n,
-    messages: messages$q,
-    stateVariables: stateVariables$z,
-    sharedCode: [computeUnitInSamples, bangUtils, stringMsgUtils],
+const nodeImplementation$q = {
+    generateDeclarations: generateDeclarations$n,
+    generateMessageReceivers: generateMessageReceivers$p,
+    stateVariables: stateVariables$y,
+    dependencies: [
+        computeUnitInSamples,
+        bangUtils,
+        stringMsgUtils,
+        commonsWaitEngineConfigure,
+        commonsWaitFrame,
+    ],
 };
 
 /*
@@ -12403,12 +13831,12 @@ const nodeImplementation$r = {
  * You should have received a copy of the GNU Lesser General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
-const stateVariables$y = {
+const stateVariables$x = {
     resetTime: 1,
     sampleRatio: 1
 };
 // ------------------------------- node builder ------------------------------ //
-const builder$w = {
+const builder$v = {
     translateArgs: (pdNode) => ({
         unitAmount: assertOptionalNumber(pdNode.args[0]) || 1,
         unit: assertOptionalString(pdNode.args[1]) || 'msec',
@@ -12423,8 +13851,8 @@ const builder$w = {
         },
     }),
 };
-// ------------------------------- declare ------------------------------ //
-const declare$m = ({ state, globs, node: { args }, macros: { Var }, }) => `
+// ------------------------------- generateDeclarations ------------------------------ //
+const generateDeclarations$m = ({ state, globs, node: { args }, macros: { Var }, }) => `
     let ${Var(state.sampleRatio, 'Float')} = 0
     let ${Var(state.resetTime, 'Int')} = 0
 
@@ -12432,8 +13860,8 @@ const declare$m = ({ state, globs, node: { args }, macros: { Var }, }) => `
         ${state.sampleRatio} = computeUnitInSamples(${globs.sampleRate}, ${args.unitAmount}, "${args.unit}")
     })
 `;
-// ------------------------------- messages ------------------------------ //
-const messages$p = ({ snds, globs, state, }) => ({
+// ------------------------------- generateMessageReceivers ------------------------------ //
+const generateMessageReceivers$o = ({ snds, globs, state, }) => ({
     '0': `
     if (msg_isBang(${globs.m})) {
         ${state.resetTime} = ${globs.frame}
@@ -12459,11 +13887,11 @@ const messages$p = ({ snds, globs, state, }) => ({
     `,
 });
 // ------------------------------------------------------------------- //
-const nodeImplementation$q = {
-    stateVariables: stateVariables$y,
-    declare: declare$m,
-    messages: messages$p,
-    sharedCode: [computeUnitInSamples, bangUtils]
+const nodeImplementation$p = {
+    stateVariables: stateVariables$x,
+    generateDeclarations: generateDeclarations$m,
+    generateMessageReceivers: generateMessageReceivers$o,
+    dependencies: [computeUnitInSamples, bangUtils, commonsWaitEngineConfigure]
 };
 
 /*
@@ -12485,7 +13913,7 @@ const nodeImplementation$q = {
  * You should have received a copy of the GNU Lesser General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
-const stateVariables$x = {
+const stateVariables$w = {
     funcSetDelay: 1,
     funcScheduleDelay: 1,
     funcStopDelay: 1,
@@ -12493,9 +13921,8 @@ const stateVariables$x = {
     scheduledBang: 1,
     sampleRatio: 1,
 };
-// TODO : alias [del]
 // ------------------------------- node builder ------------------------------ //
-const builder$v = {
+const builder$u = {
     translateArgs: (pdNode) => ({
         delay: assertOptionalNumber(pdNode.args[0]) || 0,
         unitAmount: assertOptionalNumber(pdNode.args[1]) || 1,
@@ -12509,13 +13936,14 @@ const builder$v = {
         outlets: {
             '0': { type: 'message', id: '0' },
         },
+        isPushingMessages: true
     }),
 };
-// ------------------------------ declare ------------------------------ //
-const declare$l = ({ state, globs, node: { args }, macros: { Func, Var } }) => `
+// ------------------------------ generateDeclarations ------------------------------ //
+const generateDeclarations$l = ({ state, snds, globs, node: { args }, macros: { Func, Var } }) => `
         let ${Var(state.delay, 'Float')} = 0
         let ${Var(state.sampleRatio, 'Float')} = 1
-        let ${Var(state.scheduledBang, 'Int')} = -1
+        let ${Var(state.scheduledBang, 'SkedId')} = SKED_ID_NULL
 
         const ${state.funcSetDelay} = ${Func([
     Var('delay', 'Float')
@@ -12524,12 +13952,19 @@ const declare$l = ({ state, globs, node: { args }, macros: { Func, Var } }) => `
         }
 
         const ${state.funcScheduleDelay} = ${Func([], 'void')} => {
-            ${state.scheduledBang} = toInt(Math.round(
-                toFloat(${globs.frame}) + ${state.delay} * ${state.sampleRatio}))
+            if (${state.scheduledBang} !== SKED_ID_NULL) {
+                ${state.funcStopDelay}()
+            }
+            ${state.scheduledBang} = commons_waitFrame(toInt(
+                Math.round(
+                    toFloat(${globs.frame}) + ${state.delay} * ${state.sampleRatio})),
+                () => ${snds.$0}(msg_bang())
+            )
         }
 
         const ${state.funcStopDelay} = ${Func([], 'void')} => {
-            ${state.scheduledBang} = -1
+            commons_cancelWaitFrame(${state.scheduledBang})
+            ${state.scheduledBang} = SKED_ID_NULL
         }
 
         commons_waitEngineConfigure(() => {
@@ -12537,18 +13972,8 @@ const declare$l = ({ state, globs, node: { args }, macros: { Func, Var } }) => `
             ${state.funcSetDelay}(${args.delay})
         })
     `;
-// ------------------------------- loop ------------------------------ //
-const loop$7 = ({ state, snds, globs }) => `
-    if (
-        ${state.scheduledBang} > -1 
-        && ${state.scheduledBang} <= ${globs.frame}
-    ) {
-        ${snds.$0}(msg_bang())
-        ${state.scheduledBang} = -1
-    }
-`;
-// ------------------------------ messages ------------------------------ //
-const messages$o = ({ node, state, globs, macros: { Var } }) => ({
+// ------------------------------ generateMessageReceivers ------------------------------ //
+const generateMessageReceivers$n = ({ state, globs, macros: { Var } }) => ({
     '0': `
         if (msg_getLength(${globs.m}) === 1) {
             if (msg_isStringToken(${globs.m}, 0)) {
@@ -12582,16 +14007,20 @@ const messages$o = ({ node, state, globs, macros: { Var } }) => ({
     '1': coldFloatInletWithSetter(globs.m, state.funcSetDelay)
 });
 // ------------------------------------------------------------------- //
-const nodeImplementation$p = {
-    declare: declare$l,
-    messages: messages$o,
-    loop: loop$7,
-    stateVariables: stateVariables$x,
-    sharedCode: [computeUnitInSamples, bangUtils]
+const nodeImplementation$o = {
+    generateDeclarations: generateDeclarations$l,
+    generateMessageReceivers: generateMessageReceivers$n,
+    stateVariables: stateVariables$w,
+    dependencies: [
+        computeUnitInSamples,
+        bangUtils,
+        commonsWaitEngineConfigure,
+        commonsWaitFrame,
+    ],
 };
 
 const EMPTY_BUS_NAME = 'empty';
-const stateVariables$w = {
+const stateVariables$v = {
     value: 1,
     funcPrepareStoreValue: 1,
     funcPrepareStoreValueBang: 1,
@@ -12691,8 +14120,8 @@ const builderWithoutMin = {
     build,
 };
 const makeNodeImplementation$7 = ({ prepareStoreValue, prepareStoreValueBang, }) => {
-    // ------------------------------- declare ------------------------------ //
-    const declare = (context) => {
+    // ------------------------------- generateDeclarations ------------------------------ //
+    const generateDeclarations = (context) => {
         const { node, state, snds, node: { id, args }, compilation: { codeVariableNames: { nodes } }, macros: { Var, Func } } = context;
         return `
             let ${Var(state.value, 'Float')} = ${node.args.initValue}
@@ -12747,8 +14176,8 @@ const makeNodeImplementation$7 = ({ prepareStoreValue, prepareStoreValueBang, })
             ${renderIf(args.outputOnLoad, `commons_waitFrame(0, () => ${snds.$0}(msg_floats([${state.value}])))`)}
         `;
     };
-    // ------------------------------- messages ------------------------------ //
-    const messages = (context) => {
+    // ------------------------------- generateMessageReceivers ------------------------------ //
+    const generateMessageReceivers = (context) => {
         const { globs, state } = context;
         return {
             '0': `
@@ -12758,10 +14187,15 @@ const makeNodeImplementation$7 = ({ prepareStoreValue, prepareStoreValueBang, })
         };
     };
     return {
-        messages,
-        declare,
-        stateVariables: stateVariables$w,
-        sharedCode: [bangUtils, messageBuses],
+        generateMessageReceivers,
+        generateDeclarations,
+        stateVariables: stateVariables$v,
+        dependencies: [
+            bangUtils,
+            messageBuses,
+            commonsWaitEngineConfigure,
+            commonsWaitFrame,
+        ],
     };
 };
 // ------------------------------------------------------------------- //
@@ -12806,7 +14240,7 @@ const builders$9 = {
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 // ------------------------------- node builder ------------------------------ //
-const builder$u = {
+const builder$t = {
     translateArgs: ({ args: [init, receive, send] }) => ({
         outputOnLoad: !!init,
         sendBusName: assertOptionalString(send) || EMPTY_BUS_NAME,
@@ -12814,8 +14248,8 @@ const builder$u = {
     }),
     build,
 };
-// ------------------------------- declare ------------------------------ //
-const declare$k = (context) => {
+// ------------------------------- generateDeclarations ------------------------------ //
+const generateDeclarations$k = (context) => {
     const { state, snds, node: { id, args }, macros: { Var, Func }, compilation: { codeVariableNames: { nodes } } } = context;
     return `
         function ${state.funcMessageReceiver} ${Func([
@@ -12837,8 +14271,8 @@ const declare$k = (context) => {
         ${renderIf(args.outputOnLoad, `commons_waitFrame(0, () => ${snds.$0}(msg_bang()))`)}
     `;
 };
-// ------------------------------- messages ------------------------------ //
-const messages$n = (context) => {
+// ------------------------------- generateMessageReceivers ------------------------------ //
+const generateMessageReceivers$m = (context) => {
     const { state, globs } = context;
     return ({
         '0': `
@@ -12848,11 +14282,16 @@ const messages$n = (context) => {
     });
 };
 // ------------------------------------------------------------------- //
-const nodeImplementation$o = {
-    declare: declare$k,
-    messages: messages$n,
-    stateVariables: stateVariables$w,
-    sharedCode: [bangUtils, messageBuses],
+const nodeImplementation$n = {
+    generateDeclarations: generateDeclarations$k,
+    generateMessageReceivers: generateMessageReceivers$m,
+    stateVariables: stateVariables$v,
+    dependencies: [
+        bangUtils,
+        messageBuses,
+        commonsWaitEngineConfigure,
+        commonsWaitFrame,
+    ],
 };
 
 /*
@@ -12874,9 +14313,9 @@ const nodeImplementation$o = {
  * You should have received a copy of the GNU Lesser General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
-// TODO : use standard "unsupported message" from compile-declare
+// TODO : use standard "unsupported message" from compile-generateDeclarations
 // ------------------------------- node builder ------------------------------ //
-const builder$t = {
+const builder$s = {
     translateArgs: ({ args: [_, __, receive, send] }) => ({
         sendBusName: assertOptionalString(send) || EMPTY_BUS_NAME,
         receiveBusName: assertOptionalString(receive) || EMPTY_BUS_NAME,
@@ -12884,8 +14323,8 @@ const builder$t = {
     build,
 };
 const makeNodeImplementation$6 = ({ initValue, messageMatch, }) => {
-    // ------------------------------- declare ------------------------------ //
-    const declare = (context) => {
+    // ------------------------------- generateDeclarations ------------------------------ //
+    const generateDeclarations = (context) => {
         const { state, globs, macros: { Var, Func }, node: { id }, compilation: { codeVariableNames: { nodes } } } = context;
         return `
             let ${Var(state.value, 'Message')} = ${initValue}
@@ -12929,8 +14368,8 @@ const makeNodeImplementation$6 = ({ initValue, messageMatch, }) => {
             ${declareControlSendReceive(context)}
         `;
     };
-    // ------------------------------- messages ------------------------------ //
-    const messages = (context) => {
+    // ------------------------------- generateMessageReceivers ------------------------------ //
+    const generateMessageReceivers = (context) => {
         const { state, globs } = context;
         return ({
             '0': `
@@ -12941,16 +14380,21 @@ const makeNodeImplementation$6 = ({ initValue, messageMatch, }) => {
     };
     // ------------------------------------------------------------------- //
     return {
-        declare,
-        messages,
-        stateVariables: stateVariables$w,
-        sharedCode: [bangUtils, messageBuses, msgUtils],
+        generateDeclarations,
+        generateMessageReceivers,
+        stateVariables: stateVariables$v,
+        dependencies: [
+            bangUtils,
+            messageBuses,
+            msgUtils,
+            commonsWaitEngineConfigure,
+        ],
     };
 };
 const builders$8 = {
-    'floatatom': builder$t,
-    'symbolatom': builder$t,
-    'listbox': builder$t,
+    'floatatom': builder$s,
+    'symbolatom': builder$s,
+    'listbox': builder$s,
 };
 const nodeImplementations$8 = {
     'floatatom': makeNodeImplementation$6({
@@ -12985,9 +14429,9 @@ const nodeImplementations$8 = {
  * You should have received a copy of the GNU Lesser General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
-const stateVariables$v = {};
+const stateVariables$u = {};
 // ------------------------------- node builder ------------------------------ //
-const builder$s = {
+const builder$r = {
     translateArgs: () => ({}),
     build: () => ({
         inlets: {},
@@ -12995,13 +14439,13 @@ const builder$s = {
         isPushingMessages: true
     }),
 };
-// ------------------------------- declare ------------------------------ //
-const declare$j = ({ snds }) => `commons_waitFrame(0, () => ${snds.$0}(msg_bang()))`;
+// ------------------------------- generateDeclarations ------------------------------ //
+const generateDeclarations$j = ({ snds }) => `commons_waitFrame(0, () => ${snds.$0}(msg_bang()))`;
 // ------------------------------------------------------------------- //
-const nodeImplementation$n = {
-    declare: declare$j,
-    stateVariables: stateVariables$v,
-    sharedCode: [bangUtils],
+const nodeImplementation$m = {
+    generateDeclarations: generateDeclarations$j,
+    stateVariables: stateVariables$u,
+    dependencies: [bangUtils, commonsWaitFrame],
 };
 
 const roundFloatAsPdInt = ({ macros: { Func, Var } }) => `
@@ -13031,14 +14475,14 @@ const roundFloatAsPdInt = ({ macros: { Func, Var } }) => `
  * You should have received a copy of the GNU Lesser General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
-const stateVariables$u = {
+const stateVariables$t = {
     value: 1,
     funcSetValue: 1,
 };
 // TODO: proper support for $ args
 // TODO: simple number - shortcut for float
 // ------------------------------- node builder ------------------------------ //
-const builder$r = {
+const builder$q = {
     translateArgs: (pdNode) => ({
         value: assertOptionalNumber(pdNode.args[0]) || 0,
     }),
@@ -13053,7 +14497,7 @@ const builder$r = {
         isPushingMessages: true,
     }),
 };
-// ------------------------------- declare ------------------------------ //
+// ------------------------------- generateDeclarations ------------------------------ //
 const makeDeclare = (prepareValueCode = 'value') => ({ node: { args }, state, macros: { Var, Func } }) => `
         let ${Var(state.value, 'Float')} = 0
 
@@ -13063,8 +14507,8 @@ const makeDeclare = (prepareValueCode = 'value') => ({ node: { args }, state, ma
         
         ${state.funcSetValue}(${args.value})
     `;
-// ------------------------------- messages ------------------------------ //
-const messages$m = ({ snds, globs, state, }) => ({
+// ------------------------------- generateMessageReceivers ------------------------------ //
+const generateMessageReceivers$l = ({ snds, globs, state, }) => ({
     '0': `
     if (msg_isMatching(${globs.m}, [MSG_FLOAT_TOKEN])) {
         ${state.funcSetValue}(msg_readFloatToken(${globs.m}, 0))
@@ -13081,29 +14525,29 @@ const messages$m = ({ snds, globs, state, }) => ({
 });
 // ------------------------------------------------------------------- //
 const builders$7 = {
-    float: builder$r,
+    float: builder$q,
     f: { aliasTo: 'float' },
-    int: builder$r,
+    int: builder$q,
     i: { aliasTo: 'int' },
 };
 const nodeImplementations$7 = {
     float: {
-        declare: makeDeclare(),
-        messages: messages$m,
-        stateVariables: stateVariables$u,
-        sharedCode: [bangUtils],
+        generateDeclarations: makeDeclare(),
+        generateMessageReceivers: generateMessageReceivers$l,
+        stateVariables: stateVariables$t,
+        dependencies: [bangUtils],
     },
     int: {
-        declare: makeDeclare('roundFloatAsPdInt(value)'),
-        messages: messages$m,
-        stateVariables: stateVariables$u,
-        sharedCode: [roundFloatAsPdInt, bangUtils],
+        generateDeclarations: makeDeclare('roundFloatAsPdInt(value)'),
+        generateMessageReceivers: generateMessageReceivers$l,
+        stateVariables: stateVariables$t,
+        dependencies: [roundFloatAsPdInt, bangUtils],
     },
 };
 
-const stateVariables$t = {};
+const stateVariables$s = {};
 // ------------------------------- node builder ------------------------------ //
-const builder$q = {
+const builder$p = {
     translateArgs: () => ({}),
     build: () => ({
         inlets: {
@@ -13114,9 +14558,9 @@ const builder$q = {
         },
     }),
 };
-const makeNodeImplementation$5 = ({ operationCode, sharedCode = [], }) => {
-    // ------------------------------- messages ------------------------------ //
-    const messages = ({ globs, snds, macros: { Var } }) => ({
+const makeNodeImplementation$5 = ({ operationCode, dependencies = [], }) => {
+    // ------------------------------- generateMessageReceivers ------------------------------ //
+    const generateMessageReceivers = ({ globs, snds, macros: { Var } }) => ({
         '0': `
         if (msg_isMatching(${globs.m}, [MSG_FLOAT_TOKEN])) {
             const ${Var('value', 'Float')} = msg_readFloatToken(${globs.m}, 0)
@@ -13125,7 +14569,7 @@ const makeNodeImplementation$5 = ({ operationCode, sharedCode = [], }) => {
         }
         `
     });
-    return { messages, stateVariables: stateVariables$t, sharedCode };
+    return { generateMessageReceivers, stateVariables: stateVariables$s, dependencies };
 };
 // ------------------------------------------------------------------- //
 const nodeImplementations$6 = {
@@ -13133,8 +14577,8 @@ const nodeImplementations$6 = {
     'wrap': makeNodeImplementation$5({ operationCode: `(1 + (value % 1)) % 1` }),
     'cos': makeNodeImplementation$5({ operationCode: `Math.cos(value)` }),
     'sqrt': makeNodeImplementation$5({ operationCode: `value >= 0 ? Math.pow(value, 0.5): 0` }),
-    'mtof': makeNodeImplementation$5({ operationCode: `mtof(value)`, sharedCode: [mtof] }),
-    'ftom': makeNodeImplementation$5({ operationCode: `ftom(value)`, sharedCode: [ftom] }),
+    'mtof': makeNodeImplementation$5({ operationCode: `mtof(value)`, dependencies: [mtof] }),
+    'ftom': makeNodeImplementation$5({ operationCode: `ftom(value)`, dependencies: [ftom] }),
     'rmstodb': makeNodeImplementation$5({ operationCode: `value <= 0 ? 0 : 20 * Math.log(value) / Math.LN10 + 100` }),
     'dbtorms': makeNodeImplementation$5({ operationCode: `value <= 0 ? 0 : Math.exp(Math.LN10 * (value - 100) / 20)` }),
     'powtodb': makeNodeImplementation$5({ operationCode: `value <= 0 ? 0 : 10 * Math.log(value) / Math.LN10 + 100` }),
@@ -13143,17 +14587,17 @@ const nodeImplementations$6 = {
     'vu': makeNodeImplementation$5({ operationCode: `value` }),
 };
 const builders$6 = {
-    'abs': builder$q,
-    'cos': builder$q,
-    'wrap': builder$q,
-    'sqrt': builder$q,
-    'mtof': builder$q,
-    'ftom': builder$q,
-    'rmstodb': builder$q,
-    'dbtorms': builder$q,
-    'powtodb': builder$q,
-    'dbtopow': builder$q,
-    'vu': builder$q,
+    'abs': builder$p,
+    'cos': builder$p,
+    'wrap': builder$p,
+    'sqrt': builder$p,
+    'mtof': builder$p,
+    'ftom': builder$p,
+    'rmstodb': builder$p,
+    'dbtorms': builder$p,
+    'powtodb': builder$p,
+    'dbtopow': builder$p,
+    'vu': builder$p,
 };
 
 /*
@@ -13175,7 +14619,7 @@ const builders$6 = {
  * You should have received a copy of the GNU Lesser General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
-const stateVariables$s = {
+const stateVariables$r = {
     leftOp: 1,
     rightOp: 1,
 };
@@ -13189,47 +14633,28 @@ const makeBuilder$1 = (defaultValue) => ({
     },
     build: () => ({
         inlets: {
-            '0_message': { type: 'message', id: '0_message' },
             '0': { type: 'signal', id: '0' },
-            '1_message': { type: 'message', id: '1_message' },
             '1': { type: 'signal', id: '1' },
         },
         outlets: {
             '0': { type: 'signal', id: '0' },
         },
     }),
-    rerouteMessageConnection: (inletId) => {
+    configureMessageToSignalConnection(inletId, nodeArgs) {
         if (inletId === '0') {
-            return '0_message';
+            return { initialSignalValue: 0 };
         }
         if (inletId === '1') {
-            return '1_message';
+            return { initialSignalValue: nodeArgs.value };
         }
         return undefined;
     },
 });
-const makeNodeImplementation$4 = ({ generateOperation, sharedCode = [], }) => {
-    // ------------------------------ declare ------------------------------ //
-    const declare = ({ node, state, macros: { Var }, }) => `
-        ${renderIf(_hasMessageLeftInlet(node), `
-                let ${Var(state.leftOp, 'Float')} = 0
-            `)}
-        ${renderIf(_hasMessageRightInlet(node), `
-                let ${Var(state.rightOp, 'Float')} = ${node.args.value}
-            `)}
-    `;
-    // ------------------------------- loop ------------------------------ //
-    const loop = ({ node, ins, outs, state }) => `${outs.$0} = ${generateOperation(_hasMessageLeftInlet(node) ? state.leftOp : ins.$0, _hasMessageRightInlet(node) ? state.rightOp : ins.$1)}`;
-    // ------------------------------- messages ------------------------------ //
-    const messages = ({ node, state, globs, }) => ({
-        '0_message': renderIf(_hasMessageLeftInlet(node), coldFloatInlet(globs.m, state.leftOp)),
-        '1_message': renderIf(_hasMessageRightInlet(node), coldFloatInlet(globs.m, state.rightOp)),
-    });
-    return { declare, loop, messages, stateVariables: stateVariables$s, sharedCode };
+const makeNodeImplementation$4 = ({ generateOperation, dependencies = [], }) => {
+    const generateLoop = ({ ins, outs }) => `${outs.$0} = ${generateOperation(ins.$0, ins.$1)}`;
+    return { generateLoop, stateVariables: stateVariables$r, dependencies };
 };
 // ------------------------------------------------------------------- //
-const _hasMessageLeftInlet = (node) => !node.sources['0'] || !node.sources['0'].length;
-const _hasMessageRightInlet = (node) => !node.sources['1'] || !node.sources['1'].length;
 const nodeImplementations$5 = {
     '+~': makeNodeImplementation$4({ generateOperation: (leftOp, rightOp) => `${leftOp} + ${rightOp}` }),
     '-~': makeNodeImplementation$4({ generateOperation: (leftOp, rightOp) => `${leftOp} - ${rightOp}` }),
@@ -13237,7 +14662,7 @@ const nodeImplementations$5 = {
     '/~': makeNodeImplementation$4({ generateOperation: (leftOp, rightOp) => `${rightOp} !== 0 ? ${leftOp} / ${rightOp} : 0` }),
     'min~': makeNodeImplementation$4({ generateOperation: (leftOp, rightOp) => `Math.min(${leftOp}, ${rightOp})` }),
     'max~': makeNodeImplementation$4({ generateOperation: (leftOp, rightOp) => `Math.max(${leftOp}, ${rightOp})` }),
-    'pow~': makeNodeImplementation$4({ generateOperation: (leftOp, rightOp) => `pow(${leftOp}, ${rightOp})`, sharedCode: [pow] }),
+    'pow~': makeNodeImplementation$4({ generateOperation: (leftOp, rightOp) => `pow(${leftOp}, ${rightOp})`, dependencies: [pow] }),
 };
 const builders$5 = {
     '+~': makeBuilder$1(0),
@@ -13248,47 +14673,6 @@ const builders$5 = {
     'max~': makeBuilder$1(0),
     'pow~': makeBuilder$1(0),
 };
-
-/*
- * Copyright (c) 2022-2023 Sébastien Piquemal <sebpiq@protonmail.com>, Chris McCormick.
- *
- * This file is part of WebPd
- * (see https://github.com/sebpiq/WebPd).
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public License
- * along with this program. If not, see <http://www.gnu.org/licenses/>.
- */
-const stateVariables$r = {};
-// ------------------------------- node builder ------------------------------ //
-const builder$p = {
-    translateArgs: (pdNode) => ({
-        channelCount: assertNumber(pdNode.args[0]),
-    }),
-    build: (nodeArgs) => ({
-        inlets: mapArray(countTo(nodeArgs.channelCount), (channel) => [`${channel}`, { type: 'signal', id: `${channel}` }]),
-        outlets: {
-            '0': { type: 'signal', id: '0' },
-        },
-    }),
-};
-// ------------------------------- loop ------------------------------ //
-const loop$6 = ({ node, ins, outs }) => `
-    ${outs.$0} = ${Object.keys(node.inlets)
-    .map((inletId) => ins[inletId])
-    .join(' + ')}
-`;
-// ------------------------------------------------------------------- //
-const nodeImplementation$m = { loop: loop$6, stateVariables: stateVariables$r };
 
 /*
  * Copyright (c) 2022-2023 Sébastien Piquemal <sebpiq@protonmail.com>, Chris McCormick.
@@ -13325,12 +14709,12 @@ const builder$o = {
         };
     },
 };
-// ------------------------------- loop ------------------------------ //
-const loop$5 = ({ outs }) => `
+// ------------------------------- generateLoop ------------------------------ //
+const generateLoop$4 = ({ outs }) => `
     ${outs.$0} = Math.random() * 2 - 1
 `;
-// ------------------------------- messages ------------------------------ //
-const messages$l = ({ globs }) => ({
+// ------------------------------- generateMessageReceivers ------------------------------ //
+const generateMessageReceivers$k = ({ globs }) => ({
     '0': `
     if (
         msg_isMatching(${globs.m}, [MSG_STRING_TOKEN, MSG_FLOAT_TOKEN])
@@ -13342,35 +14726,52 @@ const messages$l = ({ globs }) => ({
     `,
 });
 // ------------------------------------------------------------------- //
-const nodeImplementation$l = { loop: loop$5, messages: messages$l, stateVariables: stateVariables$q };
+const nodeImplementation$l = { generateLoop: generateLoop$4, generateMessageReceivers: generateMessageReceivers$k, stateVariables: stateVariables$q };
 
+/*
+ * Copyright (c) 2022-2023 Sébastien Piquemal <sebpiq@protonmail.com>, Chris McCormick.
+ *
+ * This file is part of WebPd
+ * (see https://github.com/sebpiq/WebPd).
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with this program. If not, see <http://www.gnu.org/licenses/>.
+ */
 // TODO : how to safely declare a global variable without clashing
-const delayBuffers = ({ macros: { Var, Func } }) => `
+const delayBuffers = {
+    codeGenerator: ({ macros: { Var, Func } }) => `
     const ${Var('DELAY_BUFFERS', 'Map<string, buf_SoundBuffer>')} = new Map()
     const ${Var('DELAY_BUFFERS_SKEDULER', 'Skeduler')} = sked_create(true)
     const ${Var('DELAY_BUFFERS_NULL', 'buf_SoundBuffer')} = buf_create(1)
 
-    function DELAY_BUFFERS_set ${Func([
-    Var('delayName', 'string'),
-    Var('buffer', 'buf_SoundBuffer'),
-], 'void')} {
+    function DELAY_BUFFERS_set ${Func([Var('delayName', 'string'), Var('buffer', 'buf_SoundBuffer')], 'void')} {
         DELAY_BUFFERS.set(delayName, buffer)
         sked_emit(DELAY_BUFFERS_SKEDULER, delayName)
     }
 
     function DELAY_BUFFERS_get ${Func([
-    Var('delayName', 'string'),
-    Var('callback', '(event: string) => void'),
-], 'void')} {
+        Var('delayName', 'string'),
+        Var('callback', '(event: string) => void'),
+    ], 'void')} {
         sked_wait(DELAY_BUFFERS_SKEDULER, delayName, callback)
     }
 
-    function DELAY_BUFFERS_delete ${Func([
-    Var('delayName', 'string'),
-], 'void')} {
+    function DELAY_BUFFERS_delete ${Func([Var('delayName', 'string')], 'void')} {
         DELAY_BUFFERS.delete(delayName)
     }
-`;
+`,
+    dependencies: [bufCore, sked],
+};
 
 /*
  * Copyright (c) 2022-2023 Sébastien Piquemal <sebpiq@protonmail.com>, Chris McCormick.
@@ -13394,10 +14795,7 @@ const delayBuffers = ({ macros: { Var, Func } }) => `
 const stateVariables$p = {
     delayName: 1,
     buffer: 1,
-    delaySamp: 1,
-    delayMsec: 1,
     funcSetDelayName: 1,
-    funcSetDelayMsec: 1,
 };
 // TODO : Implement 4-point interpolation for delread4
 // ------------------------------- node builder ------------------------------ //
@@ -13409,38 +14807,23 @@ const builder$n = {
     build: () => ({
         inlets: {
             '0': { type: 'signal', id: '0' },
-            '0_message': { type: 'message', id: '0_message' },
         },
         outlets: {
             '0': { type: 'signal', id: '0' },
         },
     }),
-    rerouteMessageConnection: (inletId) => {
+    configureMessageToSignalConnection: (inletId, { initDelayMsec }) => {
         if (inletId === '0') {
-            return '0_message';
+            return { initialSignalValue: initDelayMsec };
         }
         return undefined;
     },
 };
 const makeNodeImplementation$3 = () => {
-    // ------------------------------- declare ------------------------------ //
-    const declare = ({ state, globs, node: { args }, macros: { Var, Func } }) => `
+    // ------------------------------- generateDeclarations ------------------------------ //
+    const generateDeclarations = ({ state, node: { args }, macros: { Var, Func } }) => `
         let ${Var(state.delayName, 'string')} = ""
         let ${Var(state.buffer, 'buf_SoundBuffer')} = DELAY_BUFFERS_NULL
-        let ${Var(state.delaySamp, 'Int')} = 0
-        let ${Var(state.delayMsec, 'Float')} = 0
-
-        const ${state.funcSetDelayMsec} = ${Func([
-        Var('delayMsec', 'Float')
-    ], 'void')} => {
-            ${state.delayMsec} = delayMsec
-            ${state.delaySamp} = toInt(Math.round(
-                Math.min(
-                    Math.max(computeUnitInSamples(${globs.sampleRate}, delayMsec, "msec"), 0), 
-                    toFloat(${state.buffer}.length - 1)
-                )
-            ))
-        }
 
         const ${state.funcSetDelayName} = ${Func([
         Var('delayName', 'string')
@@ -13452,7 +14835,6 @@ const makeNodeImplementation$3 = () => {
             if (${state.delayName}.length) {
                 DELAY_BUFFERS_get(${state.delayName}, () => { 
                     ${state.buffer} = DELAY_BUFFERS.get(${state.delayName})
-                    ${state.funcSetDelayMsec}(${state.delayMsec})
                 })
             }
         }
@@ -13461,17 +14843,10 @@ const makeNodeImplementation$3 = () => {
             if ("${args.delayName}".length) {
                 ${state.funcSetDelayName}("${args.delayName}")
             }
-            ${state.funcSetDelayMsec}(${args.initDelayMsec})
         })
     `;
-    // ------------------------------- loop ------------------------------ //
-    const loop = (context) => _hasSignalInput$3(context.node)
-        ? loopSignal(context)
-        : loopMessage(context);
-    const loopMessage = ({ outs, state }) => `
-        ${outs.$0} = buf_readSample(${state.buffer}, ${state.delaySamp})
-    `;
-    const loopSignal = ({ globs, outs, ins, state }) => `
+    // ------------------------------- generateLoop ------------------------------ //
+    const generateLoop = ({ globs, outs, ins, state }) => `
         ${outs.$0} = buf_readSample(${state.buffer}, toInt(Math.round(
             Math.min(
                 Math.max(computeUnitInSamples(${globs.sampleRate}, ${ins.$0}, "msec"), 0), 
@@ -13479,20 +14854,19 @@ const makeNodeImplementation$3 = () => {
             )
         )))
     `;
-    // ------------------------------- messages ------------------------------ //
-    const messages = ({ state, globs }) => ({
-        '0_message': coldFloatInletWithSetter(globs.m, state.funcSetDelayMsec)
-    });
     // ------------------------------------------------------------------- //
     return {
-        loop,
+        generateLoop,
         stateVariables: stateVariables$p,
-        messages,
-        declare,
-        sharedCode: [computeUnitInSamples, delayBuffers]
+        generateDeclarations,
+        dependencies: [
+            computeUnitInSamples,
+            delayBuffers,
+            commonsWaitEngineConfigure,
+            bufWriteRead,
+        ],
     };
 };
-const _hasSignalInput$3 = (node) => node.sources['0'] && node.sources['0'].length;
 const builders$4 = {
     'delread~': builder$n,
     'delread4~': builder$n,
@@ -13541,15 +14915,15 @@ const builder$m = {
         outlets: {},
         isPullingSignal: true,
     }),
-    rerouteMessageConnection: (inletId) => {
+    configureMessageToSignalConnection: (inletId) => {
         if (inletId === '0') {
-            return '0_message';
+            return { reroutedMessageInletId: '0_message' };
         }
         return undefined;
     },
 };
-// ------------------------------- declare ------------------------------ //
-const declare$i = ({ state, globs, node: { args }, macros: { Var, Func } }) => `
+// ------------------------------- generateDeclarations ------------------------------ //
+const generateDeclarations$i = ({ state, globs, node: { args }, macros: { Var, Func } }) => `
     let ${Var(state.delayName, 'string')} = ""
     let ${Var(state.buffer, 'buf_SoundBuffer')} = DELAY_BUFFERS_NULL
 
@@ -13567,23 +14941,23 @@ const declare$i = ({ state, globs, node: { args }, macros: { Var, Func } }) => `
 
     commons_waitEngineConfigure(() => {
         ${state.buffer} = buf_create(
-            toInt(computeUnitInSamples(
+            toInt(Math.ceil(computeUnitInSamples(
                 ${globs.sampleRate}, 
-                toFloat(${args.maxDurationMsec}), 
+                ${args.maxDurationMsec},
                 "msec"
-            ))
+            )))
         )
         if ("${args.delayName}".length) {
             ${state.funcSetDelayName}("${args.delayName}")
         }
     })
 `;
-// ------------------------------- loop ------------------------------ //
-const loop$4 = ({ ins, state }) => `
+// ------------------------------- generateLoop ------------------------------ //
+const generateLoop$3 = ({ ins, state }) => `
     buf_writeSample(${state.buffer}, ${ins.$0})
 `;
-// ------------------------------- messages ------------------------------ //
-const messages$k = ({ state, globs }) => ({
+// ------------------------------- generateMessageReceivers ------------------------------ //
+const generateMessageReceivers$j = ({ state, globs }) => ({
     '0_message': `
         if (msg_isAction(${globs.m}, 'clear')) {
             buf_clear(${state.buffer})
@@ -13593,11 +14967,11 @@ const messages$k = ({ state, globs }) => ({
 });
 // ------------------------------------------------------------------- //
 const nodeImplementation$k = {
-    loop: loop$4,
+    generateLoop: generateLoop$3,
     stateVariables: stateVariables$o,
-    messages: messages$k,
-    declare: declare$i,
-    sharedCode: [computeUnitInSamples, delayBuffers, stringMsgUtils]
+    generateMessageReceivers: generateMessageReceivers$j,
+    generateDeclarations: generateDeclarations$i,
+    dependencies: [computeUnitInSamples, delayBuffers, stringMsgUtils]
 };
 
 /*
@@ -13622,8 +14996,6 @@ const nodeImplementation$k = {
 const stateVariables$n = {
     lastInput: 1,
     lastOutput: 1,
-    coeff: 1,
-    funcSetCoeff: 1,
 };
 // TODO : tests + cleaner implementations
 // TODO : separate rfilters with lastInput from the ones that don't need
@@ -13636,68 +15008,36 @@ const builder$l = {
         inlets: {
             '0': { type: 'signal', id: '0' },
             '1': { type: 'signal', id: '1' },
-            '1_message': { type: 'message', id: '1_message' },
         },
         outlets: {
             '0': { type: 'signal', id: '0' },
         },
     }),
-    rerouteMessageConnection: (inletId) => {
+    configureMessageToSignalConnection: (inletId, { initValue }) => {
         if (inletId === '1') {
-            return '1_message';
+            return { initialSignalValue: initValue };
         }
         return undefined;
     },
 };
-const makeNodeImplementation$2 = ({ generateOperation, computeCoeff = () => 'value', }) => {
-    // ------------------------------- declare ------------------------------ //
-    const declare = (context) => _hasSignalInput$2(context.node)
-        ? declareSignal(context)
-        : declareMessage(context);
-    const declareSignal = ({ state, macros: { Var }, }) => `
+const makeNodeImplementation$2 = ({ generateOperation, }) => {
+    // ------------------------------- generateDeclarations ------------------------------ //
+    const generateDeclarations = ({ state, macros: { Var }, }) => `
         let ${Var(state.lastOutput, 'Float')} = 0
         let ${Var(state.lastInput, 'Float')} = 0
     `;
-    const declareMessage = ({ state, globs, node: { args }, macros: { Var, Func }, }) => `
-        let ${Var(state.lastOutput, 'Float')} = 0
-        let ${Var(state.lastInput, 'Float')} = 0
-        let ${Var(state.coeff, 'Float')} = 0
-
-        function ${state.funcSetCoeff} ${Func([
-        Var('value', 'Float')
-    ], 'void')} {
-            ${state.coeff} = ${computeCoeff(globs.sampleRate)}
-        }
-
-        commons_waitEngineConfigure(() => {
-            ${state.funcSetCoeff}(${args.initValue})
-        })
-    `;
-    // ------------------------------- loop ------------------------------ //
-    const loop = (context) => _hasSignalInput$2(context.node)
-        ? loopSignal(context)
-        : loopMessage(context);
-    const loopSignal = ({ ins, state, outs }) => `
+    // ------------------------------- generateLoop ------------------------------ //
+    const generateLoop = ({ ins, state, outs }) => `
         ${state.lastOutput} = ${outs.$0} = ${generateOperation(ins.$0, ins.$1, state.lastOutput, state.lastInput)}
         ${state.lastInput} = ${ins.$0}
     `;
-    const loopMessage = ({ ins, state, outs }) => `
-        ${state.lastOutput} = ${outs.$0} = ${generateOperation(ins.$0, state.coeff, state.lastOutput, state.lastInput)}
-        ${state.lastInput} = ${ins.$0}
-    `;
-    // ------------------------------- messages ------------------------------ //
-    const messages = ({ globs, state }) => ({
-        '1_message': coldFloatInletWithSetter(globs.m, state.funcSetCoeff),
-    });
     return {
-        loop,
+        generateLoop,
         stateVariables: stateVariables$n,
-        messages,
-        declare,
+        generateDeclarations,
     };
 };
 // ------------------------------------------------------------------- //
-const _hasSignalInput$2 = (node) => node.sources['1'] && node.sources['1'].length;
 const builders$3 = {
     'rpole~': builder$l,
     'rzero~': builder$l,
@@ -13735,9 +15075,6 @@ const nodeImplementations$3 = {
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 const stateVariables$m = {
-    inputIm: 1,
-    coeffRe: 1,
-    coeffIm: 1,
     lastInputRe: 1,
     lastInputIm: 1,
     lastOutputRe: 1,
@@ -13754,69 +15091,54 @@ const builder$k = {
     build: () => ({
         inlets: {
             '0': { type: 'signal', id: '0' },
-            '0_message': { type: 'message', id: '0_message' },
             '1': { type: 'signal', id: '1' },
-            '1_message': { type: 'message', id: '1_message' },
             '2': { type: 'signal', id: '2' },
-            '2_message': { type: 'message', id: '2_message' },
             '3': { type: 'signal', id: '3' },
-            '3_message': { type: 'message', id: '3_message' },
         },
         outlets: {
             '0': { type: 'signal', id: '0' },
             '1': { type: 'signal', id: '1' },
         },
     }),
-    rerouteMessageConnection: (inletId) => {
+    configureMessageToSignalConnection: (inletId, { initCoeffIm, initCoeffRe }) => {
         if (inletId === '0') {
-            return '0_message';
+            return { initialSignalValue: 0 };
         }
         if (inletId === '1') {
-            return '1_message';
+            return { initialSignalValue: 0 };
         }
         if (inletId === '2') {
-            return '2_message';
+            return { initialSignalValue: initCoeffRe };
         }
         if (inletId === '3') {
-            return '3_message';
+            return { initialSignalValue: initCoeffIm };
         }
         return undefined;
     },
 };
 const makeNodeImplementation$1 = ({ generateOperationRe, generateOperationIm, }) => {
-    // ------------------------------- declare ------------------------------ //
-    const declare = ({ state, node: { args }, macros: { Var }, }) => `
-        let ${Var(state.inputIm, 'Float')} = 0
-        let ${Var(state.coeffRe, 'Float')} = ${args.initCoeffRe}
-        let ${Var(state.coeffIm, 'Float')} = ${args.initCoeffIm}
+    // ------------------------------- generateDeclarations ------------------------------ //
+    const generateDeclarations = ({ state, macros: { Var }, }) => `
         let ${Var(state.lastOutputRe, 'Float')} = 0
         let ${Var(state.lastOutputIm, 'Float')} = 0
         let ${Var(state.lastInputRe, 'Float')} = 0
         let ${Var(state.lastInputIm, 'Float')} = 0
     `;
-    // ------------------------------- loop ------------------------------ //
-    const loop = ({ node, ins, state, outs }) => `
-        ${outs.$0} = ${generateOperationRe(ins.$0, _hasSignalInput$1('1', node) ? ins.$1 : state.inputIm, _hasSignalInput$1('2', node) ? ins.$2 : state.coeffRe, _hasSignalInput$1('3', node) ? ins.$3 : state.coeffIm, state.lastOutputRe, state.lastOutputIm, state.lastInputRe, state.lastInputIm)}
-        ${state.lastOutputIm} = ${outs.$1} = ${generateOperationIm(ins.$0, _hasSignalInput$1('1', node) ? ins.$1 : state.inputIm, _hasSignalInput$1('2', node) ? ins.$2 : state.coeffRe, _hasSignalInput$1('3', node) ? ins.$3 : state.coeffIm, state.lastOutputRe, state.lastOutputIm, state.lastInputRe, state.lastInputIm)}
+    // ------------------------------- generateLoop ------------------------------ //
+    const generateLoop = ({ ins, state, outs }) => `
+        ${outs.$0} = ${generateOperationRe(ins.$0, ins.$1, ins.$2, ins.$3, state.lastOutputRe, state.lastOutputIm, state.lastInputRe, state.lastInputIm)}
+        ${state.lastOutputIm} = ${outs.$1} = ${generateOperationIm(ins.$0, ins.$1, ins.$2, ins.$3, state.lastOutputRe, state.lastOutputIm, state.lastInputRe, state.lastInputIm)}
         ${state.lastOutputRe} = ${outs.$0}
         ${state.lastInputRe} = ${ins.$0}
-        ${state.lastInputIm} = ${_hasSignalInput$1('1', node) ? ins.$1 : state.inputIm}
+        ${state.lastInputIm} = ${ins.$1}
     `;
-    // ------------------------------- messages ------------------------------ //
-    const messages = ({ globs, state }) => ({
-        '1_message': coldFloatInlet(globs.m, state.inputIm),
-        '2_message': coldFloatInlet(globs.m, state.coeffRe),
-        '3_message': coldFloatInlet(globs.m, state.coeffIm),
-    });
     return {
-        loop,
+        generateLoop,
         stateVariables: stateVariables$m,
-        messages,
-        declare,
+        generateDeclarations,
     };
 };
 // ------------------------------------------------------------------- //
-const _hasSignalInput$1 = (inletId, node) => node.sources[inletId] && node.sources[inletId].length;
 const builders$2 = {
     'cpole~': builder$k,
     'czero~': builder$k,
@@ -13860,7 +15182,6 @@ const stateVariables$l = {
     previous: 1,
     coeff: 1,
     normal: 1,
-    funcSetCoeff: 1,
 };
 // TODO : very inneficient compute coeff at each iter
 // TODO : tests + cleaner implementations
@@ -13874,71 +15195,38 @@ const builder$j = {
         inlets: {
             '0': { type: 'signal', id: '0' },
             '1': { type: 'signal', id: '1' },
-            '1_message': { type: 'message', id: '1_message' },
         },
         outlets: {
             '0': { type: 'signal', id: '0' },
         },
     }),
-    rerouteMessageConnection: (inletId) => {
+    configureMessageToSignalConnection: (inletId, nodeArgs) => {
         if (inletId === '1') {
-            return '1_message';
+            return { initialSignalValue: nodeArgs.initValue };
         }
         return undefined;
     },
 };
-// ------------------------------- declare ------------------------------ //
-const declare$h = (context) => _hasSignalInput(context.node)
-    ? declareSignal(context)
-    : declareMessage(context);
-const declareSignal = ({ state, macros: { Var }, }) => `
-    let ${Var(state.previous, 'Float')} = 0
-    let ${Var(state.current, 'Float')} = 0
-`;
-const declareMessage = ({ state, globs, node: { args }, macros: { Var, Func }, }) => `
+// ------------------------------- generateDeclarations ------------------------------ //
+const generateDeclarations$h = ({ state, macros: { Var }, }) => `
     let ${Var(state.previous, 'Float')} = 0
     let ${Var(state.current, 'Float')} = 0
     let ${Var(state.coeff, 'Float')} = 0
     let ${Var(state.normal, 'Float')} = 0
-
-    function ${state.funcSetCoeff} ${Func([
-    Var('freq', 'Float')
-], 'void')} {
-        ${state.coeff} = Math.min(Math.max(1 - freq * (2 * Math.PI) / ${globs.sampleRate}, 0), 1)
-        ${state.normal} = 0.5 * (1 + ${state.coeff})
-    }
-
-    commons_waitEngineConfigure(() => {
-        ${state.funcSetCoeff}(${args.initValue})
-    })
 `;
-// ------------------------------- loop ------------------------------ //
-const loop$3 = (context) => _hasSignalInput(context.node)
-    ? loopSignal(context)
-    : loopMessage(context);
-const loopSignal = ({ ins, state, outs }) => `
-    ${state.funcSetCoeff}(${ins.$1})
+// ------------------------------- generateLoop ------------------------------ //
+const generateLoop$2 = ({ ins, state, outs, globs }) => `
+    ${state.coeff} = Math.min(Math.max(1 - ${ins.$1} * (2 * Math.PI) / ${globs.sampleRate}, 0), 1)
+    ${state.normal} = 0.5 * (1 + ${state.coeff})
     ${state.current} = ${ins.$0} + ${state.coeff} * ${state.previous}
     ${outs.$0} = ${state.normal} * (${state.current} - ${state.previous})
     ${state.previous} = ${state.current}
 `;
-const loopMessage = ({ ins, state, outs }) => `
-    ${state.current} = ${ins.$0} + ${state.coeff} * ${state.previous}
-    ${outs.$0} = ${state.normal} * (${state.current} - ${state.previous})
-    ${state.previous} = ${state.current}
-`;
-// ------------------------------- messages ------------------------------ //
-const messages$j = ({ globs, state }) => ({
-    '1_message': coldFloatInletWithSetter(globs.m, state.funcSetCoeff),
-});
 const nodeImplementation$j = {
-    loop: loop$3,
+    generateLoop: generateLoop$2,
     stateVariables: stateVariables$l,
-    messages: messages$j,
-    declare: declare$h,
+    generateDeclarations: generateDeclarations$h,
 };
-// ------------------------------------------------------------------- //
-const _hasSignalInput = (node) => node.sources['1'] && node.sources['1'].length;
 
 /*
  * Copyright (c) 2022-2023 Sébastien Piquemal <sebpiq@protonmail.com>, Chris McCormick.
@@ -13975,41 +15263,38 @@ const builder$i = {
     build: () => ({
         inlets: {
             '0': { type: 'signal', id: '0' },
-            '1': { type: 'message', id: '1' },
+            '1': { type: 'signal', id: '1' },
         },
         outlets: {
             '0': { type: 'signal', id: '0' },
         },
     }),
+    configureMessageToSignalConnection: (inletId, nodeArgs) => {
+        if (inletId === '1') {
+            return { initialSignalValue: nodeArgs.frequency };
+        }
+        return undefined;
+    },
 };
-// ------------------------------- declare ------------------------------ //
-const declare$g = ({ state, globs, node: { args }, macros: { Var, Func }, }) => `
+// ------------------------------- generateDeclarations ------------------------------ //
+const generateDeclarations$g = ({ state, macros: { Var }, }) => `
     let ${Var(state.previous, 'Float')} = 0
     let ${Var(state.coeff, 'Float')} = 0
-
-    function ${state.funcSetFreq} ${Func([
-    Var('freq', 'Float')
-], 'void')} {
-        ${state.coeff} = Math.max(Math.min(freq * 2 * Math.PI / ${globs.sampleRate}, 1), 0)
-    }
-
-    commons_waitEngineConfigure(() => {
-        ${state.funcSetFreq}(${args.frequency})
-    })
 `;
-// ------------------------------- loop ------------------------------ //
-const loop$2 = ({ ins, state, outs }) => `
+// ------------------------------- generateLoop ------------------------------ //
+const generateLoop$1 = ({ ins, state, outs, globs }) => `
+    ${state.coeff} = Math.max(Math.min(freq * 2 * Math.PI / ${globs.sampleRate}, 1), 0)
     ${state.previous} = ${outs.$0} = ${state.coeff} * ${ins.$0} + (1 - ${state.coeff}) * ${state.previous}
 `;
-// ------------------------------- messages ------------------------------ //
-const messages$i = ({ globs, state }) => ({
+// ------------------------------- generateMessageReceivers ------------------------------ //
+const generateMessageReceivers$i = ({ globs, state }) => ({
     '1': coldFloatInletWithSetter(globs.m, state.funcSetFreq),
 });
 const nodeImplementation$i = {
-    loop: loop$2,
+    generateLoop: generateLoop$1,
     stateVariables: stateVariables$k,
-    messages: messages$i,
-    declare: declare$g,
+    generateMessageReceivers: generateMessageReceivers$i,
+    generateDeclarations: generateDeclarations$g,
 };
 
 /*
@@ -14032,7 +15317,6 @@ const nodeImplementation$i = {
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 const stateVariables$j = {
-    inputValue: 1,
     frequency: 1,
     Q: 1,
     // Output value Y[n]
@@ -14047,7 +15331,6 @@ const stateVariables$j = {
     funcSetQ: 1,
     funcSetFrequency: 1,
     funcUpdateCoefs: 1,
-    funcClear: 1,
 };
 // TODO : this uses bp~ implementation, not vcf. Rewrite using pd's implementation : 
 // https://github.com/pure-data/pure-data/blob/master/src/d_osc.c
@@ -14060,9 +15343,7 @@ const builder$h = {
     build: () => ({
         inlets: {
             '0': { type: 'signal', id: '0' },
-            '0_message': { type: 'message', id: '0_message' },
             '1': { type: 'signal', id: '1' },
-            '1_message': { type: 'message', id: '1_message' },
             '2': { type: 'message', id: '2' },
         },
         outlets: {
@@ -14070,19 +15351,9 @@ const builder$h = {
             '1': { type: 'signal', id: '1' },
         },
     }),
-    rerouteMessageConnection: (inletId) => {
-        if (inletId === '0') {
-            return '0_message';
-        }
-        if (inletId === '1') {
-            return '1_message';
-        }
-        return undefined;
-    },
 };
-// ------------------------------- declare ------------------------------ //
-const declare$f = ({ state, globs, node: { args }, macros: { Var, Func } }) => `
-    let ${Var(state.inputValue, 'Float')} = 0
+// ------------------------------- generateDeclarations ------------------------------ //
+const generateDeclarations$f = ({ state, globs, node: { args }, macros: { Var, Func } }) => `
     let ${Var(state.frequency, 'Float')} = ${args.frequency}
     let ${Var(state.Q, 'Float')} = ${args.Q}
     let ${Var(state.coef1, 'Float')} = 0
@@ -14093,7 +15364,7 @@ const declare$f = ({ state, globs, node: { args }, macros: { Var, Func } }) => `
     let ${Var(state.ym2, 'Float')} = 0
 
     function ${state.funcUpdateCoefs} ${Func([], 'void')} {
-        let ${Var('omega', 'Float')} = ${state.frequency} * (2.0 * Math.PI) / ${globs.sampleRate};
+        let ${Var('omega', 'Float')} = ${state.frequency} * (2.0 * Math.PI) / ${globs.sampleRate}
         let ${Var('oneminusr', 'Float')} = ${state.Q} < 0.001 ? 1.0 : Math.min(omega / ${state.Q}, 1)
         let ${Var('r', 'Float')} = 1.0 - oneminusr
         let ${Var('sigbp_qcos', 'Float')} = (omega >= -(0.5 * Math.PI) && omega <= 0.5 * Math.PI) ? 
@@ -14118,38 +15389,25 @@ const declare$f = ({ state, globs, node: { args }, macros: { Var, Func } }) => `
         ${state.Q} = Math.max(Q, 0)
         ${state.funcUpdateCoefs}()
     }
-
-    function ${state.funcClear} ${Func([], 'void')} {
-        ${state.ym1} = 0
-        ${state.ym2} = 0
-    }
-
-    commons_waitEngineConfigure(() => {
-        ${state.funcUpdateCoefs}()
-    })
 `;
-// ------------------------------- loop ------------------------------ //
-const loop$1 = ({ node, ins, outs, state }) => `
-    ${renderIf(_hasSignalInput1(node), `${state.funcSetFrequency}(${ins.$1})`)}
-    ${state.y} = ${_hasSignalInput0(node) ? ins.$0 : state.inputValue} + ${state.coef1} * ${state.ym1} + ${state.coef2} * ${state.ym2}
+// ------------------------------- generateLoop ------------------------------ //
+const generateLoop = ({ ins, outs, state }) => `
+    ${state.funcSetFrequency}(${ins.$1})
+    ${state.y} = ${ins.$0} + ${state.coef1} * ${state.ym1} + ${state.coef2} * ${state.ym2}
     ${outs.$1} = ${outs.$0} = ${state.gain} * ${state.y}
     ${state.ym2} = ${state.ym1}
     ${state.ym1} = ${state.y}
 `;
-// ------------------------------- messages ------------------------------ //
-const messages$h = ({ state, globs }) => ({
-    '0_message': coldFloatInlet(globs.m, state.inputValue),
-    '1_message': coldFloatInletWithSetter(globs.m, state.funcSetFrequency),
+// ------------------------------- generateMessageReceivers ------------------------------ //
+const generateMessageReceivers$h = ({ state, globs }) => ({
     '2': coldFloatInletWithSetter(globs.m, state.funcSetQ),
 });
 // ------------------------------------------------------------------- //
-const _hasSignalInput0 = (node) => node.sources['0'] && node.sources['0'].length;
-const _hasSignalInput1 = (node) => node.sources['1'] && node.sources['1'].length;
 const nodeImplementation$h = {
-    loop: loop$1,
+    generateLoop,
     stateVariables: stateVariables$j,
-    messages: messages$h,
-    declare: declare$f,
+    generateMessageReceivers: generateMessageReceivers$h,
+    generateDeclarations: generateDeclarations$f,
 };
 
 /*
@@ -14212,8 +15470,8 @@ const builder$g = {
         },
     }),
 };
-// ------------------------------ declare ------------------------------ //
-const declare$e = (context) => {
+// ------------------------------ generateDeclarations ------------------------------ //
+const generateDeclarations$e = (context) => {
     const { state, node, macros: { Var, Func }, } = context;
     const transferCodes = node.args.templates.map((template, i) => buildMsgTransferCode(context, template, i));
     return renderCode `
@@ -14232,8 +15490,8 @@ const declare$e = (context) => {
         ]
     `;
 };
-// ------------------------------- messages ------------------------------ //
-const messages$g = ({ snds, state, globs, macros: { Var, Func }, }) => {
+// ------------------------------- generateMessageReceivers ------------------------------ //
+const generateMessageReceivers$g = ({ snds, state, globs, macros: { Var, Func }, }) => {
     return {
         '0': `
         if (
@@ -14279,7 +15537,7 @@ const messages$g = ({ snds, state, globs, macros: { Var, Func }, }) => {
     };
 };
 // ------------------------------------------------------------------- //
-const nodeImplementation$g = { declare: declare$e, messages: messages$g, stateVariables: stateVariables$i };
+const nodeImplementation$g = { generateDeclarations: generateDeclarations$e, generateMessageReceivers: generateMessageReceivers$g, stateVariables: stateVariables$i };
 const buildMsgTransferCode = ({ state, macros: { Var } }, template, index) => {
     const outTemplate = `${state.outTemplates}[${index}]`;
     const outMessage = `${state.outMessages}[${index}]`;
@@ -14481,8 +15739,8 @@ const builder$f = {
         };
     },
 };
-// ------------------------------- declare ------------------------------ //
-const declare$d = ({ state, node: { args }, macros: { Var, Func }, }) => {
+// ------------------------------- generateDeclarations ------------------------------ //
+const generateDeclarations$d = ({ state, node: { args }, macros: { Var, Func }, }) => {
     switch (args.operation) {
         case 'split':
             return `
@@ -14517,8 +15775,8 @@ const declare$d = ({ state, node: { args }, macros: { Var, Func }, }) => {
             throw Error(`unknown operation ${args.operation}`);
     }
 };
-// ------------------------------- messages ------------------------------ //
-const messages$f = ({ snds, globs, state, macros: { Var }, node: { args } }) => {
+// ------------------------------- generateMessageReceivers ------------------------------ //
+const generateMessageReceivers$f = ({ snds, globs, state, macros: { Var }, node: { args } }) => {
     const prepareInMessage = `const ${Var('inMessage', 'Message')} = msg_isBang(${globs.m}) ? msg_create([]): ${globs.m}`;
     switch (args.operation) {
         case 'split':
@@ -14586,10 +15844,10 @@ const messages$f = ({ snds, globs, state, macros: { Var }, node: { args } }) => 
 };
 // ------------------------------------------------------------------- //
 const nodeImplementation$f = {
-    messages: messages$f,
+    generateMessageReceivers: generateMessageReceivers$f,
     stateVariables: stateVariables$h,
-    declare: declare$d,
-    sharedCode: [bangUtils, msgUtils]
+    generateDeclarations: generateDeclarations$d,
+    dependencies: [bangUtils, msgUtils]
 };
 
 /*
@@ -14627,12 +15885,12 @@ const builder$e = {
         outlets: {},
     }),
 };
-// ------------------------------- declare ------------------------------ //
-const declare$c = ({ state, macros: { Var }, node: { args }, }) => `
+// ------------------------------- generateDeclarations ------------------------------ //
+const generateDeclarations$c = ({ state, macros: { Var }, node: { args }, }) => `
     let ${Var(state.busName, 'string')} = "${args.busName}"
 `;
-// ------------------------------- messages ------------------------------ //
-const messages$e = ({ state, globs, }) => ({
+// ------------------------------- generateMessageReceivers ------------------------------ //
+const generateMessageReceivers$e = ({ state, globs, }) => ({
     '0': `
     msgBusPublish(${state.busName}, ${globs.m})
     return
@@ -14642,9 +15900,9 @@ const messages$e = ({ state, globs, }) => ({
 // ------------------------------------------------------------------- //
 const nodeImplementation$e = {
     stateVariables: stateVariables$g,
-    declare: declare$c,
-    messages: messages$e,
-    sharedCode: [messageBuses],
+    generateDeclarations: generateDeclarations$c,
+    generateMessageReceivers: generateMessageReceivers$e,
+    dependencies: [messageBuses, commonsWaitEngineConfigure],
 };
 
 /*
@@ -14680,8 +15938,8 @@ const builder$d = {
         isPushingMessages: true
     }),
 };
-// ------------------------------- declare ------------------------------ //
-const declare$b = ({ compilation: { codeVariableNames: { nodes } }, node: { id, args }, }) => `
+// ------------------------------- generateDeclarations ------------------------------ //
+const generateDeclarations$b = ({ compilation: { codeVariableNames: { nodes } }, node: { id, args }, }) => `
     commons_waitEngineConfigure(() => {
         msgBusSubscribe("${args.busName}", ${nodes[id].snds.$0})
     })
@@ -14689,8 +15947,8 @@ const declare$b = ({ compilation: { codeVariableNames: { nodes } }, node: { id, 
 // ------------------------------------------------------------------- //
 const nodeImplementation$d = {
     stateVariables: stateVariables$f,
-    declare: declare$b,
-    sharedCode: [messageBuses],
+    generateDeclarations: generateDeclarations$b,
+    dependencies: [messageBuses, commonsWaitEngineConfigure],
 };
 
 /*
@@ -14731,8 +15989,8 @@ const builder$c = {
         },
     }),
 };
-// ------------------------------ declare ------------------------------ //
-const declare$a = ({ state, macros: { Func, Var } }) => `
+// ------------------------------ generateDeclarations ------------------------------ //
+const generateDeclarations$a = ({ state, macros: { Func, Var } }) => `
     class SfOperation {
         ${Var('url', 'string')}
         ${Var('arrayNames', 'Array<string>')}
@@ -14763,8 +16021,8 @@ const declare$a = ({ state, macros: { Func, Var } }) => `
         return m
     }
 `;
-// ------------------------------- messages ------------------------------ //
-const messages$d = ({ state, globs, snds, macros: { Func, Var } }) => ({
+// ------------------------------- generateMessageReceivers ------------------------------ //
+const generateMessageReceivers$d = ({ state, globs, snds, macros: { Func, Var } }) => ({
     '0': `
     if (
         msg_getLength(${globs.m}) >= 3 
@@ -15000,10 +16258,15 @@ const messages$d = ({ state, globs, snds, macros: { Func, Var } }) => ({
 });
 // ------------------------------------------------------------------- //
 const nodeImplementation$c = {
-    declare: declare$a,
-    messages: messages$d,
+    generateDeclarations: generateDeclarations$a,
+    generateMessageReceivers: generateMessageReceivers$d,
     stateVariables: stateVariables$e,
-    sharedCode: [parseSoundFileOpenOpts],
+    dependencies: [
+        parseSoundFileOpenOpts,
+        commonsArrays,
+        fsReadSoundFile,
+        fsWriteSoundFile,
+    ],
 };
 
 /*
@@ -15045,15 +16308,15 @@ const builder$b = {
         outlets: {},
     }),
 };
-// ------------------------------- messages ------------------------------ //
-const messages$c = ({ globs, node: { args } }) => ({
+// ------------------------------- generateMessageReceivers ------------------------------ //
+const generateMessageReceivers$c = ({ globs, node: { args } }) => ({
     '0': `
         console.log("${args.prefix} " + msg_display(${globs.m}))
         return
     `,
 });
 // ------------------------------------------------------------------- //
-const nodeImplementation$b = { messages: messages$c, stateVariables: stateVariables$d };
+const nodeImplementation$b = { generateMessageReceivers: generateMessageReceivers$c, stateVariables: stateVariables$d };
 
 const TYPE_ARGUMENTS = [
     'float',
@@ -15171,8 +16434,8 @@ const builder$a = {
         outlets: mapArray(typeArguments, (_, i) => [`${i}`, { type: 'message', id: `${i}` }]),
     }),
 };
-// ------------------------------- messages ------------------------------ //
-const messages$b = ({ snds, globs, node: { args: { typeArguments } } }) => ({
+// ------------------------------- generateMessageReceivers ------------------------------ //
+const generateMessageReceivers$b = ({ snds, globs, node: { args: { typeArguments } } }) => ({
     '0': renderCode `
         ${typeArguments.reverse().map((typeArg, i) => `${snds[typeArguments.length - i - 1]}(${renderMessageTransfer(typeArg, globs.m, 0)})`)}
         return
@@ -15180,9 +16443,9 @@ const messages$b = ({ snds, globs, node: { args: { typeArguments } } }) => ({
 });
 // ------------------------------------------------------------------- //
 const nodeImplementation$a = {
-    messages: messages$b,
+    generateMessageReceivers: generateMessageReceivers$b,
     stateVariables: stateVariables$c,
-    sharedCode: [
+    dependencies: [
         messageTokenToFloat,
         messageTokenToString,
         bangUtils,
@@ -15225,10 +16488,10 @@ const builder$9 = {
         },
     }),
 };
-// ------------------------------- declare ------------------------------ //
-const declare$9 = ({ node, state, macros: { Var }, }) => `let ${Var(state.currentValue, 'Float')} = ${node.args.initValue}`;
-// ------------------------------- messages ------------------------------ //
-const messages$a = ({ snds, globs, state, macros: { Var }, }) => ({
+// ------------------------------- generateDeclarations ------------------------------ //
+const generateDeclarations$9 = ({ node, state, macros: { Var }, }) => `let ${Var(state.currentValue, 'Float')} = ${node.args.initValue}`;
+// ------------------------------- generateMessageReceivers ------------------------------ //
+const generateMessageReceivers$a = ({ snds, globs, state, macros: { Var }, }) => ({
     '0': `
     if (msg_isMatching(${globs.m}, [MSG_FLOAT_TOKEN])) {
         const ${Var('newValue', 'Float')} = msg_readFloatToken(${globs.m}, 0)
@@ -15253,10 +16516,10 @@ const messages$a = ({ snds, globs, state, macros: { Var }, }) => ({
 });
 // ------------------------------------------------------------------- //
 const nodeImplementation$9 = {
-    messages: messages$a,
+    generateMessageReceivers: generateMessageReceivers$a,
     stateVariables: stateVariables$b,
-    declare: declare$9,
-    sharedCode: [bangUtils],
+    generateDeclarations: generateDeclarations$9,
+    dependencies: [bangUtils],
 };
 
 /*
@@ -15297,12 +16560,12 @@ const builder$8 = {
         },
     }),
 };
-// ------------------------------- declare ------------------------------ //
-const declare$8 = ({ node, state, macros: { Var }, }) => `
+// ------------------------------- generateDeclarations ------------------------------ //
+const generateDeclarations$8 = ({ node, state, macros: { Var }, }) => `
     let ${Var(state.threshold, 'Float')} = ${node.args.threshold}
 `;
-// ------------------------------- messages ------------------------------ //
-const messages$9 = ({ snds, globs, state, macros: { Var } }) => ({
+// ------------------------------- generateMessageReceivers ------------------------------ //
+const generateMessageReceivers$9 = ({ snds, globs, state, macros: { Var } }) => ({
     '0': `
     if (msg_isMatching(${globs.m}, [MSG_FLOAT_TOKEN])) {
         const ${Var('value', 'Float')} = msg_readFloatToken(${globs.m}, 0)
@@ -15317,7 +16580,7 @@ const messages$9 = ({ snds, globs, state, macros: { Var } }) => ({
     '1': coldFloatInlet(globs.m, state.threshold),
 });
 // ------------------------------------------------------------------- //
-const nodeImplementation$8 = { messages: messages$9, stateVariables: stateVariables$a, declare: declare$8 };
+const nodeImplementation$8 = { generateMessageReceivers: generateMessageReceivers$9, stateVariables: stateVariables$a, generateDeclarations: generateDeclarations$8 };
 
 /*
  * Copyright (c) 2022-2023 Sébastien Piquemal <sebpiq@protonmail.com>, Chris McCormick.
@@ -15359,13 +16622,13 @@ const builder$7 = {
         },
     }),
 };
-// ------------------------------- declare ------------------------------ //
-const declare$7 = ({ node, state, macros: { Var }, }) => `
+// ------------------------------- generateDeclarations ------------------------------ //
+const generateDeclarations$7 = ({ node, state, macros: { Var }, }) => `
     let ${Var(state.minValue, 'Float')} = ${node.args.minValue}
     let ${Var(state.maxValue, 'Float')} = ${node.args.maxValue}
 `;
-// ------------------------------- messages ------------------------------ //
-const messages$8 = ({ snds, globs, state }) => ({
+// ------------------------------- generateMessageReceivers ------------------------------ //
+const generateMessageReceivers$8 = ({ snds, globs, state }) => ({
     '0': `
     if (msg_isMatching(${globs.m}, [MSG_FLOAT_TOKEN])) {
         ${snds[0]}(msg_floats([
@@ -15379,9 +16642,9 @@ const messages$8 = ({ snds, globs, state }) => ({
 });
 // ------------------------------------------------------------------- //
 const nodeImplementation$7 = {
-    messages: messages$8,
+    generateMessageReceivers: generateMessageReceivers$8,
     stateVariables: stateVariables$9,
-    declare: declare$7,
+    generateDeclarations: generateDeclarations$7,
 };
 
 /*
@@ -15426,16 +16689,16 @@ const builder$6 = {
         };
     },
 };
-// ------------------------------- declare ------------------------------ //
-const declare$6 = ({ node: { args }, state, macros: { Var }, }) => renderCode `
+// ------------------------------- generateDeclarations ------------------------------ //
+const generateDeclarations$6 = ({ node: { args }, state, macros: { Var }, }) => renderCode `
     ${renderIf(args.filters.length === 1, `
         let ${Var(state.floatFilter, 'Float')} = ${typeof args.filters[0] === 'number' ? args.filters[0] : 0}
         let ${Var(state.stringFilter, 'string')} = "${args.filters[0]}"
         let ${Var(state.filterType, 'Int')} = ${typeof args.filters[0] === 'number' ? 'MSG_FLOAT_TOKEN' : 'MSG_STRING_TOKEN'}
     `)}
 `;
-// ------------------------------- messages ------------------------------ //
-const messages$7 = ({ snds, globs, state, node: { args } }) => {
+// ------------------------------- generateMessageReceivers ------------------------------ //
+const generateMessageReceivers$7 = ({ snds, globs, state, node: { args } }) => {
     if (args.filters.length > 1) {
         return {
             '0': renderCode `
@@ -15533,10 +16796,10 @@ const messages$7 = ({ snds, globs, state, node: { args } }) => {
 };
 // ------------------------------------------------------------------- //
 const nodeImplementation$6 = {
-    messages: messages$7,
+    generateMessageReceivers: generateMessageReceivers$7,
     stateVariables: stateVariables$8,
-    declare: declare$6,
-    sharedCode: [bangUtils, msgUtils]
+    generateDeclarations: generateDeclarations$6,
+    dependencies: [bangUtils, msgUtils]
 };
 
 /*
@@ -15577,8 +16840,8 @@ const builder$5 = {
         },
     }),
 };
-// ------------------------------- declare ------------------------------ //
-const declare$5 = ({ node, state, macros: { Var, Func }, }) => `
+// ------------------------------- generateDeclarations ------------------------------ //
+const generateDeclarations$5 = ({ node, state, macros: { Var, Func }, }) => `
     let ${Var(state.isClosed, 'Float')} = ${node.args.isClosed ? 'true' : 'false'}
 
     function ${state.funcSetIsClosed} ${Func([
@@ -15587,8 +16850,8 @@ const declare$5 = ({ node, state, macros: { Var, Func }, }) => `
         ${state.isClosed} = (value === 0)
     }
 `;
-// ------------------------------- messages ------------------------------ //
-const messages$6 = ({ snds, globs, state }) => ({
+// ------------------------------- generateMessageReceivers ------------------------------ //
+const generateMessageReceivers$6 = ({ snds, globs, state }) => ({
     '0': `
     if (!${state.isClosed}) {
         ${snds.$0}(${globs.m})
@@ -15599,9 +16862,9 @@ const messages$6 = ({ snds, globs, state }) => ({
 });
 // ------------------------------------------------------------------- //
 const nodeImplementation$5 = {
-    messages: messages$6,
+    generateMessageReceivers: generateMessageReceivers$6,
     stateVariables: stateVariables$7,
-    declare: declare$5,
+    generateDeclarations: generateDeclarations$5,
 };
 
 /*
@@ -15639,12 +16902,12 @@ const builder$4 = {
         },
     }),
 };
-// ------------------------------- declare ------------------------------ //
-const declare$4 = ({ state, macros: { Var }, }) => `
+// ------------------------------- generateDeclarations ------------------------------ //
+const generateDeclarations$4 = ({ state, macros: { Var }, }) => `
     let ${Var(state.continueIter, 'boolean')} = true
 `;
-// ------------------------------- messages ------------------------------ //
-const messages$5 = ({ snds, globs, state, macros: { Var } }) => ({
+// ------------------------------- generateMessageReceivers ------------------------------ //
+const generateMessageReceivers$5 = ({ snds, globs, state, macros: { Var } }) => ({
     '0': `
     if (msg_isBang(${globs.m})) {
         ${state.continueIter} = true
@@ -15672,10 +16935,10 @@ const messages$5 = ({ snds, globs, state, macros: { Var } }) => ({
 });
 // ------------------------------------------------------------------- //
 const nodeImplementation$4 = {
-    messages: messages$5,
+    generateMessageReceivers: generateMessageReceivers$5,
     stateVariables: stateVariables$6,
-    declare: declare$4,
-    sharedCode: [bangUtils],
+    generateDeclarations: generateDeclarations$4,
+    dependencies: [bangUtils],
 };
 
 /*
@@ -15717,8 +16980,8 @@ const builder$3 = {
         },
     }),
 };
-// ------------------------------- declare ------------------------------ //
-const declare$3 = ({ node, state, macros: { Var, Func }, }) => `
+// ------------------------------- generateDeclarations ------------------------------ //
+const generateDeclarations$3 = ({ node, state, macros: { Var, Func }, }) => `
     let ${Var(state.maxValue, 'Float')} = ${node.args.maxValue}
 
     function ${state.funcSetMaxValue} ${Func([
@@ -15727,8 +16990,8 @@ const declare$3 = ({ node, state, macros: { Var, Func }, }) => `
         ${state.maxValue} = Math.max(maxValue, 0)
     }
 `;
-// ------------------------------- messages ------------------------------ //
-const messages$4 = ({ snds, globs, state }) => ({
+// ------------------------------- generateMessageReceivers ------------------------------ //
+const generateMessageReceivers$4 = ({ snds, globs, state }) => ({
     '0': `
     if (msg_isBang(${globs.m})) {
         ${snds['0']}(msg_floats([Math.floor(Math.random() * ${state.maxValue})]))
@@ -15745,10 +17008,10 @@ const messages$4 = ({ snds, globs, state }) => ({
 });
 // ------------------------------------------------------------------- //
 const nodeImplementation$3 = {
-    messages: messages$4,
+    generateMessageReceivers: generateMessageReceivers$4,
     stateVariables: stateVariables$5,
-    declare: declare$3,
-    sharedCode: [bangUtils],
+    generateDeclarations: generateDeclarations$3,
+    dependencies: [bangUtils],
 };
 
 /*
@@ -15773,10 +17036,12 @@ const nodeImplementation$3 = {
 const stateVariables$4 = {
     delay: 1,
     scheduledMessages: 1,
-    scheduledFrames: 1,
-    lastReceived: 1,
+    outputMessages: 1,
     funcScheduleMessage: 1,
     funcSetDelay: 1,
+    funcSendMessages: 1,
+    funcWaitFrameCallback: 1,
+    funcClear: 1,
 };
 // ------------------------------- node builder ------------------------------ //
 const builder$2 = {
@@ -15805,52 +17070,113 @@ const builder$2 = {
             },
         },
         outlets: mapArray(args.typeArguments, (_, i) => [`${i}`, { type: 'message', id: `${i}` }]),
+        isPullingSignal: true,
     }),
 };
-// ------------------------------- declare ------------------------------ //
-// !!! Array.splice insertion is not supported by assemblyscript, so : 
-// 1. We grow arrays to their post-insertion size by using `push`
-// 2. We use `copyWithin` to move old elements to their final position.
-// 3. We insert the new elements at their place.
-const declare$2 = ({ state, globs, node: { args }, macros: { Var, Func }, }) => renderCode `
+// ------------------------------- dependencies ------------------------------ //
+const pipeGlobalCode = ({ macros: { Var } }) => `
+    class pipe_ScheduledMessage {
+        ${Var('message', 'Message')}
+        ${Var('frame', 'Int')}
+        ${Var('skedId', 'SkedId')}
+    }
+`;
+// ------------------------------- generateDeclarations ------------------------------ //
+const generateDeclarations$2 = ({ state, globs, snds, node: { args }, macros: { Var, Func }, }) => renderCode `
     let ${state.delay} = 0
-    let ${Var(state.scheduledMessages, 'Array<Message>')} = []
-    let ${Var(state.scheduledFrames, 'Array<Int>')} = []
-    const ${Var(state.lastReceived, 'Array<Message>')} = [${args.typeArguments
+    const ${Var(state.outputMessages, 'Array<Message>')} = [${args.typeArguments
     .map(([_, value]) => typeof value === 'number' ?
     `msg_floats([${value}])`
     : `msg_strings(["${value}"])`).join(',')}]
+    let ${Var(state.scheduledMessages, 'Array<pipe_ScheduledMessage>')} = []
 
     const ${state.funcScheduleMessage} = ${Func([
     Var('inMessage', 'Message')
 ], 'void')} => {
         let ${Var('insertIndex', 'Int')} = 0
         let ${Var('frame', 'Int')} = ${globs.frame} + ${state.delay}
-        let ${Var('outMessage', 'Message')} = msg_create([])
+        let ${Var('skedId', 'SkedId')} = SKED_ID_NULL
+        let ${Var('scheduledMessage', 'pipe_ScheduledMessage')} = {
+            message: msg_create([]),
+            frame: frame,
+            skedId: SKED_ID_NULL,
+        }
 
+        ${''
+// !!! Array.splice insertion is not supported by assemblyscript, so : 
+// 1. We grow arrays to their post-insertion size by using `push`
+// 2. We use `copyWithin` to move old elements to their final position.
+}
         while (
-            insertIndex < ${state.scheduledFrames}.length 
-            && ${state.scheduledFrames}[insertIndex] <= frame
-        ) {insertIndex++}
+            insertIndex < ${state.scheduledMessages}.length 
+            && ${state.scheduledMessages}[insertIndex].frame <= frame
+        ) {
+            insertIndex++
+        }
 
-        
-        ${countTo(args.typeArguments.length).map(_ => `${state.scheduledMessages}.push(msg_create([]))`)}
-        ${state.scheduledMessages}.copyWithin((insertIndex + 1) * ${args.typeArguments.length}, insertIndex * ${args.typeArguments.length})
-        ${state.scheduledFrames}.push(0)
-        ${state.scheduledFrames}.copyWithin(insertIndex + 1, insertIndex)
+        ${countTo(args.typeArguments.length).map(_ => `${state.scheduledMessages}.push(scheduledMessage)`)}
+        ${state.scheduledMessages}.copyWithin(
+            (insertIndex + 1) * ${args.typeArguments.length}, 
+            insertIndex * ${args.typeArguments.length}
+        )
 
+        ${''
+// If there was not yet a callback scheduled for that frame, we schedule it.
+}
+        if (
+            insertIndex === 0 || 
+            (
+                insertIndex > 0 
+                && ${state.scheduledMessages}[insertIndex - 1].frame !== frame
+            )
+        ) {
+            skedId = commons_waitFrame(frame, ${state.funcWaitFrameCallback})
+        }
+
+        ${''
+// Finally, schedule a message for each outlet
+}
         ${args.typeArguments.reverse()
     .map(([typeArg], i) => [args.typeArguments.length - i - 1, typeArg])
     .map(([iReverse, typeArg], i) => `
-                if (msg_getLength(inMessage) > ${iReverse}) {
-                    outMessage = ${renderMessageTransfer(typeArg, 'inMessage', iReverse)}
-                    ${state.lastReceived}[${iReverse}] = outMessage
-                } else {
-                    outMessage = ${state.lastReceived}[${iReverse}]
-                }
-                ${state.scheduledMessages}[insertIndex * ${args.typeArguments.length} + ${i}] = outMessage
-            `)}
-        ${state.scheduledFrames}[insertIndex] = frame
+                    scheduledMessage = ${state.scheduledMessages}[insertIndex + ${i}] = {
+                        message: msg_create([]),
+                        frame: frame,
+                        skedId: skedId,
+                    }
+                    if (msg_getLength(inMessage) > ${iReverse}) {
+                        scheduledMessage.message = ${renderMessageTransfer(typeArg, 'inMessage', iReverse)}
+                        ${state.outputMessages}[${iReverse}] = scheduledMessage.message
+                    } else {
+                        scheduledMessage.message = ${state.outputMessages}[${iReverse}]
+                    }
+                `)}
+    }
+
+    const ${state.funcSendMessages} = ${Func([Var('toFrame', 'Int')], 'void')} => {
+        while (
+            ${state.scheduledMessages}.length 
+            && ${state.scheduledMessages}[0].frame <= toFrame
+        ) {
+            ${countTo(args.typeArguments.length)
+    .reverse()
+    .map((i) => `${snds[i]}(${state.scheduledMessages}.shift().message)`)}
+        }
+    }
+
+    const ${state.funcWaitFrameCallback} = ${Func([
+    Var('event', 'SkedEvent')
+], 'void')} => {
+        ${state.funcSendMessages}(${globs.frame})
+    }
+
+    const ${state.funcClear} = ${Func([], 'void')} => {
+        let ${Var('i', 'Int')} = 0
+        const ${Var('length', 'Int')} = ${state.scheduledMessages}.length
+        for (i; i < length; i++) {
+            commons_cancelWaitFrame(${state.scheduledMessages}[i].skedId)
+        }
+        ${state.scheduledMessages} = []
     }
 
     const ${state.funcSetDelay} = ${Func([
@@ -15863,31 +17189,20 @@ const declare$2 = ({ state, globs, node: { args }, macros: { Var, Func }, }) => 
         ${state.funcSetDelay}(${args.delay})
     })
 `;
-// ------------------------------- loop ------------------------------ //
-const loop = ({ node, state, globs, snds, }) => `
-    while (${state.scheduledFrames}.length && ${state.scheduledFrames}[0] <= ${globs.frame}) {
-        ${state.scheduledFrames}.shift()
-        ${countTo(node.args.typeArguments.length).reverse()
-    .map((i) => `${snds[i]}(${state.scheduledMessages}.shift())`)}
-    }
-`;
-// ------------------------------- messages ------------------------------ //
-const messages$3 = ({ node, snds, globs, state, macros: { Var } }) => ({
+// ------------------------------- generateMessageReceivers ------------------------------ //
+const generateMessageReceivers$3 = ({ node, snds, globs, state }) => ({
     '0': renderCode `
     if (msg_isBang(${globs.m})) {
         ${state.funcScheduleMessage}(msg_create([]))
         return
 
     } else if (msg_isAction(${globs.m}, 'clear')) {
-            ${state.scheduledMessages} = []
-            ${state.scheduledFrames} = []
-            return 
+        ${state.funcClear}()
+        return 
 
     } else if (msg_isAction(${globs.m}, 'flush')) {
-        ${state.scheduledFrames} = []
-        while (${state.scheduledMessages}.length) {
-            ${countTo(node.args.typeArguments.length).reverse()
-        .map((i) => `${snds[i]}(${state.scheduledMessages}.shift())`)}
+        if (${state.scheduledMessages}.length) {
+            ${state.funcSendMessages}(${state.scheduledMessages}[${state.scheduledMessages}.length - 1].frame)
         }
         return
 
@@ -15898,22 +17213,24 @@ const messages$3 = ({ node, snds, globs, state, macros: { Var } }) => ({
     `,
     ...mapArray(node.args.typeArguments.slice(1), ([typeArg], i) => [
         `${i + 1}`,
-        `${state.lastReceived}[${i + 1}] = ${renderMessageTransfer(typeArg, globs.m, 0)}
+        `${state.outputMessages}[${i + 1}] = ${renderMessageTransfer(typeArg, globs.m, 0)}
             return`
     ]),
     [node.args.typeArguments.length]: coldFloatInletWithSetter(globs.m, state.funcSetDelay)
 });
 // ------------------------------------------------------------------- //
 const nodeImplementation$2 = {
-    loop,
-    messages: messages$3,
+    generateMessageReceivers: generateMessageReceivers$3,
     stateVariables: stateVariables$4,
-    declare: declare$2,
-    sharedCode: [
+    generateDeclarations: generateDeclarations$2,
+    dependencies: [
+        pipeGlobalCode,
         messageTokenToFloat,
         messageTokenToString,
         bangUtils,
         stringMsgUtils,
+        commonsWaitEngineConfigure,
+        commonsWaitFrame,
     ],
 };
 
@@ -15943,7 +17260,7 @@ const stateVariables$3 = {
 // ------------------------------- node builder ------------------------------ //
 const builder$1 = {
     translateArgs: ({ args }) => ({
-        typeArguments: (args.length ? args : ['float']).map(resolveTypeArgumentAlias)
+        typeArguments: (args.length ? args : ['float', 'float']).map(resolveTypeArgumentAlias)
             // Not sure why but 'bang' is supported as a creation argument, 
             // but turned into a float.
             .map(typeArg => {
@@ -15972,13 +17289,13 @@ const builder$1 = {
         },
     }),
 };
-// ------------------------------- declare ------------------------------ //
-const declare$1 = ({ node: { args }, state, macros: { Var }, }) => renderCode `
+// ------------------------------- generateDeclarations ------------------------------ //
+const generateDeclarations$1 = ({ node: { args }, state, macros: { Var }, }) => renderCode `
     const ${Var(state.floatValues, 'Array<Float>')} = [${args.typeArguments.map(([typeArg, defaultValue]) => `${typeArg === 'float' ? defaultValue : 0}`).join(',')}]
     const ${Var(state.stringValues, 'Array<string>')} = [${args.typeArguments.map(([typeArg, defaultValue]) => `${typeArg === 'symbol' ? `"${defaultValue}"` : '""'}`).join(',')}]
 `;
-// ------------------------------- messages ------------------------------ //
-const messages$2 = ({ snds, globs, state, node, macros: { Var } }) => ({
+// ------------------------------- generateMessageReceivers ------------------------------ //
+const generateMessageReceivers$2 = ({ snds, globs, state, node, macros: { Var } }) => ({
     '0': renderCode `
     if (!msg_isBang(${globs.m})) {
         for (let ${Var('i', 'Int')} = 0; i < msg_getLength(${globs.m}); i++) {
@@ -16013,10 +17330,10 @@ const messages$2 = ({ snds, globs, state, node, macros: { Var } }) => ({
 });
 // ------------------------------------------------------------------- //
 const nodeImplementation$1 = {
-    messages: messages$2,
+    generateMessageReceivers: generateMessageReceivers$2,
     stateVariables: stateVariables$3,
-    declare: declare$1,
-    sharedCode: [messageTokenToString, messageTokenToFloat, bangUtils]
+    generateDeclarations: generateDeclarations$1,
+    dependencies: [messageTokenToString, messageTokenToFloat, bangUtils]
 };
 
 /*
@@ -16063,8 +17380,8 @@ const builder = {
         outlets: mapArray(typeArguments, (_, i) => [`${i}`, { type: 'message', id: `${i}` }]),
     }),
 };
-// ------------------------------- messages ------------------------------ //
-const messages$1 = ({ snds, globs, node: { args } }) => ({
+// ------------------------------- generateMessageReceivers ------------------------------ //
+const generateMessageReceivers$1 = ({ snds, globs, node: { args } }) => ({
     '0': renderCode `
     ${args.typeArguments.map((t, i) => [t, i]).reverse().map(([t, reversedI]) => `
             if (
@@ -16082,7 +17399,7 @@ const messages$1 = ({ snds, globs, node: { args } }) => ({
 });
 // ------------------------------------------------------------------- //
 const nodeImplementation = {
-    messages: messages$1,
+    generateMessageReceivers: generateMessageReceivers$1,
     stateVariables: stateVariables$2,
 };
 
@@ -16140,8 +17457,8 @@ const builderExprTilde = {
         ]),
     }),
 };
-// ------------------------------- declare ------------------------------ //
-const declare = ({ node: { args, type }, state, macros: { Var }, }) => {
+// ------------------------------- generateDeclarations ------------------------------ //
+const generateDeclarations = ({ node: { args, type }, state, macros: { Var }, }) => {
     const inputs = type === 'expr' ?
         validateAndListInputsExpr(args.tokenizedExpressions)
         : validateAndListInputsExprTilde(args.tokenizedExpressions)
@@ -16156,12 +17473,12 @@ const declare = ({ node: { args, type }, state, macros: { Var }, }) => {
         .map(input => `${state.stringInputs}.set(${input.id}, '')`)}
     `;
 };
-// ------------------------------- loop ------------------------------ //
+// ------------------------------- generateLoop ------------------------------ //
 const loopExprTilde = ({ node: { args }, state, outs, ins, }) => `
     ${args.tokenizedExpressions.map((tokens, i) => `${outs[i]} = ${renderTokenizedExpression(state, ins, tokens)}`)}
 `;
-// ------------------------------- messages ------------------------------ //
-const messages = ({ snds, globs, state, node: { args, type }, macros: { Var }, }) => {
+// ------------------------------- generateMessageReceivers ------------------------------ //
+const generateMessageReceivers = ({ snds, globs, state, node: { args, type }, macros: { Var }, }) => {
     const inputs = type === 'expr' ?
         validateAndListInputsExpr(args.tokenizedExpressions)
         : validateAndListInputsExprTilde(args.tokenizedExpressions)
@@ -16334,26 +17651,28 @@ const preprocessExpression = (args) => {
 };
 const nodeImplementations$1 = {
     'expr': {
-        messages,
+        generateMessageReceivers,
         stateVariables: stateVariables$1,
-        declare,
-        sharedCode: [
+        generateDeclarations,
+        dependencies: [
             messageTokenToString,
             messageTokenToFloat,
             roundFloatAsPdInt,
             bangUtils,
+            commonsArrays,
         ],
     },
     'expr~': {
-        messages,
+        generateMessageReceivers,
         stateVariables: stateVariables$1,
-        declare,
-        loop: loopExprTilde,
-        sharedCode: [
+        generateDeclarations,
+        generateLoop: loopExprTilde,
+        dependencies: [
             messageTokenToString,
             messageTokenToFloat,
             roundFloatAsPdInt,
             bangUtils,
+            commonsArrays,
         ],
     },
 };
@@ -16405,9 +17724,9 @@ const makeBuilder = (defaultValue) => ({
         },
     }),
 });
-const makeNodeImplementation = ({ generateOperation, sharedCode = [], prepareLeftOp = 'value', prepareRightOp = 'value', }) => {
-    // ------------------------------ declare ------------------------------ //
-    const declare = ({ state, macros: { Var, Func }, node: { args }, }) => `
+const makeNodeImplementation = ({ generateOperation, dependencies = [], prepareLeftOp = 'value', prepareRightOp = 'value', }) => {
+    // ------------------------------ generateDeclarations ------------------------------ //
+    const generateDeclarations = ({ state, macros: { Var, Func }, node: { args }, }) => `
         let ${Var(state.leftOp, 'Float')} = 0
         let ${Var(state.rightOp, 'Float')} = 0
 
@@ -16422,8 +17741,8 @@ const makeNodeImplementation = ({ generateOperation, sharedCode = [], prepareLef
         ${state.funcSetLeftOp}(0)
         ${state.funcSetRightOp}(${args.value})
     `;
-    // ------------------------------- messages ------------------------------ //
-    const messages = ({ state, globs, snds, }) => ({
+    // ------------------------------- generateMessageReceivers ------------------------------ //
+    const generateMessageReceivers = ({ state, globs, snds, }) => ({
         '0': `
         if (msg_isMatching(${globs.m}, [MSG_FLOAT_TOKEN])) {
             ${state.funcSetLeftOp}(msg_readFloatToken(${globs.m}, 0))
@@ -16438,10 +17757,10 @@ const makeNodeImplementation = ({ generateOperation, sharedCode = [], prepareLef
         '1': coldFloatInletWithSetter(globs.m, state.funcSetRightOp),
     });
     return {
-        declare,
-        messages,
+        generateDeclarations,
+        generateMessageReceivers,
         stateVariables,
-        sharedCode: [bangUtils, ...sharedCode],
+        dependencies: [bangUtils, ...dependencies],
     };
 };
 // ------------------------------------------------------------------- //
@@ -16478,7 +17797,7 @@ const nodeImplementations = {
     }),
     pow: makeNodeImplementation({
         generateOperation: (state) => `pow(${state.leftOp}, ${state.rightOp})`,
-        sharedCode: [pow],
+        dependencies: [pow],
     }),
     log: makeNodeImplementation({
         generateOperation: (state) => `Math.log(${state.leftOp}) / Math.log(${state.rightOp})`,
@@ -16561,30 +17880,29 @@ const NODE_BUILDERS = {
     ...builders$2,
     ...builders$4,
     'noise~': builder$o,
-    'snapshot~': builder$M,
-    'sig~': builder$O,
-    'samphold~': builder$N,
-    'clip~': builder$P,
-    'vline~': builder$L,
-    'line~': builder$K,
-    'dac~': builder$T,
-    'adc~': builder$S,
-    'samplerate~': builder$R,
-    'tabplay~': builder$F,
-    'readsf~': builder$E,
-    'writesf~': builder$D,
-    'mixer~': builder$p,
+    'snapshot~': builder$L,
+    'sig~': builder$T,
+    'samphold~': builder$M,
+    'clip~': builder$N,
+    'vline~': builder$K,
+    'line~': builder$J,
+    'dac~': builder$R,
+    'adc~': builder$Q,
+    'samplerate~': builder$P,
+    'tabplay~': builder$E,
+    'readsf~': builder$D,
+    'writesf~': builder$C,
     'vd~': { aliasTo: 'delread4~' },
-    'bp~': builder$C,
+    'bp~': builder$B,
     'hip~': builder$j,
     'lop~': builder$i,
     'vcf~': builder$h,
     'delwrite~': builder$m,
-    'throw~': builder$B,
-    'catch~': builder$A,
-    'send~': builder$z,
+    'throw~': builder$A,
+    'catch~': builder$z,
+    'send~': builder$y,
     's~': { aliasTo: 'send~' },
-    'receive~': builder$y,
+    'receive~': builder$x,
     'r~': { aliasTo: 'receive~' },
     ...builders$9,
     ...builders$8,
@@ -16592,11 +17910,11 @@ const NODE_BUILDERS = {
     ...builders$6,
     ...builders$7,
     ...builders$1,
-    bang: builder$u,
+    bang: builder$t,
     bng: { aliasTo: 'bang' },
     b: { aliasTo: 'bang' },
     list: builder$f,
-    loadbang: builder$s,
+    loadbang: builder$r,
     send: builder$e,
     s: { aliasTo: 'send' },
     receive: builder$d,
@@ -16617,14 +17935,18 @@ const NODE_BUILDERS = {
     select: { aliasTo: 'route' },
     sel: { aliasTo: 'route' },
     msg: builder$g,
-    metro: builder$x,
-    timer: builder$w,
-    delay: builder$v,
+    metro: builder$w,
+    timer: builder$v,
+    delay: builder$u,
     del: { aliasTo: 'delay' },
-    line: builder$J,
+    line: builder$I,
     soundfiler: builder$c,
-    tabread: builder$H,
-    tabwrite: builder$G,
+    tabread: builder$G,
+    tabwrite: builder$F,
+    // The following are internal nodes used by the compiler
+    // to help reproduce Pd's behavior
+    '_mixer~': builder$U,
+    '_routemsg': builder$S,
     // The following don't need implementations as they will never
     // show up in the graph traversal.
     graph: { isNoop: true },
@@ -16643,39 +17965,38 @@ const NODE_IMPLEMENTATIONS = {
     ...nodeImplementations$2,
     ...nodeImplementations$4,
     'noise~': nodeImplementation$l,
-    'snapshot~': nodeImplementation$F,
-    'sig~': nodeImplementation$H,
-    'samphold~': nodeImplementation$G,
-    'clip~': nodeImplementation$I,
-    'vline~': nodeImplementation$E,
-    'line~': nodeImplementation$D,
-    'mixer~': nodeImplementation$m,
-    'dac~': nodeImplementation$L,
-    'adc~': nodeImplementation$K,
-    'samplerate~': nodeImplementation$J,
-    'tabplay~': nodeImplementation$z,
-    'readsf~': nodeImplementation$y,
-    'writesf~': nodeImplementation$x,
+    'snapshot~': nodeImplementation$E,
+    'sig~': nodeImplementation$L,
+    'samphold~': nodeImplementation$F,
+    'clip~': nodeImplementation$G,
+    'vline~': nodeImplementation$D,
+    'line~': nodeImplementation$C,
+    'dac~': nodeImplementation$J,
+    'adc~': nodeImplementation$I,
+    'samplerate~': nodeImplementation$H,
+    'tabplay~': nodeImplementation$y,
+    'readsf~': nodeImplementation$x,
+    'writesf~': nodeImplementation$w,
     'delwrite~': nodeImplementation$k,
-    'bp~': nodeImplementation$w,
+    'bp~': nodeImplementation$v,
     'hip~': nodeImplementation$j,
     'lop~': nodeImplementation$i,
     'vcf~': nodeImplementation$h,
-    'throw~': nodeImplementation$v,
-    'catch~': nodeImplementation$u,
-    'send~': nodeImplementation$t,
-    'receive~': nodeImplementation$s,
+    'throw~': nodeImplementation$u,
+    'catch~': nodeImplementation$t,
+    'send~': nodeImplementation$s,
+    'receive~': nodeImplementation$r,
     ...nodeImplementations$9,
     ...nodeImplementations$8,
     ...nodeImplementations,
     ...nodeImplementations$7,
     ...nodeImplementations$6,
     ...nodeImplementations$1,
-    bang: nodeImplementation$o,
+    bang: nodeImplementation$n,
     list: nodeImplementation$f,
     send: nodeImplementation$e,
     receive: nodeImplementation$d,
-    loadbang: nodeImplementation$n,
+    loadbang: nodeImplementation$m,
     print: nodeImplementation$b,
     trigger: nodeImplementation$a,
     change: nodeImplementation$9,
@@ -16689,13 +18010,16 @@ const NODE_IMPLEMENTATIONS = {
     route: nodeImplementation$6,
     random: nodeImplementation$3,
     msg: nodeImplementation$g,
-    metro: nodeImplementation$r,
-    timer: nodeImplementation$q,
-    delay: nodeImplementation$p,
-    line: nodeImplementation$C,
-    tabread: nodeImplementation$B,
-    tabwrite: nodeImplementation$A,
+    metro: nodeImplementation$q,
+    timer: nodeImplementation$p,
+    delay: nodeImplementation$o,
+    line: nodeImplementation$B,
+    tabread: nodeImplementation$A,
+    tabwrite: nodeImplementation$z,
     soundfiler: nodeImplementation$c,
+    // Internal nodes
+    '_mixer~': nodeImplementation$M,
+    '_routemsg': nodeImplementation$K,
 };
 
 var fetchRetry = function (fetch, defaults) {

@@ -8,7 +8,7 @@ import {
 } from './render'
 import { assertNonNullable, nextTick } from './misc-utils'
 import { PatchPlayer, PatchPlayerWithSettings, Settings } from './types'
-import { Runtime, Build, AppGenerator } from 'webpd'
+import { Run, Build, AppGenerator } from 'webpd'
 
 export const create = (artefacts: Build.Artefacts, patchUrl: string | null): PatchPlayer => {
     const dspGraph = assertNonNullable(
@@ -83,7 +83,7 @@ export const start = async (
 
     ELEMS.loadingLabel.innerHTML = 'loading assemblyscript compiler ...'
     console.log('PatchPlayer START')
-    await Runtime.registerWebPdWorkletNode(patchPlayer.audioContext)
+    await Run.registerWebPdWorkletNode(patchPlayer.audioContext)
 
     ELEMS.loadingLabel.innerHTML = 'generating GUI ...'
     await nextTick()
