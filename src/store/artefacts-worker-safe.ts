@@ -1,40 +1,25 @@
-import { Build, PdJson } from "webpd"
+import { Browser, Build, PdJson } from "webpd"
 
 export interface WorkerSafeBuildSettings {
     audioSettings: Build.Settings['audioSettings']
+    renderAudioSettings: Build.Settings['renderAudioSettings']
     inletCallerSpecs: Build.Settings['inletCallerSpecs']
-    rootUrl: string | null
+    patchUrl: string | null
 }
 
 export const workerSafePerformBuildStep = async (
     artefacts: Build.Artefacts, step: Build.BuildFormat, workerSafeBuildSettings: WorkerSafeBuildSettings
 ) => {
     const settings: Build.Settings = {
+        ...Browser.createDefaultBuildSettings(workerSafeBuildSettings.patchUrl || ''),
         audioSettings: workerSafeBuildSettings.audioSettings,
-        nodeBuilders: Build.NODE_BUILDERS,
-        nodeImplementations: Build.NODE_IMPLEMENTATIONS,
+        renderAudioSettings: workerSafeBuildSettings.renderAudioSettings,
         inletCallerSpecs: workerSafeBuildSettings.inletCallerSpecs,
-        abstractionLoader: workerSafeBuildSettings.rootUrl
-            ? makeUrlAbstractionLoader(workerSafeBuildSettings.rootUrl)
+        abstractionLoader: workerSafeBuildSettings.patchUrl
+            ? Browser.makeUrlAbstractionLoader(workerSafeBuildSettings.patchUrl)
             : localAbstractionLoader,
     }
     return Build.performBuildStep(artefacts, step, settings)
-}
-
-const makeUrlAbstractionLoader = (rootUrl: string) => {
-    return Build.makeAbstractionLoader(async (nodeType: PdJson.NodeType) => {
-        const url =
-            rootUrl +
-            '/' +
-            (nodeType.endsWith('.pd') ? nodeType : `${nodeType}.pd`)
-        console.log('LOADING ABSTRACTION', url)
-        const response = await fetch(url)
-        if (!response.ok) {
-            console.log('ERROR LOADING ABSTRACTION', url)
-            throw new Build.UnknownNodeTypeError(nodeType)
-        }
-        return await response.text()
-    })
 }
 
 /** Always fails, because locally we don't load any abstractions */

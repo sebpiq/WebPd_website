@@ -3295,9 +3295,9 @@ class ValidationError extends Error {
  * You should have received a copy of the GNU Lesser General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
-const stateVariables$W = {};
+const stateVariables$X = {};
 // ------------------------------- node builder ------------------------------ //
-const builder$U = {
+const builder$V = {
     translateArgs: (pdNode) => ({
         channelCount: assertNumber(pdNode.args[0]),
     }),
@@ -3315,7 +3315,7 @@ const generateLoop$l = ({ node, ins, outs }) => `
     .join(' + ')}
 `;
 // ------------------------------------------------------------------- //
-const nodeImplementation$M = { generateLoop: generateLoop$l, stateVariables: stateVariables$W };
+const nodeImplementation$N = { generateLoop: generateLoop$l, stateVariables: stateVariables$X };
 
 /*
  * Copyright (c) 2022-2023 Sébastien Piquemal <sebpiq@protonmail.com>, Chris McCormick.
@@ -3374,11 +3374,11 @@ const coldFloatInletWithSetter = (messageName, setterName) => {
  * You should have received a copy of the GNU Lesser General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
-const stateVariables$V = {
+const stateVariables$W = {
     currentValue: 1,
 };
 // ------------------------------- node builder ------------------------------ //
-const builder$T = {
+const builder$U = {
     translateArgs: ({ args }) => ({
         initValue: assertOptionalNumber(args[0]) || 0,
     }),
@@ -3392,7 +3392,7 @@ const builder$T = {
     }),
 };
 // ------------------------------- generateDeclarations ------------------------------ //
-const generateDeclarations$E = ({ node: { args }, state, macros: { Var } }) => `
+const generateDeclarations$F = ({ node: { args }, state, macros: { Var } }) => `
     let ${Var(state.currentValue, 'Float')} = ${args.initValue}
 `;
 // ------------------------------- generateLoop ------------------------------ //
@@ -3400,15 +3400,15 @@ const generateLoop$k = ({ outs, state }) => `
     ${outs.$0} = ${state.currentValue}
 `;
 // ------------------------------- generateMessageReceivers ------------------------------ //
-const generateMessageReceivers$G = ({ state, globs }) => ({
+const generateMessageReceivers$H = ({ state, globs }) => ({
     '0': coldFloatInlet(globs.m, state.currentValue),
 });
 // ------------------------------------------------------------------- //
-const nodeImplementation$L = {
+const nodeImplementation$M = {
     generateLoop: generateLoop$k,
-    stateVariables: stateVariables$V,
-    generateMessageReceivers: generateMessageReceivers$G,
-    generateDeclarations: generateDeclarations$E,
+    stateVariables: stateVariables$W,
+    generateMessageReceivers: generateMessageReceivers$H,
+    generateDeclarations: generateDeclarations$F,
 };
 
 /*
@@ -3430,9 +3430,9 @@ const nodeImplementation$L = {
  * You should have received a copy of the GNU Lesser General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
-const stateVariables$U = {};
+const stateVariables$V = {};
 // ------------------------------- node builder ------------------------------ //
-const builder$S = {
+const builder$T = {
     translateArgs: () => ({}),
     build: () => ({
         inlets: {
@@ -3445,7 +3445,7 @@ const builder$S = {
     }),
 };
 // ------------------------------- generateMessageReceivers ------------------------------ //
-const generateMessageReceivers$F = ({ globs, snds }) => ({
+const generateMessageReceivers$G = ({ globs, snds }) => ({
     '0': `
     if (msg_isMatching(${globs.m}, [MSG_FLOAT_TOKEN])) {
         ${snds.$0}(m)
@@ -3456,9 +3456,9 @@ const generateMessageReceivers$F = ({ globs, snds }) => ({
     }`,
 });
 // ------------------------------------------------------------------- //
-const nodeImplementation$K = {
-    stateVariables: stateVariables$U,
-    generateMessageReceivers: generateMessageReceivers$F,
+const nodeImplementation$L = {
+    stateVariables: stateVariables$V,
+    generateMessageReceivers: generateMessageReceivers$G,
 };
 
 /*
@@ -3780,7 +3780,7 @@ const _buildConnectionToSignalSink = (graph, signalSources, messageSources, sink
             args: mixerNodeArgs,
             sources: {},
             sinks: {},
-            ...builder$U.build(mixerNodeArgs),
+            ...builder$V.build(mixerNodeArgs),
         });
         connect(graph, {
             nodeId: implicitMixerNode.id,
@@ -3806,7 +3806,7 @@ const _buildConnectionToSignalSink = (graph, signalSources, messageSources, sink
             args: sigNodeArgs,
             sources: {},
             sinks: {},
-            ...builder$T.build(sigNodeArgs),
+            ...builder$U.build(sigNodeArgs),
         });
         connect(graph, {
             nodeId: implicitSigNode.id,
@@ -3826,7 +3826,7 @@ const _buildConnectionToSignalSink = (graph, signalSources, messageSources, sink
             args: routeMsgArgs,
             sources: {},
             sinks: {},
-            ...builder$S.build(routeMsgArgs),
+            ...builder$T.build(routeMsgArgs),
         });
         let isMsgSortNodeConnected = false;
         if (implicitSigNode) {
@@ -10457,7 +10457,7 @@ const createEngine = async (artefacts, target) => {
     }
 };
 const renderAudioData = (engine, durationSeconds, audioSettings) => {
-    const { sampleRate, blockSize, channelCount } = audioSettings;
+    const { channelCount, sampleRate, blockSize } = audioSettings;
     const durationSamples = Math.round(durationSeconds * sampleRate);
     const blockInput = _makeBlock('in', audioSettings);
     const blockOutput = _makeBlock('out', audioSettings);
@@ -10486,122 +10486,71 @@ const _makeBlock = (inOrOut, audioSettings, blockSize) => {
     return block;
 };
 
-const performBuildStep = async (artefacts, buildStep, { nodeBuilders, nodeImplementations, audioSettings, inletCallerSpecs, abstractionLoader, }) => {
-    let warnings = [];
-    let errors = [];
-    switch (buildStep) {
-        case 'pdJson':
-            const parseResult = parse(artefacts.pd);
-            if (parseResult.status === 0) {
-                artefacts.pdJson = parseResult.pd;
-                return {
-                    status: 0,
-                    warnings: _makeParseErrorMessages(parseResult.warnings),
-                };
-            }
-            else {
-                return {
-                    status: 1,
-                    warnings: _makeParseErrorMessages(parseResult.warnings),
-                    errors: _makeParseErrorMessages(parseResult.errors),
-                };
-            }
-        case 'dspGraph':
-            const toDspGraphResult = await toDspGraph(artefacts.pdJson, nodeBuilders, abstractionLoader);
-            if (toDspGraphResult.abstractionsLoadingWarnings) {
-                warnings = Object.entries(toDspGraphResult.abstractionsLoadingWarnings)
-                    .filter(([_, warnings]) => !!warnings.length)
-                    .flatMap(([nodeType, warnings]) => [
-                    `Warnings when parsing abstraction ${nodeType} :`,
-                    ..._makeParseErrorMessages(warnings),
-                ]);
-            }
-            if (toDspGraphResult.status === 0) {
-                artefacts.dspGraph = {
-                    graph: toDspGraphResult.graph,
-                    arrays: toDspGraphResult.arrays,
-                    pd: toDspGraphResult.pd,
-                };
-                // If inletCallerSpecs are not defined, we infer them by 
-                // discovering UI controls and generating inlet callers for each one.
-                if (!inletCallerSpecs) {
-                    const { controls } = discoverGuiControls(artefacts.dspGraph.pd);
-                    artefacts.dspGraph.inletCallerSpecs = collectGuiControlsInletCallerSpecs(controls, artefacts.dspGraph.graph);
-                }
-                return { status: 0, warnings };
-            }
-            else {
-                const unknownNodeTypes = Object.values(toDspGraphResult.abstractionsLoadingErrors)
-                    .filter((errors) => !!errors.unknownNodeType)
-                    .map((errors) => errors.unknownNodeType);
-                if (unknownNodeTypes.length) {
-                    errors = [
-                        ...errors,
-                        ..._makeUnknownNodeTypeMessage(new Set(unknownNodeTypes)),
-                    ];
-                }
-                errors = [
-                    ...errors,
-                    ...Object.entries(toDspGraphResult.abstractionsLoadingErrors)
-                        .filter(([_, errors]) => !!errors.parsingErrors)
-                        .flatMap(([nodeType, errors]) => [
-                        `Failed to parse abstraction ${nodeType} :`,
-                        ..._makeParseErrorMessages(errors.parsingErrors),
-                    ]),
-                ];
-                return {
-                    status: 1,
-                    errors,
-                    warnings,
-                };
-            }
-        case 'compiledJs':
-        case 'compiledAsc':
-            const compileCodeResult = index(artefacts.dspGraph.graph, nodeImplementations, {
-                target: buildStep === 'compiledJs'
-                    ? 'javascript'
-                    : 'assemblyscript',
-                audioSettings,
-                inletCallerSpecs: inletCallerSpecs || artefacts.dspGraph.inletCallerSpecs,
-                arrays: artefacts.dspGraph.arrays,
-            });
-            {
-                if (buildStep === 'compiledJs') {
-                    artefacts.compiledJs = compileCodeResult.code;
-                }
-                else {
-                    artefacts.compiledAsc = compileCodeResult.code;
-                }
-                return { status: 0, warnings: [] };
-            }
-        case 'wasm':
-            try {
-                artefacts.wasm = await compileAsc(getArtefact(artefacts, 'compiledAsc'), audioSettings.bitDepth);
-            }
-            catch (err) {
-                return {
-                    status: 1,
-                    errors: [err.message],
-                    warnings: [],
-                };
-            }
-            return { status: 0, warnings: [] };
-        case 'wav':
-            artefacts.wav = await renderWav(audioSettings.previewDurationSeconds, artefacts, audioSettings);
-            return { status: 0, warnings: [] };
-        case 'appTemplate':
-            artefacts.appTemplate = appGenerator('bare-bones', artefacts);
-            return { status: 0, warnings: [] };
-        default:
-            throw new Error(`invalid build step ${buildStep}`);
+/*
+ * Copyright (c) 2022-2023 Sébastien Piquemal <sebpiq@protonmail.com>, Chris McCormick.
+ *
+ * This file is part of WebPd
+ * (see https://github.com/sebpiq/WebPd).
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with this program. If not, see <http://www.gnu.org/licenses/>.
+ */
+const stateVariablesTabBase = {
+    array: 1,
+    arrayName: 1,
+    arrayChangesSubscription: 1,
+    funcSetArrayName: 1,
+};
+const translateArgsTabBase = (pdNode) => ({
+    arrayName: assertOptionalString(pdNode.args[0]) || '',
+});
+const declareTabBase = ({ state, node, macros: { Func, Var } }) => `
+    let ${Var(state.array, 'FloatArray')} = createFloatArray(0)
+    let ${Var(state.arrayName, 'string')} = "${node.args.arrayName}"
+    let ${Var(state.arrayChangesSubscription, 'SkedId')} = SKED_ID_NULL
+
+    function ${state.funcSetArrayName} ${Func([
+    Var('arrayName', 'string')
+], 'void')} {
+        if (${state.arrayChangesSubscription} != SKED_ID_NULL) {
+            commons_cancelArrayChangesSubscription(${state.arrayChangesSubscription})
+        }
+        ${state.arrayName} = arrayName
+        ${state.array} = createFloatArray(0)
+        commons_subscribeArrayChanges(arrayName, () => {
+            ${state.array} = commons_getArray(${state.arrayName})
+        })
     }
-};
-const _makeUnknownNodeTypeMessage = (nodeTypeSet) => [
-    `Unknown object types ${Array.from(nodeTypeSet)
-        .map((nodeType) => `${nodeType}`)
-        .join(', ')}`,
-];
-const _makeParseErrorMessages = (errorOrWarnings) => errorOrWarnings.map(({ message, lineIndex }) => `line ${lineIndex + 1} : ${message}`);
+
+    commons_waitEngineConfigure(() => {
+        if (${state.arrayName}.length) {
+            ${state.funcSetArrayName}(${state.arrayName})
+        }
+    })
+`;
+const prepareIndexCode = (value, { state }) => `toInt(Math.min(
+        Math.max(
+            0, Math.floor(${value})
+        ), toFloat(${state.array}.length - 1)
+    ))`;
+const messageSetArrayCode = ({ globs, state, }) => `else if (
+        msg_isMatching(${globs.m}, [MSG_STRING_TOKEN, MSG_STRING_TOKEN])
+        && msg_readStringToken(${globs.m}, 0) === 'set'
+    ) {
+        ${state.funcSetArrayName}(msg_readStringToken(${globs.m}, 1))
+        return
+
+    }`;
 
 /*
  * Copyright (c) 2022-2023 Sébastien Piquemal <sebpiq@protonmail.com>, Chris McCormick.
@@ -10622,115 +10571,189 @@ const _makeParseErrorMessages = (errorOrWarnings) => errorOrWarnings.map(({ mess
  * You should have received a copy of the GNU Lesser General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
-const stateVariables$T = {};
-// TODO : set message not supported
+const stateVariables$U = {
+    ...stateVariablesTabBase,
+    index: 1,
+    funcSetIndex: 1,
+};
 // ------------------------------- node builder ------------------------------ //
-const builder$R = {
-    translateArgs: (pdNode, patch) => {
-        let channelMapping;
-        if (pdNode.args.length) {
-            // Channels are provided as 1-indexed, so we translate them back to 0-indexed.
-            channelMapping = pdNode.args.map((channel) => assertNumber(channel) - 1);
-        }
-        else {
-            // If no channel is provided, since a patch doesn't contain the channel count info,
-            // we just guess the `channelMapping` according to inlets that are defined on the dac.
-            const dacInletIds = new Set();
-            patch.connections.forEach((connection) => {
-                if (connection.sink.nodeId === pdNode.id) {
-                    dacInletIds.add(connection.sink.portletId);
-                }
-            });
-            const maxInlet = Math.max(...dacInletIds);
-            channelMapping = [];
-            for (let channel = 0; channel <= maxInlet; channel++) {
-                channelMapping.push(channel);
-            }
-        }
-        return { channelMapping };
-    },
-    build: (nodeArgs) => ({
-        inlets: mapArray(nodeArgs.channelMapping, (_, i) => [`${i}`, { type: 'signal', id: `${i}` }]),
+const builder$S = {
+    translateArgs: translateArgsTabBase,
+    build: () => ({
+        inlets: {
+            '0': { type: 'message', id: '0' },
+            '1': { type: 'message', id: '1' },
+        },
         outlets: {},
-        isPullingSignal: true,
     }),
 };
-// ------------------------------- generateLoop ------------------------------ //
-const generateLoop$j = ({ ins, globs, node, compilation: { audioSettings, target }, }) => node.args.channelMapping
-    // Save the original index
-    .map((destination, i) => [destination, i])
-    // Ignore channels that are out of bounds
-    .filter(([destination]) => 0 <= destination && destination < audioSettings.channelCount.out)
-    .map(([destination, i]) => target === 'javascript'
-    ? `${globs.output}[${destination}][${globs.iterFrame}] = ${ins[`${i}`]}`
-    : `${globs.output}[${globs.iterFrame} + ${globs.blockSize} * ${destination}] = ${ins[`${i}`]}`)
-    .join('\n') + '\n';
-// ------------------------------------------------------------------- //
-const nodeImplementation$J = { generateLoop: generateLoop$j, stateVariables: stateVariables$T };
+// ------------------------------ generateDeclarations ------------------------------ //
+const generateDeclarations$E = (context) => {
+    const { state, macros: { Var, Func } } = context;
+    return `
+        let ${Var(state.index, 'Int')} = 0
+        ${declareTabBase(context)}
 
-/*
- * Copyright (c) 2022-2023 Sébastien Piquemal <sebpiq@protonmail.com>, Chris McCormick.
- *
- * This file is part of WebPd
- * (see https://github.com/sebpiq/WebPd).
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public License
- * along with this program. If not, see <http://www.gnu.org/licenses/>.
- */
-const stateVariables$S = {};
-// TODO : set message not supported
-// ------------------------------- node builder ------------------------------ //
-const builder$Q = {
-    translateArgs: (pdNode, patch) => {
-        let channelMapping;
-        if (pdNode.args.length) {
-            // Channels are provided as 1-indexed, so we translate them back to 0-indexed.
-            channelMapping = pdNode.args.map((channel) => assertNumber(channel) - 1);
+        function ${state.funcSetIndex} ${Func([
+        Var('index', 'Float')
+    ], 'void')} {
+            ${state.index} = ${prepareIndexCode('index', context)}
         }
-        else {
-            // If no channel is provided, since a patch doesn't contain the channel count info,
-            // we just guess the `channelMapping` according to inlets that are defined on the dac.
-            const adcOutletIds = new Set();
-            patch.connections.forEach((connection) => {
-                if (connection.source.nodeId === pdNode.id) {
-                    adcOutletIds.add(connection.source.portletId);
-                }
-            });
-            const maxOutlet = Math.max(...adcOutletIds);
-            channelMapping = [];
-            for (let channel = 0; channel <= maxOutlet; channel++) {
-                channelMapping.push(channel);
-            }
-        }
-        return { channelMapping };
-    },
-    build: (nodeArgs) => ({
-        inlets: {},
-        outlets: mapArray(nodeArgs.channelMapping, (_, i) => [`${i}`, { type: 'signal', id: `${i}` }]),
-    }),
+    `;
 };
-// ------------------------------- generateLoop ------------------------------ //
-const generateLoop$i = ({ outs, globs, node, compilation: { audioSettings, target }, }) => node.args.channelMapping
-    // Save the original index 
-    .map((source, i) => [source, i])
-    // Ignore channels that are out of bounds
-    .filter(([source]) => 0 <= source && source < audioSettings.channelCount.in)
-    .map(([source, i]) => target === 'javascript'
-    ? `${outs[`${i}`]} = ${globs.input}[${source}][${globs.iterFrame}]`
-    : `${outs[`${i}`]} = ${globs.input}[${globs.iterFrame} + ${globs.blockSize} * ${source}]`)
-    .join('\n') + '\n';
+// ------------------------------- generateMessageReceivers ------------------------------ //
+const generateMessageReceivers$F = (context) => {
+    const { state, globs } = context;
+    return {
+        '0': `
+        if (msg_isMatching(${globs.m}, [MSG_FLOAT_TOKEN])) {        
+            if (${state.array}.length === 0) {
+                return
+
+            } else {
+                ${state.array}[${state.index}] = msg_readFloatToken(${globs.m}, 0)
+                return
+            }
+            return 
+
+        } ${messageSetArrayCode(context)}
+        `,
+        '1': coldFloatInletWithSetter(globs.m, state.funcSetIndex)
+    };
+};
 // ------------------------------------------------------------------- //
-const nodeImplementation$I = { generateLoop: generateLoop$i, stateVariables: stateVariables$S };
+const nodeImplementation$K = {
+    generateDeclarations: generateDeclarations$E,
+    generateMessageReceivers: generateMessageReceivers$F,
+    stateVariables: stateVariables$U,
+    dependencies: [commonsWaitEngineConfigure, commonsArrays]
+};
+
+const EMPTY_BUS_NAME = 'empty';
+const stateVariables$T = {
+    value: 1,
+    funcPrepareStoreValue: 1,
+    funcPrepareStoreValueBang: 1,
+    funcSetReceiveBusName: 1,
+    sendBusName: 1,
+    receiveBusName: 1,
+    funcMessageReceiver: 1,
+};
+const build = () => ({
+    inlets: {
+        '0': { type: 'message', id: '0' },
+    },
+    outlets: {
+        '0': { type: 'message', id: '0' },
+    },
+    // This is always true, because the object can receive 
+    // messages through message bus
+    isPushingMessages: true
+});
+const declareControlSendReceive = ({ node, state, node: { args }, macros: { Var, Func } }) => `
+    let ${Var(state.receiveBusName, 'string')} = "${node.args.receiveBusName}"
+    let ${Var(state.sendBusName, 'string')} = "${node.args.sendBusName}"
+
+    function ${state.funcSetReceiveBusName} ${Func([
+    Var('busName', 'string')
+], 'void')} {
+        if (${state.receiveBusName} !== "${EMPTY_BUS_NAME}") {
+            msgBusUnsubscribe(${state.receiveBusName}, ${state.funcMessageReceiver})
+        }
+        ${state.receiveBusName} = busName
+        if (${state.receiveBusName} !== "${EMPTY_BUS_NAME}") {
+            msgBusSubscribe(${state.receiveBusName}, ${state.funcMessageReceiver})
+        }
+    }
+
+    commons_waitEngineConfigure(() => {
+        ${state.funcSetReceiveBusName}("${args.receiveBusName}")
+    })
+`;
+const messageSetSendReceive = ({ globs, state }) => `
+    if (
+        msg_isMatching(${globs.m}, [MSG_STRING_TOKEN, MSG_STRING_TOKEN])
+        && msg_readStringToken(${globs.m}, 0) === 'receive'
+    ) {
+        ${state.funcSetReceiveBusName}(msg_readStringToken(${globs.m}, 1))
+        return
+
+    } else if (
+        msg_isMatching(${globs.m}, [MSG_STRING_TOKEN, MSG_STRING_TOKEN])
+        && msg_readStringToken(${globs.m}, 0) === 'send'
+    ) {
+        ${state.sendBusName} = msg_readStringToken(${globs.m}, 1)
+        return
+    }
+`;
+
+// TODO : unit tests
+const signalBuses = ({ macros: { Var, Func } }) => `
+    const ${Var('SIGNAL_BUSES', 'Map<string, Float>')} = new Map()
+    SIGNAL_BUSES.set('', 0)
+
+    function addAssignSignalBus ${Func([Var('busName', 'string'), Var('value', 'Float')], 'Float')} {
+        const ${Var('newValue', 'Float')} = SIGNAL_BUSES.get(busName) + value
+        SIGNAL_BUSES.set(
+            busName,
+            newValue,
+        )
+        return newValue
+    }
+
+    function setSignalBus ${Func([
+    Var('busName', 'string'),
+    Var('value', 'Float'),
+], 'void')} {
+        SIGNAL_BUSES.set(
+            busName,
+            value,
+        )
+    }
+
+    function resetSignalBus ${Func([
+    Var('busName', 'string')
+], 'void')} {
+        SIGNAL_BUSES.set(busName, 0)
+    }
+
+    function readSignalBus ${Func([Var('busName', 'string')], 'Float')} {
+        return SIGNAL_BUSES.get(busName)
+    }
+`;
+// TODO : unit tests
+const messageBuses = {
+    codeGenerator: ({ macros: { Var, Func } }) => `
+    const ${Var('MSG_BUSES', 'Map<string, Array<(m: Message) => void>>')} = new Map()
+
+    function msgBusPublish ${Func([Var('busName', 'string'), Var('message', 'Message')], 'void')} {
+        let ${Var('i', 'Int')} = 0
+        const ${Var('callbacks', 'Array<(m: Message) => void>')} = MSG_BUSES.has(busName) ? MSG_BUSES.get(busName): []
+        for (i = 0; i < callbacks.length; i++) {
+            callbacks[i](message)
+        }
+    }
+
+    function msgBusSubscribe ${Func([Var('busName', 'string'), Var('callback', '(m: Message) => void')], 'void')} {
+        if (!MSG_BUSES.has(busName)) {
+            MSG_BUSES.set(busName, [])
+        }
+        MSG_BUSES.get(busName).push(callback)
+    }
+
+    function msgBusUnsubscribe ${Func([Var('busName', 'string'), Var('callback', '(m: Message) => void')], 'void')} {
+        if (!MSG_BUSES.has(busName)) {
+            return
+        }
+        const ${Var('callbacks', 'Array<(m: Message) => void>')} = MSG_BUSES.get(busName)
+        const ${Var('found', 'Int')} = callbacks.indexOf(callback) !== -1
+        if (found !== -1) {
+            callbacks.splice(found, 1)
+        }
+    }
+`,
+    dependencies: [msg],
+};
 
 /*
  * Copyright (c) 2022-2023 Sébastien Piquemal <sebpiq@protonmail.com>, Chris McCormick.
@@ -10870,7 +10893,610 @@ const stringMsgUtils = {
  * You should have received a copy of the GNU Lesser General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
+// ------------------------------- node builder ------------------------------ //
+const builderWithInit = {
+    translateArgs: ({ args: [minValue, maxValue, init, initValue, receive, send], }) => ({
+        minValue: assertNumber(minValue),
+        maxValue: assertNumber(maxValue),
+        sendBusName: assertOptionalString(send) || EMPTY_BUS_NAME,
+        receiveBusName: assertOptionalString(receive) || EMPTY_BUS_NAME,
+        initValue: init === 1 ? assertNumber(initValue) : 0,
+        outputOnLoad: !!init,
+    }),
+    build,
+};
+const builderWithoutMin = {
+    translateArgs: ({ args: [maxValue, init, initValue, receive, send], }) => ({
+        minValue: 0,
+        maxValue: assertNumber(maxValue),
+        sendBusName: assertOptionalString(send) || EMPTY_BUS_NAME,
+        receiveBusName: assertOptionalString(receive) || EMPTY_BUS_NAME,
+        initValue: init === 1 ? assertNumber(initValue) : 0,
+        outputOnLoad: !!init,
+    }),
+    build,
+};
+const makeNodeImplementation$9 = ({ prepareStoreValue, prepareStoreValueBang, }) => {
+    // ------------------------------- generateDeclarations ------------------------------ //
+    const generateDeclarations = (context) => {
+        const { node, state, snds, node: { id, args }, compilation: { codeVariableNames: { nodes } }, macros: { Var, Func } } = context;
+        return `
+            let ${Var(state.value, 'Float')} = ${node.args.initValue}
+
+            ${renderIf(prepareStoreValue, () => `function ${state.funcPrepareStoreValue} ${Func([
+            Var('value', 'Float')
+        ], 'Float')} {
+                    return ${prepareStoreValue(node.args)}
+                }`)}
+
+            ${renderIf(prepareStoreValueBang, () => `function ${state.funcPrepareStoreValueBang} ${Func([
+            Var('value', 'Float')
+        ], 'Float')} {
+                    return ${prepareStoreValueBang(node.args)}
+                }`)}
+
+            function ${state.funcMessageReceiver} ${Func([
+            Var('m', 'Message'),
+        ], 'void')} {
+                if (msg_isMatching(m, [MSG_FLOAT_TOKEN])) {
+                    ${prepareStoreValue ?
+            `${state.value} = ${state.funcPrepareStoreValue}(msg_readFloatToken(m, 0))`
+            : `${state.value} = msg_readFloatToken(m, 0)`}
+                    const ${Var('outMessage', 'Message')} = msg_floats([${state.value}])
+                    ${nodes[id].snds.$0}(outMessage)
+                    if (${state.sendBusName} !== "${EMPTY_BUS_NAME}") {
+                        msgBusPublish(${state.sendBusName}, outMessage)
+                    }
+
+                } else if (msg_isBang(m)) {
+                    ${renderIf(prepareStoreValueBang, () => `${state.value} = ${state.funcPrepareStoreValueBang}(${state.value})`)}
+                    const ${Var('outMessage', 'Message')} = msg_floats([${state.value}])
+                    ${nodes[id].snds.$0}(outMessage)
+                    if (${state.sendBusName} !== "${EMPTY_BUS_NAME}") {
+                        msgBusPublish(${state.sendBusName}, outMessage)
+                    }
+
+                } else if (
+                    msg_isMatching(m, [MSG_STRING_TOKEN, MSG_FLOAT_TOKEN]) 
+                    && msg_readStringToken(m, 0) === 'set'
+                ) {
+                    ${prepareStoreValue ?
+            `${state.value} = ${state.funcPrepareStoreValue}(msg_readFloatToken(m, 1))`
+            : `${state.value} = msg_readFloatToken(m, 1)`}
+                }
+            
+                ${messageSetSendReceive(context)}
+            }
+
+            ${declareControlSendReceive(context)}
+
+            ${renderIf(args.outputOnLoad, `commons_waitFrame(0, () => ${snds.$0}(msg_floats([${state.value}])))`)}
+        `;
+    };
+    // ------------------------------- generateMessageReceivers ------------------------------ //
+    const generateMessageReceivers = (context) => {
+        const { globs, state } = context;
+        return {
+            '0': `
+                ${state.funcMessageReceiver}(${globs.m})
+                return
+            `
+        };
+    };
+    return {
+        generateMessageReceivers,
+        generateDeclarations,
+        stateVariables: stateVariables$T,
+        dependencies: [
+            bangUtils,
+            messageBuses,
+            commonsWaitEngineConfigure,
+            commonsWaitFrame,
+        ],
+    };
+};
+// ------------------------------------------------------------------- //
+const nodeImplementations$b = {
+    'tgl': makeNodeImplementation$9({
+        prepareStoreValueBang: ({ maxValue }) => `value === 0 ? ${maxValue}: 0`
+    }),
+    'nbx': makeNodeImplementation$9({
+        prepareStoreValue: ({ minValue, maxValue }) => `Math.min(Math.max(value,${minValue}),${maxValue})`
+    }),
+    'hsl': makeNodeImplementation$9({}),
+    'hradio': makeNodeImplementation$9({}),
+};
+nodeImplementations$b['vsl'] = nodeImplementations$b['hsl'];
+nodeImplementations$b['vradio'] = nodeImplementations$b['hradio'];
+const builders$b = {
+    'tgl': builderWithoutMin,
+    'nbx': builderWithInit,
+    'hsl': builderWithInit,
+    'vsl': builderWithInit,
+    'hradio': builderWithoutMin,
+    'vradio': builderWithoutMin,
+};
+
+const MAX_MIDI_FREQ = Math.pow(2, (1499 - 69) / 12) * 440;
+// Also possible to use optimized version, but gives approximate results : 8.17579891564 * Math.exp(0.0577622650 * value)
+const mtof = ({ macros: { Func, Var } }) => `
+    function mtof ${Func([
+    Var('value', 'Float'),
+], 'Float')} {
+        return value <= -1500 ? 0: (value > 1499 ? ${MAX_MIDI_FREQ} : Math.pow(2, (value - 69) / 12) * 440)
+    }
+`;
+// optimized version of formula : 12 * Math.log(freq / 440) / Math.LN2 + 69
+// which is the same as : Math.log(freq / mtof(0)) * (12 / Math.LN2) 
+// which is the same as : Math.log(freq / 8.1757989156) * (12 / Math.LN2) 
+const ftom = ({ macros: { Func, Var } }) => `
+    function ftom ${Func([
+    Var('value', 'Float'),
+], 'Float')} {
+        return value <= 0 ? -1500: 12 * Math.log(value / 440) / Math.LN2 + 69
+    }
+`;
+// TODO : tests (see in binop)
+const pow = ({ macros: { Func, Var } }) => `
+    function pow ${Func([
+    Var('leftOp', 'Float'),
+    Var('rightOp', 'Float'),
+], 'Float')} {
+        return leftOp > 0 || (Math.round(rightOp) === rightOp) ? Math.pow(leftOp, rightOp): 0
+    }
+`;
+
+/*
+ * Copyright (c) 2022-2023 Sébastien Piquemal <sebpiq@protonmail.com>, Chris McCormick.
+ *
+ * This file is part of WebPd
+ * (see https://github.com/sebpiq/WebPd).
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with this program. If not, see <http://www.gnu.org/licenses/>.
+ */
+const stateVariables$S = {
+    leftOp: 1,
+    rightOp: 1,
+    funcSetRightOp: 1,
+    funcSetLeftOp: 1,
+};
+// ------------------------------- node builder ------------------------------ //
+const makeBuilder$1 = (defaultValue) => ({
+    translateArgs: (pdNode) => {
+        const value = assertOptionalNumber(pdNode.args[0]);
+        return {
+            value: value !== undefined ? value : defaultValue,
+        };
+    },
+    build: () => ({
+        inlets: {
+            '0': { type: 'message', id: '0' },
+            '1': { type: 'message', id: '1' },
+        },
+        outlets: {
+            '0': { type: 'message', id: '0' },
+        },
+    }),
+});
+const makeNodeImplementation$8 = ({ generateOperation, dependencies = [], prepareLeftOp = 'value', prepareRightOp = 'value', }) => {
+    // ------------------------------ generateDeclarations ------------------------------ //
+    const generateDeclarations = ({ state, macros: { Var, Func }, node: { args }, }) => `
+        let ${Var(state.leftOp, 'Float')} = 0
+        let ${Var(state.rightOp, 'Float')} = 0
+
+        const ${state.funcSetLeftOp} = ${Func([Var('value', 'Float')], 'void')} => {
+            ${state.leftOp} = ${prepareLeftOp}
+        }
+
+        const ${state.funcSetRightOp} = ${Func([Var('value', 'Float')], 'void')} => {
+            ${state.rightOp} = ${prepareRightOp}
+        }
+
+        ${state.funcSetLeftOp}(0)
+        ${state.funcSetRightOp}(${args.value})
+    `;
+    // ------------------------------- generateMessageReceivers ------------------------------ //
+    const generateMessageReceivers = ({ state, globs, snds, }) => ({
+        '0': `
+        if (msg_isMatching(${globs.m}, [MSG_FLOAT_TOKEN])) {
+            ${state.funcSetLeftOp}(msg_readFloatToken(${globs.m}, 0))
+            ${snds.$0}(msg_floats([${generateOperation(state)}]))
+            return
+        
+        } else if (msg_isBang(${globs.m})) {
+            ${snds.$0}(msg_floats([${generateOperation(state)}]))
+            return
+        }
+        `,
+        '1': coldFloatInletWithSetter(globs.m, state.funcSetRightOp),
+    });
+    return {
+        generateDeclarations,
+        generateMessageReceivers,
+        stateVariables: stateVariables$S,
+        dependencies: [bangUtils, ...dependencies],
+    };
+};
+// ------------------------------------------------------------------- //
+const nodeImplementations$a = {
+    '+': makeNodeImplementation$8({
+        generateOperation: (state) => `${state.leftOp} + ${state.rightOp}`,
+    }),
+    '-': makeNodeImplementation$8({
+        generateOperation: (state) => `${state.leftOp} - ${state.rightOp}`,
+    }),
+    '*': makeNodeImplementation$8({
+        generateOperation: (state) => `${state.leftOp} * ${state.rightOp}`,
+    }),
+    '/': makeNodeImplementation$8({
+        generateOperation: (state) => `${state.rightOp} !== 0 ? ${state.leftOp} / ${state.rightOp}: 0`,
+    }),
+    'max': makeNodeImplementation$8({
+        generateOperation: (state) => `Math.max(${state.leftOp}, ${state.rightOp})`,
+    }),
+    'min': makeNodeImplementation$8({
+        generateOperation: (state) => `Math.min(${state.leftOp}, ${state.rightOp})`,
+    }),
+    mod: makeNodeImplementation$8({
+        prepareLeftOp: `value > 0 ? Math.floor(value): Math.ceil(value)`,
+        prepareRightOp: `Math.floor(Math.abs(value))`,
+        // Modulo in Pd works so that negative values passed to the [mod] function cycle seamlessly :
+        // -3 % 3 = 0 ; -2 % 3 = 1 ; -1 % 3 = 2 ; 0 % 3 = 0 ; 1 % 3 = 1 ; ...
+        // So we need to translate the leftOp so that it is > 0 in order for the javascript % function to work.
+        generateOperation: (state) => `${state.rightOp} !== 0 ? (${state.rightOp} + (${state.leftOp} % ${state.rightOp})) % ${state.rightOp}: 0`,
+    }),
+    // Legacy modulo
+    '%': makeNodeImplementation$8({
+        generateOperation: (state) => `${state.leftOp} % ${state.rightOp}`,
+    }),
+    pow: makeNodeImplementation$8({
+        generateOperation: (state) => `pow(${state.leftOp}, ${state.rightOp})`,
+        dependencies: [pow],
+    }),
+    log: makeNodeImplementation$8({
+        generateOperation: (state) => `Math.log(${state.leftOp}) / Math.log(${state.rightOp})`,
+    }),
+    '||': makeNodeImplementation$8({
+        prepareLeftOp: `Math.floor(Math.abs(value))`,
+        prepareRightOp: `Math.floor(Math.abs(value))`,
+        generateOperation: (state) => `${state.leftOp} || ${state.rightOp} ? 1: 0`,
+    }),
+    '&&': makeNodeImplementation$8({
+        prepareLeftOp: `Math.floor(Math.abs(value))`,
+        prepareRightOp: `Math.floor(Math.abs(value))`,
+        generateOperation: (state) => `${state.leftOp} && ${state.rightOp} ? 1: 0`,
+    }),
+    '>': makeNodeImplementation$8({
+        generateOperation: (state) => `${state.leftOp} > ${state.rightOp} ? 1: 0`,
+    }),
+    '>=': makeNodeImplementation$8({
+        generateOperation: (state) => `${state.leftOp} >= ${state.rightOp} ? 1: 0`,
+    }),
+    '<': makeNodeImplementation$8({
+        generateOperation: (state) => `${state.leftOp} < ${state.rightOp} ? 1: 0`,
+    }),
+    '<=': makeNodeImplementation$8({
+        generateOperation: (state) => `${state.leftOp} <= ${state.rightOp} ? 1: 0`,
+    }),
+    '==': makeNodeImplementation$8({
+        generateOperation: (state) => `${state.leftOp} == ${state.rightOp} ? 1: 0`,
+    }),
+    '!=': makeNodeImplementation$8({
+        generateOperation: (state) => `${state.leftOp} != ${state.rightOp} ? 1: 0`,
+    }),
+};
+const builders$a = {
+    '+': makeBuilder$1(0),
+    '-': makeBuilder$1(0),
+    '*': makeBuilder$1(1),
+    '/': makeBuilder$1(1),
+    'max': makeBuilder$1(0),
+    'min': makeBuilder$1(1),
+    mod: makeBuilder$1(0),
+    '%': makeBuilder$1(0),
+    pow: makeBuilder$1(0),
+    log: makeBuilder$1(Math.E),
+    '||': makeBuilder$1(0),
+    '&&': makeBuilder$1(0),
+    '>': makeBuilder$1(0),
+    '>=': makeBuilder$1(0),
+    '<': makeBuilder$1(0),
+    '<=': makeBuilder$1(0),
+    '==': makeBuilder$1(0),
+    '!=': makeBuilder$1(0),
+};
+
+/**
+ * A helper to perform a build step on a given artefacts object.
+ * If the build is successful, the artefacts object is updated in place with
+ * the newly built artefact.
+ *
+ * Beware that this can only build one step at a time. If targetting a given format
+ * requires multiple steps, you need to call this function multiple times with intermediate targets.
+ *
+ * @see buildFromPatch
+ *
+ * @param artefacts
+ * @param target
+ * @param settings
+ */
+const performBuildStep = async (artefacts, target, { nodeBuilders, nodeImplementations, audioSettings, renderAudioSettings, inletCallerSpecs, abstractionLoader, }) => {
+    let warnings = [];
+    let errors = [];
+    switch (target) {
+        case 'pdJson':
+            const parseResult = parse(artefacts.pd);
+            if (parseResult.status === 0) {
+                artefacts.pdJson = parseResult.pd;
+                return {
+                    status: 0,
+                    warnings: _makeParseErrorMessages(parseResult.warnings),
+                };
+            }
+            else {
+                return {
+                    status: 1,
+                    warnings: _makeParseErrorMessages(parseResult.warnings),
+                    errors: _makeParseErrorMessages(parseResult.errors),
+                };
+            }
+        case 'dspGraph':
+            const toDspGraphResult = await toDspGraph(artefacts.pdJson, nodeBuilders, abstractionLoader);
+            if (toDspGraphResult.abstractionsLoadingWarnings) {
+                warnings = Object.entries(toDspGraphResult.abstractionsLoadingWarnings)
+                    .filter(([_, warnings]) => !!warnings.length)
+                    .flatMap(([nodeType, warnings]) => [
+                    `Warnings when parsing abstraction ${nodeType} :`,
+                    ..._makeParseErrorMessages(warnings),
+                ]);
+            }
+            if (toDspGraphResult.status === 0) {
+                artefacts.dspGraph = {
+                    graph: toDspGraphResult.graph,
+                    arrays: toDspGraphResult.arrays,
+                    pd: toDspGraphResult.pd,
+                };
+                // If inletCallerSpecs are not defined, we infer them by 
+                // discovering UI controls and generating inlet callers for each one.
+                if (!inletCallerSpecs) {
+                    const { controls } = discoverGuiControls(artefacts.dspGraph.pd);
+                    artefacts.dspGraph.inletCallerSpecs = collectGuiControlsInletCallerSpecs(controls, artefacts.dspGraph.graph);
+                }
+                return { status: 0, warnings };
+            }
+            else {
+                const unknownNodeTypes = Object.values(toDspGraphResult.abstractionsLoadingErrors)
+                    .filter((errors) => !!errors.unknownNodeType)
+                    .map((errors) => errors.unknownNodeType);
+                if (unknownNodeTypes.length) {
+                    errors = [
+                        ...errors,
+                        ..._makeUnknownNodeTypeMessage(new Set(unknownNodeTypes)),
+                    ];
+                }
+                errors = [
+                    ...errors,
+                    ...Object.entries(toDspGraphResult.abstractionsLoadingErrors)
+                        .filter(([_, errors]) => !!errors.parsingErrors)
+                        .flatMap(([nodeType, errors]) => [
+                        `Failed to parse abstraction ${nodeType} :`,
+                        ..._makeParseErrorMessages(errors.parsingErrors),
+                    ]),
+                ];
+                return {
+                    status: 1,
+                    errors,
+                    warnings,
+                };
+            }
+        case 'compiledJs':
+        case 'compiledAsc':
+            const compileCodeResult = index(artefacts.dspGraph.graph, nodeImplementations, {
+                target: target === 'compiledJs'
+                    ? 'javascript'
+                    : 'assemblyscript',
+                audioSettings,
+                inletCallerSpecs: inletCallerSpecs || artefacts.dspGraph.inletCallerSpecs,
+                arrays: artefacts.dspGraph.arrays,
+            });
+            {
+                if (target === 'compiledJs') {
+                    artefacts.compiledJs = compileCodeResult.code;
+                }
+                else {
+                    artefacts.compiledAsc = compileCodeResult.code;
+                }
+                return { status: 0, warnings: [] };
+            }
+        case 'wasm':
+            try {
+                artefacts.wasm = await compileAsc(getArtefact(artefacts, 'compiledAsc'), audioSettings.bitDepth);
+            }
+            catch (err) {
+                return {
+                    status: 1,
+                    errors: [err.message],
+                    warnings: [],
+                };
+            }
+            return { status: 0, warnings: [] };
+        case 'wav':
+            artefacts.wav = await renderWav(renderAudioSettings.previewDurationSeconds, artefacts, { ...audioSettings, ...renderAudioSettings });
+            return { status: 0, warnings: [] };
+        case 'appTemplate':
+            artefacts.appTemplate = appGenerator('bare-bones', artefacts);
+            return { status: 0, warnings: [] };
+        default:
+            throw new Error(`invalid build step ${target}`);
+    }
+};
+const _makeUnknownNodeTypeMessage = (nodeTypeSet) => [
+    `Unknown object types ${Array.from(nodeTypeSet)
+        .map((nodeType) => `${nodeType}`)
+        .join(', ')}`,
+];
+const _makeParseErrorMessages = (errorOrWarnings) => errorOrWarnings.map(({ message, lineIndex }) => `line ${lineIndex + 1} : ${message}`);
+
+/*
+ * Copyright (c) 2022-2023 Sébastien Piquemal <sebpiq@protonmail.com>, Chris McCormick.
+ *
+ * This file is part of WebPd
+ * (see https://github.com/sebpiq/WebPd).
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with this program. If not, see <http://www.gnu.org/licenses/>.
+ */
 const stateVariables$R = {};
+// TODO : set message not supported
+// ------------------------------- node builder ------------------------------ //
+const builder$R = {
+    translateArgs: (pdNode, patch) => {
+        let channelMapping;
+        if (pdNode.args.length) {
+            // Channels are provided as 1-indexed, so we translate them back to 0-indexed.
+            channelMapping = pdNode.args.map((channel) => assertNumber(channel) - 1);
+        }
+        else {
+            // If no channel is provided, since a patch doesn't contain the channel count info,
+            // we just guess the `channelMapping` according to inlets that are defined on the dac.
+            const dacInletIds = new Set();
+            patch.connections.forEach((connection) => {
+                if (connection.sink.nodeId === pdNode.id) {
+                    dacInletIds.add(connection.sink.portletId);
+                }
+            });
+            const maxInlet = Math.max(...dacInletIds);
+            channelMapping = [];
+            for (let channel = 0; channel <= maxInlet; channel++) {
+                channelMapping.push(channel);
+            }
+        }
+        return { channelMapping };
+    },
+    build: (nodeArgs) => ({
+        inlets: mapArray(nodeArgs.channelMapping, (_, i) => [`${i}`, { type: 'signal', id: `${i}` }]),
+        outlets: {},
+        isPullingSignal: true,
+    }),
+};
+// ------------------------------- generateLoop ------------------------------ //
+const generateLoop$j = ({ ins, globs, node, compilation: { audioSettings, target }, }) => node.args.channelMapping
+    // Save the original index
+    .map((destination, i) => [destination, i])
+    // Ignore channels that are out of bounds
+    .filter(([destination]) => 0 <= destination && destination < audioSettings.channelCount.out)
+    .map(([destination, i]) => target === 'javascript'
+    ? `${globs.output}[${destination}][${globs.iterFrame}] = ${ins[`${i}`]}`
+    : `${globs.output}[${globs.iterFrame} + ${globs.blockSize} * ${destination}] = ${ins[`${i}`]}`)
+    .join('\n') + '\n';
+// ------------------------------------------------------------------- //
+const nodeImplementation$J = { generateLoop: generateLoop$j, stateVariables: stateVariables$R };
+
+/*
+ * Copyright (c) 2022-2023 Sébastien Piquemal <sebpiq@protonmail.com>, Chris McCormick.
+ *
+ * This file is part of WebPd
+ * (see https://github.com/sebpiq/WebPd).
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with this program. If not, see <http://www.gnu.org/licenses/>.
+ */
+const stateVariables$Q = {};
+// TODO : set message not supported
+// ------------------------------- node builder ------------------------------ //
+const builder$Q = {
+    translateArgs: (pdNode, patch) => {
+        let channelMapping;
+        if (pdNode.args.length) {
+            // Channels are provided as 1-indexed, so we translate them back to 0-indexed.
+            channelMapping = pdNode.args.map((channel) => assertNumber(channel) - 1);
+        }
+        else {
+            // If no channel is provided, since a patch doesn't contain the channel count info,
+            // we just guess the `channelMapping` according to inlets that are defined on the dac.
+            const adcOutletIds = new Set();
+            patch.connections.forEach((connection) => {
+                if (connection.source.nodeId === pdNode.id) {
+                    adcOutletIds.add(connection.source.portletId);
+                }
+            });
+            const maxOutlet = Math.max(...adcOutletIds);
+            channelMapping = [];
+            for (let channel = 0; channel <= maxOutlet; channel++) {
+                channelMapping.push(channel);
+            }
+        }
+        return { channelMapping };
+    },
+    build: (nodeArgs) => ({
+        inlets: {},
+        outlets: mapArray(nodeArgs.channelMapping, (_, i) => [`${i}`, { type: 'signal', id: `${i}` }]),
+    }),
+};
+// ------------------------------- generateLoop ------------------------------ //
+const generateLoop$i = ({ outs, globs, node, compilation: { audioSettings, target }, }) => node.args.channelMapping
+    // Save the original index 
+    .map((source, i) => [source, i])
+    // Ignore channels that are out of bounds
+    .filter(([source]) => 0 <= source && source < audioSettings.channelCount.in)
+    .map(([source, i]) => target === 'javascript'
+    ? `${outs[`${i}`]} = ${globs.input}[${source}][${globs.iterFrame}]`
+    : `${outs[`${i}`]} = ${globs.input}[${globs.iterFrame} + ${globs.blockSize} * ${source}]`)
+    .join('\n') + '\n';
+// ------------------------------------------------------------------- //
+const nodeImplementation$I = { generateLoop: generateLoop$i, stateVariables: stateVariables$Q };
+
+/*
+ * Copyright (c) 2022-2023 Sébastien Piquemal <sebpiq@protonmail.com>, Chris McCormick.
+ *
+ * This file is part of WebPd
+ * (see https://github.com/sebpiq/WebPd).
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with this program. If not, see <http://www.gnu.org/licenses/>.
+ */
+const stateVariables$P = {};
 // ------------------------------- node builder ------------------------------ //
 const builder$P = {
     translateArgs: () => ({}),
@@ -10893,7 +11519,7 @@ const generateMessageReceivers$E = ({ globs, snds }) => ({
 });
 // ------------------------------------------------------------------- //
 const nodeImplementation$H = {
-    stateVariables: stateVariables$R,
+    stateVariables: stateVariables$P,
     generateMessageReceivers: generateMessageReceivers$E,
     dependencies: [bangUtils]
 };
@@ -10917,7 +11543,7 @@ const nodeImplementation$H = {
  * You should have received a copy of the GNU Lesser General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
-const stateVariables$Q = {
+const stateVariables$O = {
     phase: 1,
     J: 1,
     funcSetPhase: 1,
@@ -10943,7 +11569,7 @@ const builder$O = {
         return undefined;
     },
 };
-const makeNodeImplementation$9 = ({ coeff, generateOperation, }) => {
+const makeNodeImplementation$7 = ({ coeff, generateOperation, }) => {
     // ------------------------------ generateDeclarations ------------------------------ //
     const generateDeclarations = ({ state, globs, macros: { Var, Func }, }) => `
         let ${Var(state.phase, 'Float')} = 0
@@ -10970,21 +11596,21 @@ const makeNodeImplementation$9 = ({ coeff, generateOperation, }) => {
         generateDeclarations,
         generateMessageReceivers,
         generateLoop,
-        stateVariables: stateVariables$Q,
+        stateVariables: stateVariables$O,
         dependencies: [commonsWaitEngineConfigure]
     };
 };
 // ------------------------------------------------------------------- //
-const nodeImplementations$b = {
-    'osc~': makeNodeImplementation$9({
+const nodeImplementations$9 = {
+    'osc~': makeNodeImplementation$7({
         coeff: '2 * Math.PI',
         generateOperation: (phase) => `Math.cos(${phase})`
     }),
-    'phasor~': makeNodeImplementation$9({
+    'phasor~': makeNodeImplementation$7({
         generateOperation: (phase) => `${phase} % 1`
     }),
 };
-const builders$b = {
+const builders$9 = {
     'osc~': builder$O,
     'phasor~': builder$O,
 };
@@ -11008,7 +11634,7 @@ const builders$b = {
  * You should have received a copy of the GNU Lesser General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
-const stateVariables$P = {
+const stateVariables$N = {
     minValue: 1,
     maxValue: 1,
 };
@@ -11046,7 +11672,7 @@ const generateMessageReceivers$D = ({ state, globs }) => ({
 // ------------------------------------------------------------------- //
 const nodeImplementation$G = {
     generateLoop: generateLoop$h,
-    stateVariables: stateVariables$P,
+    stateVariables: stateVariables$N,
     generateMessageReceivers: generateMessageReceivers$D,
     generateDeclarations: generateDeclarations$D,
 };
@@ -11070,7 +11696,7 @@ const nodeImplementation$G = {
  * You should have received a copy of the GNU Lesser General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
-const stateVariables$O = {
+const stateVariables$M = {
     signalMemory: 1,
     controlMemory: 1,
 };
@@ -11133,7 +11759,7 @@ const generateMessageReceivers$C = ({ state, globs }) => ({
 // ------------------------------------------------------------------- //
 const nodeImplementation$F = {
     generateLoop: generateLoop$g,
-    stateVariables: stateVariables$O,
+    stateVariables: stateVariables$M,
     generateMessageReceivers: generateMessageReceivers$C,
     generateDeclarations: generateDeclarations$C,
 };
@@ -11157,7 +11783,7 @@ const nodeImplementation$F = {
  * You should have received a copy of the GNU Lesser General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
-const stateVariables$N = {
+const stateVariables$L = {
     currentValue: 1,
 };
 // ------------------------------- node builder ------------------------------ //
@@ -11200,7 +11826,7 @@ const generateMessageReceivers$B = ({ state, globs, snds }) => ({
 // ------------------------------------------------------------------- //
 const nodeImplementation$E = {
     generateLoop: generateLoop$f,
-    stateVariables: stateVariables$N,
+    stateVariables: stateVariables$L,
     generateMessageReceivers: generateMessageReceivers$B,
     generateDeclarations: generateDeclarations$B,
     dependencies: [bangUtils]
@@ -11456,7 +12082,7 @@ const computeUnitInSamples = ({ macros: { Func, Var } }) => `
  * You should have received a copy of the GNU Lesser General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
-const stateVariables$M = {
+const stateVariables$K = {
     points: 1,
     lineSegments: 1,
     currentValue: 1,
@@ -11572,7 +12198,7 @@ const generateMessageReceivers$A = ({ state, globs }) => ({
 // ------------------------------------------------------------------- //
 const nodeImplementation$D = {
     generateLoop: generateLoop$e,
-    stateVariables: stateVariables$M,
+    stateVariables: stateVariables$K,
     generateMessageReceivers: generateMessageReceivers$A,
     generateDeclarations: generateDeclarations$A,
     dependencies: [linesUtils, computeUnitInSamples, stringMsgUtils]
@@ -11597,7 +12223,7 @@ const nodeImplementation$D = {
  * You should have received a copy of the GNU Lesser General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
-const stateVariables$L = {
+const stateVariables$J = {
     // Current value used only between 2 lines
     currentValue: 1,
     currentLine: 1,
@@ -11710,7 +12336,7 @@ const nodeImplementation$C = {
     generateDeclarations: generateDeclarations$z,
     generateMessageReceivers: generateMessageReceivers$z,
     generateLoop: generateLoop$d,
-    stateVariables: stateVariables$L,
+    stateVariables: stateVariables$J,
     dependencies: [stringMsgUtils, computeUnitInSamples, linesUtils]
 };
 
@@ -11733,7 +12359,7 @@ const nodeImplementation$C = {
  * You should have received a copy of the GNU Lesser General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
-const stateVariables$K = {
+const stateVariables$I = {
     currentValue: 1,
     nextSamp: 1,
     nextSampInt: 1,
@@ -11912,7 +12538,7 @@ const generateMessageReceivers$y = ({ snds, globs, state, macros: { Var } }) => 
 const nodeImplementation$B = {
     generateDeclarations: generateDeclarations$y,
     generateMessageReceivers: generateMessageReceivers$y,
-    stateVariables: stateVariables$K,
+    stateVariables: stateVariables$I,
     dependencies: [
         stringMsgUtils,
         computeUnitInSamples,
@@ -11921,35 +12547,6 @@ const nodeImplementation$B = {
         commonsWaitFrame,
     ],
 };
-
-const MAX_MIDI_FREQ = Math.pow(2, (1499 - 69) / 12) * 440;
-// Also possible to use optimized version, but gives approximate results : 8.17579891564 * Math.exp(0.0577622650 * value)
-const mtof = ({ macros: { Func, Var } }) => `
-    function mtof ${Func([
-    Var('value', 'Float'),
-], 'Float')} {
-        return value <= -1500 ? 0: (value > 1499 ? ${MAX_MIDI_FREQ} : Math.pow(2, (value - 69) / 12) * 440)
-    }
-`;
-// optimized version of formula : 12 * Math.log(freq / 440) / Math.LN2 + 69
-// which is the same as : Math.log(freq / mtof(0)) * (12 / Math.LN2) 
-// which is the same as : Math.log(freq / 8.1757989156) * (12 / Math.LN2) 
-const ftom = ({ macros: { Func, Var } }) => `
-    function ftom ${Func([
-    Var('value', 'Float'),
-], 'Float')} {
-        return value <= 0 ? -1500: 12 * Math.log(value / 440) / Math.LN2 + 69
-    }
-`;
-// TODO : tests (see in binop)
-const pow = ({ macros: { Func, Var } }) => `
-    function pow ${Func([
-    Var('leftOp', 'Float'),
-    Var('rightOp', 'Float'),
-], 'Float')} {
-        return leftOp > 0 || (Math.round(rightOp) === rightOp) ? Math.pow(leftOp, rightOp): 0
-    }
-`;
 
 /*
  * Copyright (c) 2022-2023 Sébastien Piquemal <sebpiq@protonmail.com>, Chris McCormick.
@@ -11970,7 +12567,7 @@ const pow = ({ macros: { Func, Var } }) => `
  * You should have received a copy of the GNU Lesser General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
-const stateVariables$J = {};
+const stateVariables$H = {};
 // ------------------------------- node builder ------------------------------ //
 const builder$H = {
     translateArgs: () => ({}),
@@ -11984,22 +12581,22 @@ const builder$H = {
     }),
 };
 // ------------------------------- generateLoop ------------------------------ //
-const makeNodeImplementation$8 = ({ generateOperation, dependencies = [], }) => {
+const makeNodeImplementation$6 = ({ generateOperation, dependencies = [], }) => {
     const generateLoop = ({ ins, outs }) => `
         ${outs.$0} = ${generateOperation(ins.$0)}
     `;
-    return { generateLoop, stateVariables: stateVariables$J, dependencies };
+    return { generateLoop, stateVariables: stateVariables$H, dependencies };
 };
 // ------------------------------------------------------------------- //
-const nodeImplementations$a = {
-    'abs~': makeNodeImplementation$8({ generateOperation: (input) => `Math.abs(${input})` }),
-    'cos~': makeNodeImplementation$8({ generateOperation: (input) => `Math.cos(${input} * 2 * Math.PI)` }),
-    'wrap~': makeNodeImplementation$8({ generateOperation: (input) => `(1 + (${input} % 1)) % 1` }),
-    'sqrt~': makeNodeImplementation$8({ generateOperation: (input) => `${input} >= 0 ? Math.pow(${input}, 0.5): 0` }),
-    'mtof~': makeNodeImplementation$8({ generateOperation: (input) => `mtof(${input})`, dependencies: [mtof] }),
-    'ftom~': makeNodeImplementation$8({ generateOperation: (input) => `ftom(${input})`, dependencies: [ftom] }),
+const nodeImplementations$8 = {
+    'abs~': makeNodeImplementation$6({ generateOperation: (input) => `Math.abs(${input})` }),
+    'cos~': makeNodeImplementation$6({ generateOperation: (input) => `Math.cos(${input} * 2 * Math.PI)` }),
+    'wrap~': makeNodeImplementation$6({ generateOperation: (input) => `(1 + (${input} % 1)) % 1` }),
+    'sqrt~': makeNodeImplementation$6({ generateOperation: (input) => `${input} >= 0 ? Math.pow(${input}, 0.5): 0` }),
+    'mtof~': makeNodeImplementation$6({ generateOperation: (input) => `mtof(${input})`, dependencies: [mtof] }),
+    'ftom~': makeNodeImplementation$6({ generateOperation: (input) => `ftom(${input})`, dependencies: [ftom] }),
 };
-const builders$a = {
+const builders$8 = {
     'abs~': builder$H,
     'cos~': builder$H,
     'wrap~': builder$H,
@@ -12027,73 +12624,7 @@ const builders$a = {
  * You should have received a copy of the GNU Lesser General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
-const stateVariablesTabBase = {
-    array: 1,
-    arrayName: 1,
-    arrayChangesSubscription: 1,
-    funcSetArrayName: 1,
-};
-const translateArgsTabBase = (pdNode) => ({
-    arrayName: assertOptionalString(pdNode.args[0]) || '',
-});
-const declareTabBase = ({ state, node, macros: { Func, Var } }) => `
-    let ${Var(state.array, 'FloatArray')} = createFloatArray(0)
-    let ${Var(state.arrayName, 'string')} = "${node.args.arrayName}"
-    let ${Var(state.arrayChangesSubscription, 'SkedId')} = SKED_ID_NULL
-
-    function ${state.funcSetArrayName} ${Func([
-    Var('arrayName', 'string')
-], 'void')} {
-        if (${state.arrayChangesSubscription} != SKED_ID_NULL) {
-            commons_cancelArrayChangesSubscription(${state.arrayChangesSubscription})
-        }
-        ${state.arrayName} = arrayName
-        ${state.array} = createFloatArray(0)
-        commons_subscribeArrayChanges(arrayName, () => {
-            ${state.array} = commons_getArray(${state.arrayName})
-        })
-    }
-
-    commons_waitEngineConfigure(() => {
-        if (${state.arrayName}.length) {
-            ${state.funcSetArrayName}(${state.arrayName})
-        }
-    })
-`;
-const prepareIndexCode = (value, { state }) => `toInt(Math.min(
-        Math.max(
-            0, Math.floor(${value})
-        ), toFloat(${state.array}.length - 1)
-    ))`;
-const messageSetArrayCode = ({ globs, state, }) => `else if (
-        msg_isMatching(${globs.m}, [MSG_STRING_TOKEN, MSG_STRING_TOKEN])
-        && msg_readStringToken(${globs.m}, 0) === 'set'
-    ) {
-        ${state.funcSetArrayName}(msg_readStringToken(${globs.m}, 1))
-        return
-
-    }`;
-
-/*
- * Copyright (c) 2022-2023 Sébastien Piquemal <sebpiq@protonmail.com>, Chris McCormick.
- *
- * This file is part of WebPd
- * (see https://github.com/sebpiq/WebPd).
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public License
- * along with this program. If not, see <http://www.gnu.org/licenses/>.
- */
-const stateVariables$I = stateVariablesTabBase;
+const stateVariables$G = stateVariablesTabBase;
 // ------------------------------- node builder ------------------------------ //
 const builder$G = {
     translateArgs: translateArgsTabBase,
@@ -12130,7 +12661,7 @@ const generateMessageReceivers$x = (context) => {
 const nodeImplementation$A = {
     generateDeclarations: generateDeclarations$x,
     generateMessageReceivers: generateMessageReceivers$x,
-    stateVariables: stateVariables$I,
+    stateVariables: stateVariables$G,
     dependencies: [commonsWaitEngineConfigure, commonsArrays]
 };
 
@@ -12153,84 +12684,7 @@ const nodeImplementation$A = {
  * You should have received a copy of the GNU Lesser General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
-const stateVariables$H = {
-    ...stateVariablesTabBase,
-    index: 1,
-    funcSetIndex: 1,
-};
-// ------------------------------- node builder ------------------------------ //
-const builder$F = {
-    translateArgs: translateArgsTabBase,
-    build: () => ({
-        inlets: {
-            '0': { type: 'message', id: '0' },
-            '1': { type: 'message', id: '1' },
-        },
-        outlets: {},
-    }),
-};
-// ------------------------------ generateDeclarations ------------------------------ //
-const generateDeclarations$w = (context) => {
-    const { state, macros: { Var, Func } } = context;
-    return `
-        let ${Var(state.index, 'Int')} = 0
-        ${declareTabBase(context)}
-
-        function ${state.funcSetIndex} ${Func([
-        Var('index', 'Float')
-    ], 'void')} {
-            ${state.index} = ${prepareIndexCode('index', context)}
-        }
-    `;
-};
-// ------------------------------- generateMessageReceivers ------------------------------ //
-const generateMessageReceivers$w = (context) => {
-    const { state, globs } = context;
-    return {
-        '0': `
-        if (msg_isMatching(${globs.m}, [MSG_FLOAT_TOKEN])) {        
-            if (${state.array}.length === 0) {
-                return
-
-            } else {
-                ${state.array}[${state.index}] = msg_readFloatToken(${globs.m}, 0)
-                return
-            }
-            return 
-
-        } ${messageSetArrayCode(context)}
-        `,
-        '1': coldFloatInletWithSetter(globs.m, state.funcSetIndex)
-    };
-};
-// ------------------------------------------------------------------- //
-const nodeImplementation$z = {
-    generateDeclarations: generateDeclarations$w,
-    generateMessageReceivers: generateMessageReceivers$w,
-    stateVariables: stateVariables$H,
-    dependencies: [commonsWaitEngineConfigure, commonsArrays]
-};
-
-/*
- * Copyright (c) 2022-2023 Sébastien Piquemal <sebpiq@protonmail.com>, Chris McCormick.
- *
- * This file is part of WebPd
- * (see https://github.com/sebpiq/WebPd).
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public License
- * along with this program. If not, see <http://www.gnu.org/licenses/>.
- */
-const stateVariables$G = {
+const stateVariables$F = {
     array: 1,
     arrayName: 1,
     arrayChangesSubscription: 1,
@@ -12242,7 +12696,7 @@ const stateVariables$G = {
 };
 // TODO : Should work also if array was set the play started
 // ------------------------------- node builder ------------------------------ //
-const builder$E = {
+const builder$F = {
     translateArgs: (pdNode) => ({
         arrayName: assertOptionalString(pdNode.args[0]) || '',
     }),
@@ -12257,7 +12711,7 @@ const builder$E = {
     }),
 };
 // ------------------------------ generateDeclarations ------------------------------ //
-const generateDeclarations$v = ({ state, node, macros: { Func, Var } }) => `
+const generateDeclarations$w = ({ state, node, macros: { Func, Var } }) => `
     let ${Var(state.array, 'FloatArray')} = createFloatArray(0)
     let ${Var(state.arrayName, 'string')} = "${node.args.arrayName}"
     let ${Var(state.arrayChangesSubscription, 'SkedId')} = SKED_ID_NULL
@@ -12315,7 +12769,7 @@ const generateLoop$c = ({ state, snds, outs }) => `
     }
 `;
 // ------------------------------- generateMessageReceivers ------------------------------ //
-const generateMessageReceivers$v = ({ state, globs, macros: { Var } }) => ({
+const generateMessageReceivers$w = ({ state, globs, macros: { Var } }) => ({
     '0': `
     if (msg_isBang(${globs.m})) {
         ${state.funcPlay}(0, ${state.array}.length)
@@ -12350,11 +12804,11 @@ const generateMessageReceivers$v = ({ state, globs, macros: { Var } }) => ({
     `,
 });
 // ------------------------------------------------------------------- //
-const nodeImplementation$y = {
-    generateDeclarations: generateDeclarations$v,
-    generateMessageReceivers: generateMessageReceivers$v,
+const nodeImplementation$z = {
+    generateDeclarations: generateDeclarations$w,
+    generateMessageReceivers: generateMessageReceivers$w,
     generateLoop: generateLoop$c,
-    stateVariables: stateVariables$G,
+    stateVariables: stateVariables$F,
     dependencies: [
         bangUtils,
         commonsWaitEngineConfigure,
@@ -12920,7 +13374,7 @@ const parseReadWriteFsOpts = {
  * You should have received a copy of the GNU Lesser General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
-const stateVariables$F = {
+const stateVariables$E = {
     buffers: 1,
     readingStatus: 1,
     streamOperationId: 1,
@@ -12933,7 +13387,7 @@ const stateVariables$F = {
 // TODO : second arg : "buffer channel size" not implemented
 // TODO : implement raw
 // ------------------------------- node builder ------------------------------ //
-const builder$D = {
+const builder$E = {
     translateArgs: (pdNode) => ({
         channelCount: assertOptionalNumber(pdNode.args[0]) || 1,
     }),
@@ -12951,7 +13405,7 @@ const builder$D = {
     })
 };
 // ------------------------------ generateDeclarations ------------------------------ //
-const generateDeclarations$u = ({ macros: { Var }, state, }) => `
+const generateDeclarations$v = ({ macros: { Var }, state, }) => `
     let ${Var(state.buffers, 'Array<buf_SoundBuffer>')} = []
     let ${Var(state.streamOperationId, 'fs_OperationId')} = -1
     let ${Var(state.readingStatus, 'Int')} = 0
@@ -12978,7 +13432,7 @@ const generateLoop$b = ({ state, snds, outs, node: { args: { channelCount }, }, 
     }
 `;
 // ------------------------------- generateMessageReceivers ------------------------------ //
-const generateMessageReceivers$u = ({ node, state, globs, macros: { Var }, }) => ({
+const generateMessageReceivers$v = ({ node, state, globs, macros: { Var }, }) => ({
     '0': `
     if (msg_getLength(${globs.m}) >= 2) {
         if (msg_isStringToken(${globs.m}, 0) 
@@ -13047,11 +13501,11 @@ const generateMessageReceivers$u = ({ node, state, globs, macros: { Var }, }) =>
     `,
 });
 // ------------------------------------------------------------------- //
-const nodeImplementation$x = {
-    generateDeclarations: generateDeclarations$u,
-    generateMessageReceivers: generateMessageReceivers$u,
+const nodeImplementation$y = {
+    generateDeclarations: generateDeclarations$v,
+    generateMessageReceivers: generateMessageReceivers$v,
     generateLoop: generateLoop$b,
-    stateVariables: stateVariables$F,
+    stateVariables: stateVariables$E,
     dependencies: [
         parseSoundFileOpenOpts,
         parseReadWriteFsOpts,
@@ -13081,7 +13535,7 @@ const nodeImplementation$x = {
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 const BLOCK_SIZE = 44100 * 5;
-const stateVariables$E = {
+const stateVariables$D = {
     isWriting: 1,
     operationId: 1,
     block: 1,
@@ -13094,7 +13548,7 @@ const stateVariables$E = {
 //      - what happens when stream ended and starting again ? 
 //      - etc ...
 // ------------------------------- node builder ------------------------------ //
-const builder$C = {
+const builder$D = {
     translateArgs: (pdNode) => ({
         channelCount: assertOptionalNumber(pdNode.args[0]) || 1,
     }),
@@ -13117,7 +13571,7 @@ const builder$C = {
     },
 };
 // ------------------------------ generateDeclarations ------------------------------ //
-const generateDeclarations$t = ({ state, node: { args }, macros: { Func, Var } }) => renderCode `
+const generateDeclarations$u = ({ state, node: { args }, macros: { Func, Var } }) => renderCode `
     let ${Var(state.operationId, 'fs_OperationId')} = -1
     let ${Var(state.isWriting, 'boolean')} = false
     const ${Var(state.block, 'Array<FloatArray>')} = [
@@ -13145,7 +13599,7 @@ const generateLoop$a = ({ state, ins, node: { args } }) => renderCode `
     }
 `;
 // ------------------------------- generateMessageReceivers ------------------------------ //
-const generateMessageReceivers$t = ({ node, state, globs, macros: { Var } }) => ({
+const generateMessageReceivers$u = ({ node, state, globs, macros: { Var } }) => ({
     '0_message': `
     if (msg_getLength(${globs.m}) >= 2) {
         if (
@@ -13203,11 +13657,11 @@ const generateMessageReceivers$t = ({ node, state, globs, macros: { Var } }) => 
     `
 });
 // ------------------------------------------------------------------- //
-const nodeImplementation$w = {
-    generateDeclarations: generateDeclarations$t,
-    generateMessageReceivers: generateMessageReceivers$t,
+const nodeImplementation$x = {
+    generateDeclarations: generateDeclarations$u,
+    generateMessageReceivers: generateMessageReceivers$u,
     generateLoop: generateLoop$a,
-    stateVariables: stateVariables$E,
+    stateVariables: stateVariables$D,
     dependencies: [
         parseSoundFileOpenOpts,
         parseReadWriteFsOpts,
@@ -13235,7 +13689,7 @@ const nodeImplementation$w = {
  * You should have received a copy of the GNU Lesser General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
-const stateVariables$D = {
+const stateVariables$C = {
     frequency: 1,
     Q: 1,
     // Output value Y[n]
@@ -13253,7 +13707,7 @@ const stateVariables$D = {
     funcClear: 1,
 };
 // ------------------------------- node builder ------------------------------ //
-const builder$B = {
+const builder$C = {
     translateArgs: ({ args }) => ({
         frequency: assertOptionalNumber(args[0]) || 0,
         Q: assertOptionalNumber(args[1]) || 0,
@@ -13277,7 +13731,7 @@ const builder$B = {
     },
 };
 // ------------------------------- generateDeclarations ------------------------------ //
-const generateDeclarations$s = ({ state, globs, node: { args }, macros: { Var, Func } }) => `
+const generateDeclarations$t = ({ state, globs, node: { args }, macros: { Var, Func } }) => `
     let ${Var(state.frequency, 'Float')} = ${args.frequency}
     let ${Var(state.Q, 'Float')} = ${args.Q}
     let ${Var(state.coef1, 'Float')} = 0
@@ -13331,7 +13785,7 @@ const generateLoop$9 = ({ ins, outs, state }) => `
     ${state.ym1} = ${state.y}
 `;
 // ------------------------------- generateMessageReceivers ------------------------------ //
-const generateMessageReceivers$s = ({ state, globs }) => ({
+const generateMessageReceivers$t = ({ state, globs }) => ({
     '0_message': `
         if (
             msg_isMatching(${globs.m})
@@ -13345,162 +13799,11 @@ const generateMessageReceivers$s = ({ state, globs }) => ({
     '2': coldFloatInletWithSetter(globs.m, state.funcSetQ),
 });
 // ------------------------------------------------------------------- //
-const nodeImplementation$v = {
+const nodeImplementation$w = {
     generateLoop: generateLoop$9,
-    stateVariables: stateVariables$D,
-    generateMessageReceivers: generateMessageReceivers$s,
-    generateDeclarations: generateDeclarations$s,
-};
-
-// TODO : unit tests
-const signalBuses = ({ macros: { Var, Func } }) => `
-    const ${Var('SIGNAL_BUSES', 'Map<string, Float>')} = new Map()
-    SIGNAL_BUSES.set('', 0)
-
-    function addAssignSignalBus ${Func([Var('busName', 'string'), Var('value', 'Float')], 'Float')} {
-        const ${Var('newValue', 'Float')} = SIGNAL_BUSES.get(busName) + value
-        SIGNAL_BUSES.set(
-            busName,
-            newValue,
-        )
-        return newValue
-    }
-
-    function setSignalBus ${Func([
-    Var('busName', 'string'),
-    Var('value', 'Float'),
-], 'void')} {
-        SIGNAL_BUSES.set(
-            busName,
-            value,
-        )
-    }
-
-    function resetSignalBus ${Func([
-    Var('busName', 'string')
-], 'void')} {
-        SIGNAL_BUSES.set(busName, 0)
-    }
-
-    function readSignalBus ${Func([Var('busName', 'string')], 'Float')} {
-        return SIGNAL_BUSES.get(busName)
-    }
-`;
-// TODO : unit tests
-const messageBuses = {
-    codeGenerator: ({ macros: { Var, Func } }) => `
-    const ${Var('MSG_BUSES', 'Map<string, Array<(m: Message) => void>>')} = new Map()
-
-    function msgBusPublish ${Func([Var('busName', 'string'), Var('message', 'Message')], 'void')} {
-        let ${Var('i', 'Int')} = 0
-        const ${Var('callbacks', 'Array<(m: Message) => void>')} = MSG_BUSES.has(busName) ? MSG_BUSES.get(busName): []
-        for (i = 0; i < callbacks.length; i++) {
-            callbacks[i](message)
-        }
-    }
-
-    function msgBusSubscribe ${Func([Var('busName', 'string'), Var('callback', '(m: Message) => void')], 'void')} {
-        if (!MSG_BUSES.has(busName)) {
-            MSG_BUSES.set(busName, [])
-        }
-        MSG_BUSES.get(busName).push(callback)
-    }
-
-    function msgBusUnsubscribe ${Func([Var('busName', 'string'), Var('callback', '(m: Message) => void')], 'void')} {
-        if (!MSG_BUSES.has(busName)) {
-            return
-        }
-        const ${Var('callbacks', 'Array<(m: Message) => void>')} = MSG_BUSES.get(busName)
-        const ${Var('found', 'Int')} = callbacks.indexOf(callback) !== -1
-        if (found !== -1) {
-            callbacks.splice(found, 1)
-        }
-    }
-`,
-    dependencies: [msg],
-};
-
-/*
- * Copyright (c) 2022-2023 Sébastien Piquemal <sebpiq@protonmail.com>, Chris McCormick.
- *
- * This file is part of WebPd
- * (see https://github.com/sebpiq/WebPd).
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public License
- * along with this program. If not, see <http://www.gnu.org/licenses/>.
- */
-const stateVariables$C = {
-    busName: 1,
-    funcSetBusName: 1,
-};
-// ------------------------------- node builder ------------------------------ //
-const builder$A = {
-    translateArgs: (pdNode) => ({
-        busName: assertOptionalString(pdNode.args[0]) || '',
-    }),
-    build: () => ({
-        inlets: {
-            '0': { type: 'signal', id: '0' },
-            '0_message': { type: 'message', id: '0_message' },
-        },
-        outlets: {},
-        isPullingSignal: true,
-    }),
-    configureMessageToSignalConnection: (inletId) => {
-        if (inletId === '0') {
-            return { reroutedMessageInletId: '0_message' };
-        }
-        return undefined;
-    },
-};
-// ------------------------------- generateDeclarations ------------------------------ //
-const generateDeclarations$r = ({ state, node: { args }, macros: { Var, Func } }) => `
-    let ${Var(state.busName, 'string')} = ""
-
-    const ${state.funcSetBusName} = ${Func([
-    Var('busName', 'string')
-], 'void')} => {
-        if (busName.length) {
-            ${state.busName} = busName
-            resetSignalBus(${state.busName})
-        }
-    }
-
-    ${state.funcSetBusName}("${args.busName}")
-`;
-// ------------------------------- generateLoop ------------------------------ //
-const generateLoop$8 = ({ ins, state }) => `
-    addAssignSignalBus(${state.busName}, ${ins.$0})
-`;
-// ------------------------------- generateMessageReceivers ------------------------------ //
-const generateMessageReceivers$r = ({ state, globs }) => ({
-    '0_message': `
-    if (
-        msg_isMatching(${globs.m}, [MSG_STRING_TOKEN, MSG_STRING_TOKEN])
-        && msg_readStringToken(${globs.m}, 0) === 'set'
-    ) {
-        ${state.funcSetBusName}(msg_readStringToken(${globs.m}, 1))
-        return
-    }
-    `
-});
-// ------------------------------------------------------------------- //
-const nodeImplementation$u = {
-    generateLoop: generateLoop$8,
-    generateMessageReceivers: generateMessageReceivers$r,
     stateVariables: stateVariables$C,
-    generateDeclarations: generateDeclarations$r,
-    dependencies: [signalBuses]
+    generateMessageReceivers: generateMessageReceivers$t,
+    generateDeclarations: generateDeclarations$t,
 };
 
 /*
@@ -13527,19 +13830,27 @@ const stateVariables$B = {
     funcSetBusName: 1,
 };
 // ------------------------------- node builder ------------------------------ //
-const builder$z = {
+const builder$B = {
     translateArgs: (pdNode) => ({
         busName: assertOptionalString(pdNode.args[0]) || '',
     }),
     build: () => ({
-        inlets: {},
-        outlets: {
+        inlets: {
             '0': { type: 'signal', id: '0' },
+            '0_message': { type: 'message', id: '0_message' },
         },
+        outlets: {},
+        isPullingSignal: true,
     }),
+    configureMessageToSignalConnection: (inletId) => {
+        if (inletId === '0') {
+            return { reroutedMessageInletId: '0_message' };
+        }
+        return undefined;
+    },
 };
 // ------------------------------- generateDeclarations ------------------------------ //
-const generateDeclarations$q = ({ state, node: { args }, macros: { Var, Func } }) => `
+const generateDeclarations$s = ({ state, node: { args }, macros: { Var, Func } }) => `
     let ${Var(state.busName, 'string')} = ""
 
     const ${state.funcSetBusName} = ${Func([
@@ -13554,15 +13865,27 @@ const generateDeclarations$q = ({ state, node: { args }, macros: { Var, Func } }
     ${state.funcSetBusName}("${args.busName}")
 `;
 // ------------------------------- generateLoop ------------------------------ //
-const generateLoop$7 = ({ outs, state }) => `
-    ${outs.$0} = readSignalBus(${state.busName})
-    resetSignalBus(${state.busName})
+const generateLoop$8 = ({ ins, state }) => `
+    addAssignSignalBus(${state.busName}, ${ins.$0})
 `;
+// ------------------------------- generateMessageReceivers ------------------------------ //
+const generateMessageReceivers$s = ({ state, globs }) => ({
+    '0_message': `
+    if (
+        msg_isMatching(${globs.m}, [MSG_STRING_TOKEN, MSG_STRING_TOKEN])
+        && msg_readStringToken(${globs.m}, 0) === 'set'
+    ) {
+        ${state.funcSetBusName}(msg_readStringToken(${globs.m}, 1))
+        return
+    }
+    `
+});
 // ------------------------------------------------------------------- //
-const nodeImplementation$t = {
-    generateLoop: generateLoop$7,
+const nodeImplementation$v = {
+    generateLoop: generateLoop$8,
+    generateMessageReceivers: generateMessageReceivers$s,
     stateVariables: stateVariables$B,
-    generateDeclarations: generateDeclarations$q,
+    generateDeclarations: generateDeclarations$s,
     dependencies: [signalBuses]
 };
 
@@ -13587,33 +13910,45 @@ const nodeImplementation$t = {
  */
 const stateVariables$A = {
     busName: 1,
+    funcSetBusName: 1,
 };
 // ------------------------------- node builder ------------------------------ //
-const builder$y = {
+const builder$A = {
     translateArgs: (pdNode) => ({
         busName: assertOptionalString(pdNode.args[0]) || '',
     }),
     build: () => ({
-        inlets: {
+        inlets: {},
+        outlets: {
             '0': { type: 'signal', id: '0' },
         },
-        outlets: {},
-        isPullingSignal: true,
     }),
 };
 // ------------------------------- generateDeclarations ------------------------------ //
-const generateDeclarations$p = ({ state, node: { args }, macros: { Var } }) => `
-    const ${Var(state.busName, 'string')} = "${args.busName}"
+const generateDeclarations$r = ({ state, node: { args }, macros: { Var, Func } }) => `
+    let ${Var(state.busName, 'string')} = ""
+
+    const ${state.funcSetBusName} = ${Func([
+    Var('busName', 'string')
+], 'void')} => {
+        if (busName.length) {
+            ${state.busName} = busName
+            resetSignalBus(${state.busName})
+        }
+    }
+
+    ${state.funcSetBusName}("${args.busName}")
 `;
 // ------------------------------- generateLoop ------------------------------ //
-const generateLoop$6 = ({ ins, state }) => `
-    setSignalBus(${state.busName}, ${ins.$0})
+const generateLoop$7 = ({ outs, state }) => `
+    ${outs.$0} = readSignalBus(${state.busName})
+    resetSignalBus(${state.busName})
 `;
 // ------------------------------------------------------------------- //
-const nodeImplementation$s = {
-    generateLoop: generateLoop$6,
+const nodeImplementation$u = {
+    generateLoop: generateLoop$7,
     stateVariables: stateVariables$A,
-    generateDeclarations: generateDeclarations$p,
+    generateDeclarations: generateDeclarations$r,
     dependencies: [signalBuses]
 };
 
@@ -13638,59 +13973,33 @@ const nodeImplementation$s = {
  */
 const stateVariables$z = {
     busName: 1,
-    funcSetBusName: 1,
 };
 // ------------------------------- node builder ------------------------------ //
-const builder$x = {
+const builder$z = {
     translateArgs: (pdNode) => ({
         busName: assertOptionalString(pdNode.args[0]) || '',
     }),
     build: () => ({
         inlets: {
-            '0': { type: 'message', id: '0' },
-        },
-        outlets: {
             '0': { type: 'signal', id: '0' },
         },
+        outlets: {},
+        isPullingSignal: true,
     }),
 };
 // ------------------------------- generateDeclarations ------------------------------ //
-const generateDeclarations$o = ({ state, node: { args }, macros: { Var, Func } }) => `
-    let ${Var(state.busName, 'string')} = ""
-
-    const ${state.funcSetBusName} = ${Func([
-    Var('busName', 'string')
-], 'void')} => {
-        if (busName.length) {
-            ${state.busName} = busName
-            resetSignalBus(${state.busName})
-        }
-    }
-
-    ${state.funcSetBusName}("${args.busName}")
+const generateDeclarations$q = ({ state, node: { args }, macros: { Var } }) => `
+    const ${Var(state.busName, 'string')} = "${args.busName}"
 `;
 // ------------------------------- generateLoop ------------------------------ //
-const generateLoop$5 = ({ outs, state }) => `
-    ${outs.$0} = readSignalBus(${state.busName})
+const generateLoop$6 = ({ ins, state }) => `
+    setSignalBus(${state.busName}, ${ins.$0})
 `;
-// ------------------------------- generateMessageReceivers ------------------------------ //
-const generateMessageReceivers$q = ({ state, globs }) => ({
-    '0': `
-    if (
-        msg_isMatching(${globs.m}, [MSG_STRING_TOKEN, MSG_STRING_TOKEN])
-        && msg_readStringToken(${globs.m}, 0) === 'set'
-    ) {
-        ${state.funcSetBusName}(msg_readStringToken(${globs.m}, 1))
-        return
-    }
-    `
-});
 // ------------------------------------------------------------------- //
-const nodeImplementation$r = {
-    generateLoop: generateLoop$5,
-    generateMessageReceivers: generateMessageReceivers$q,
+const nodeImplementation$t = {
+    generateLoop: generateLoop$6,
     stateVariables: stateVariables$z,
-    generateDeclarations: generateDeclarations$o,
+    generateDeclarations: generateDeclarations$q,
     dependencies: [signalBuses]
 };
 
@@ -13714,6 +14023,83 @@ const nodeImplementation$r = {
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 const stateVariables$y = {
+    busName: 1,
+    funcSetBusName: 1,
+};
+// ------------------------------- node builder ------------------------------ //
+const builder$y = {
+    translateArgs: (pdNode) => ({
+        busName: assertOptionalString(pdNode.args[0]) || '',
+    }),
+    build: () => ({
+        inlets: {
+            '0': { type: 'message', id: '0' },
+        },
+        outlets: {
+            '0': { type: 'signal', id: '0' },
+        },
+    }),
+};
+// ------------------------------- generateDeclarations ------------------------------ //
+const generateDeclarations$p = ({ state, node: { args }, macros: { Var, Func } }) => `
+    let ${Var(state.busName, 'string')} = ""
+
+    const ${state.funcSetBusName} = ${Func([
+    Var('busName', 'string')
+], 'void')} => {
+        if (busName.length) {
+            ${state.busName} = busName
+            resetSignalBus(${state.busName})
+        }
+    }
+
+    ${state.funcSetBusName}("${args.busName}")
+`;
+// ------------------------------- generateLoop ------------------------------ //
+const generateLoop$5 = ({ outs, state }) => `
+    ${outs.$0} = readSignalBus(${state.busName})
+`;
+// ------------------------------- generateMessageReceivers ------------------------------ //
+const generateMessageReceivers$r = ({ state, globs }) => ({
+    '0': `
+    if (
+        msg_isMatching(${globs.m}, [MSG_STRING_TOKEN, MSG_STRING_TOKEN])
+        && msg_readStringToken(${globs.m}, 0) === 'set'
+    ) {
+        ${state.funcSetBusName}(msg_readStringToken(${globs.m}, 1))
+        return
+    }
+    `
+});
+// ------------------------------------------------------------------- //
+const nodeImplementation$s = {
+    generateLoop: generateLoop$5,
+    generateMessageReceivers: generateMessageReceivers$r,
+    stateVariables: stateVariables$y,
+    generateDeclarations: generateDeclarations$p,
+    dependencies: [signalBuses]
+};
+
+/*
+ * Copyright (c) 2022-2023 Sébastien Piquemal <sebpiq@protonmail.com>, Chris McCormick.
+ *
+ * This file is part of WebPd
+ * (see https://github.com/sebpiq/WebPd).
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with this program. If not, see <http://www.gnu.org/licenses/>.
+ */
+const stateVariables$x = {
     rate: 1,
     sampleRatio: 1,
     skedId: 1,
@@ -13723,7 +14109,7 @@ const stateVariables$y = {
     funcStop: 1,
 };
 // ------------------------------- node builder ------------------------------ //
-const builder$w = {
+const builder$x = {
     translateArgs: (pdNode) => ({
         rate: assertOptionalNumber(pdNode.args[0]) || 0,
         unitAmount: assertOptionalNumber(pdNode.args[1]) || 1,
@@ -13740,7 +14126,7 @@ const builder$w = {
     }),
 };
 // ------------------------------ generateDeclarations ------------------------------ //
-const generateDeclarations$n = ({ state, globs, snds, node: { args }, macros: { Func, Var }, }) => 
+const generateDeclarations$o = ({ state, globs, snds, node: { args }, macros: { Func, Var }, }) => 
 // Time units are all expressed in samples here
 `
         let ${Var(state.rate, 'Float')} = 0
@@ -13776,7 +14162,7 @@ const generateDeclarations$n = ({ state, globs, snds, node: { args }, macros: { 
         })
     `;
 // ------------------------------ generateMessageReceivers ------------------------------ //
-const generateMessageReceivers$p = ({ state, globs, snds }) => ({
+const generateMessageReceivers$q = ({ state, globs, snds }) => ({
     '0': `
     if (msg_getLength(${globs.m}) === 1) {
         if (
@@ -13799,10 +14185,10 @@ const generateMessageReceivers$p = ({ state, globs, snds }) => ({
     '1': coldFloatInletWithSetter(globs.m, state.funcSetRate),
 });
 // ------------------------------------------------------------------- //
-const nodeImplementation$q = {
-    generateDeclarations: generateDeclarations$n,
-    generateMessageReceivers: generateMessageReceivers$p,
-    stateVariables: stateVariables$y,
+const nodeImplementation$r = {
+    generateDeclarations: generateDeclarations$o,
+    generateMessageReceivers: generateMessageReceivers$q,
+    stateVariables: stateVariables$x,
     dependencies: [
         computeUnitInSamples,
         bangUtils,
@@ -13831,12 +14217,12 @@ const nodeImplementation$q = {
  * You should have received a copy of the GNU Lesser General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
-const stateVariables$x = {
+const stateVariables$w = {
     resetTime: 1,
     sampleRatio: 1
 };
 // ------------------------------- node builder ------------------------------ //
-const builder$v = {
+const builder$w = {
     translateArgs: (pdNode) => ({
         unitAmount: assertOptionalNumber(pdNode.args[0]) || 1,
         unit: assertOptionalString(pdNode.args[1]) || 'msec',
@@ -13852,7 +14238,7 @@ const builder$v = {
     }),
 };
 // ------------------------------- generateDeclarations ------------------------------ //
-const generateDeclarations$m = ({ state, globs, node: { args }, macros: { Var }, }) => `
+const generateDeclarations$n = ({ state, globs, node: { args }, macros: { Var }, }) => `
     let ${Var(state.sampleRatio, 'Float')} = 0
     let ${Var(state.resetTime, 'Int')} = 0
 
@@ -13861,7 +14247,7 @@ const generateDeclarations$m = ({ state, globs, node: { args }, macros: { Var },
     })
 `;
 // ------------------------------- generateMessageReceivers ------------------------------ //
-const generateMessageReceivers$o = ({ snds, globs, state, }) => ({
+const generateMessageReceivers$p = ({ snds, globs, state, }) => ({
     '0': `
     if (msg_isBang(${globs.m})) {
         ${state.resetTime} = ${globs.frame}
@@ -13887,10 +14273,10 @@ const generateMessageReceivers$o = ({ snds, globs, state, }) => ({
     `,
 });
 // ------------------------------------------------------------------- //
-const nodeImplementation$p = {
-    stateVariables: stateVariables$x,
-    generateDeclarations: generateDeclarations$m,
-    generateMessageReceivers: generateMessageReceivers$o,
+const nodeImplementation$q = {
+    stateVariables: stateVariables$w,
+    generateDeclarations: generateDeclarations$n,
+    generateMessageReceivers: generateMessageReceivers$p,
     dependencies: [computeUnitInSamples, bangUtils, commonsWaitEngineConfigure]
 };
 
@@ -13913,7 +14299,7 @@ const nodeImplementation$p = {
  * You should have received a copy of the GNU Lesser General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
-const stateVariables$w = {
+const stateVariables$v = {
     funcSetDelay: 1,
     funcScheduleDelay: 1,
     funcStopDelay: 1,
@@ -13922,7 +14308,7 @@ const stateVariables$w = {
     sampleRatio: 1,
 };
 // ------------------------------- node builder ------------------------------ //
-const builder$u = {
+const builder$v = {
     translateArgs: (pdNode) => ({
         delay: assertOptionalNumber(pdNode.args[0]) || 0,
         unitAmount: assertOptionalNumber(pdNode.args[1]) || 1,
@@ -13940,7 +14326,7 @@ const builder$u = {
     }),
 };
 // ------------------------------ generateDeclarations ------------------------------ //
-const generateDeclarations$l = ({ state, snds, globs, node: { args }, macros: { Func, Var } }) => `
+const generateDeclarations$m = ({ state, snds, globs, node: { args }, macros: { Func, Var } }) => `
         let ${Var(state.delay, 'Float')} = 0
         let ${Var(state.sampleRatio, 'Float')} = 1
         let ${Var(state.scheduledBang, 'SkedId')} = SKED_ID_NULL
@@ -13973,7 +14359,7 @@ const generateDeclarations$l = ({ state, snds, globs, node: { args }, macros: { 
         })
     `;
 // ------------------------------ generateMessageReceivers ------------------------------ //
-const generateMessageReceivers$n = ({ state, globs, macros: { Var } }) => ({
+const generateMessageReceivers$o = ({ state, globs, macros: { Var } }) => ({
     '0': `
         if (msg_getLength(${globs.m}) === 1) {
             if (msg_isStringToken(${globs.m}, 0)) {
@@ -14007,10 +14393,10 @@ const generateMessageReceivers$n = ({ state, globs, macros: { Var } }) => ({
     '1': coldFloatInletWithSetter(globs.m, state.funcSetDelay)
 });
 // ------------------------------------------------------------------- //
-const nodeImplementation$o = {
-    generateDeclarations: generateDeclarations$l,
-    generateMessageReceivers: generateMessageReceivers$n,
-    stateVariables: stateVariables$w,
+const nodeImplementation$p = {
+    generateDeclarations: generateDeclarations$m,
+    generateMessageReceivers: generateMessageReceivers$o,
+    stateVariables: stateVariables$v,
     dependencies: [
         computeUnitInSamples,
         bangUtils,
@@ -14019,64 +14405,6 @@ const nodeImplementation$o = {
     ],
 };
 
-const EMPTY_BUS_NAME = 'empty';
-const stateVariables$v = {
-    value: 1,
-    funcPrepareStoreValue: 1,
-    funcPrepareStoreValueBang: 1,
-    funcSetReceiveBusName: 1,
-    sendBusName: 1,
-    receiveBusName: 1,
-    funcMessageReceiver: 1,
-};
-const build = () => ({
-    inlets: {
-        '0': { type: 'message', id: '0' },
-    },
-    outlets: {
-        '0': { type: 'message', id: '0' },
-    },
-    // This is always true, because the object can receive 
-    // messages through message bus
-    isPushingMessages: true
-});
-const declareControlSendReceive = ({ node, state, node: { args }, macros: { Var, Func } }) => `
-    let ${Var(state.receiveBusName, 'string')} = "${node.args.receiveBusName}"
-    let ${Var(state.sendBusName, 'string')} = "${node.args.sendBusName}"
-
-    function ${state.funcSetReceiveBusName} ${Func([
-    Var('busName', 'string')
-], 'void')} {
-        if (${state.receiveBusName} !== "${EMPTY_BUS_NAME}") {
-            msgBusUnsubscribe(${state.receiveBusName}, ${state.funcMessageReceiver})
-        }
-        ${state.receiveBusName} = busName
-        if (${state.receiveBusName} !== "${EMPTY_BUS_NAME}") {
-            msgBusSubscribe(${state.receiveBusName}, ${state.funcMessageReceiver})
-        }
-    }
-
-    commons_waitEngineConfigure(() => {
-        ${state.funcSetReceiveBusName}("${args.receiveBusName}")
-    })
-`;
-const messageSetSendReceive = ({ globs, state }) => `
-    if (
-        msg_isMatching(${globs.m}, [MSG_STRING_TOKEN, MSG_STRING_TOKEN])
-        && msg_readStringToken(${globs.m}, 0) === 'receive'
-    ) {
-        ${state.funcSetReceiveBusName}(msg_readStringToken(${globs.m}, 1))
-        return
-
-    } else if (
-        msg_isMatching(${globs.m}, [MSG_STRING_TOKEN, MSG_STRING_TOKEN])
-        && msg_readStringToken(${globs.m}, 0) === 'send'
-    ) {
-        ${state.sendBusName} = msg_readStringToken(${globs.m}, 1)
-        return
-    }
-`;
-
 /*
  * Copyright (c) 2022-2023 Sébastien Piquemal <sebpiq@protonmail.com>, Chris McCormick.
  *
@@ -14097,150 +14425,7 @@ const messageSetSendReceive = ({ globs, state }) => `
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 // ------------------------------- node builder ------------------------------ //
-const builderWithInit = {
-    translateArgs: ({ args: [minValue, maxValue, init, initValue, receive, send], }) => ({
-        minValue: assertNumber(minValue),
-        maxValue: assertNumber(maxValue),
-        sendBusName: assertOptionalString(send) || EMPTY_BUS_NAME,
-        receiveBusName: assertOptionalString(receive) || EMPTY_BUS_NAME,
-        initValue: init === 1 ? assertNumber(initValue) : 0,
-        outputOnLoad: !!init,
-    }),
-    build,
-};
-const builderWithoutMin = {
-    translateArgs: ({ args: [maxValue, init, initValue, receive, send], }) => ({
-        minValue: 0,
-        maxValue: assertNumber(maxValue),
-        sendBusName: assertOptionalString(send) || EMPTY_BUS_NAME,
-        receiveBusName: assertOptionalString(receive) || EMPTY_BUS_NAME,
-        initValue: init === 1 ? assertNumber(initValue) : 0,
-        outputOnLoad: !!init,
-    }),
-    build,
-};
-const makeNodeImplementation$7 = ({ prepareStoreValue, prepareStoreValueBang, }) => {
-    // ------------------------------- generateDeclarations ------------------------------ //
-    const generateDeclarations = (context) => {
-        const { node, state, snds, node: { id, args }, compilation: { codeVariableNames: { nodes } }, macros: { Var, Func } } = context;
-        return `
-            let ${Var(state.value, 'Float')} = ${node.args.initValue}
-
-            ${renderIf(prepareStoreValue, () => `function ${state.funcPrepareStoreValue} ${Func([
-            Var('value', 'Float')
-        ], 'Float')} {
-                    return ${prepareStoreValue(node.args)}
-                }`)}
-
-            ${renderIf(prepareStoreValueBang, () => `function ${state.funcPrepareStoreValueBang} ${Func([
-            Var('value', 'Float')
-        ], 'Float')} {
-                    return ${prepareStoreValueBang(node.args)}
-                }`)}
-
-            function ${state.funcMessageReceiver} ${Func([
-            Var('m', 'Message'),
-        ], 'void')} {
-                if (msg_isMatching(m, [MSG_FLOAT_TOKEN])) {
-                    ${prepareStoreValue ?
-            `${state.value} = ${state.funcPrepareStoreValue}(msg_readFloatToken(m, 0))`
-            : `${state.value} = msg_readFloatToken(m, 0)`}
-                    const ${Var('outMessage', 'Message')} = msg_floats([${state.value}])
-                    ${nodes[id].snds.$0}(outMessage)
-                    if (${state.sendBusName} !== "${EMPTY_BUS_NAME}") {
-                        msgBusPublish(${state.sendBusName}, outMessage)
-                    }
-
-                } else if (msg_isBang(m)) {
-                    ${renderIf(prepareStoreValueBang, () => `${state.value} = ${state.funcPrepareStoreValueBang}(${state.value})`)}
-                    const ${Var('outMessage', 'Message')} = msg_floats([${state.value}])
-                    ${nodes[id].snds.$0}(outMessage)
-                    if (${state.sendBusName} !== "${EMPTY_BUS_NAME}") {
-                        msgBusPublish(${state.sendBusName}, outMessage)
-                    }
-
-                } else if (
-                    msg_isMatching(m, [MSG_STRING_TOKEN, MSG_FLOAT_TOKEN]) 
-                    && msg_readStringToken(m, 0) === 'set'
-                ) {
-                    ${prepareStoreValue ?
-            `${state.value} = ${state.funcPrepareStoreValue}(msg_readFloatToken(m, 1))`
-            : `${state.value} = msg_readFloatToken(m, 1)`}
-                }
-            
-                ${messageSetSendReceive(context)}
-            }
-
-            ${declareControlSendReceive(context)}
-
-            ${renderIf(args.outputOnLoad, `commons_waitFrame(0, () => ${snds.$0}(msg_floats([${state.value}])))`)}
-        `;
-    };
-    // ------------------------------- generateMessageReceivers ------------------------------ //
-    const generateMessageReceivers = (context) => {
-        const { globs, state } = context;
-        return {
-            '0': `
-                ${state.funcMessageReceiver}(${globs.m})
-                return
-            `
-        };
-    };
-    return {
-        generateMessageReceivers,
-        generateDeclarations,
-        stateVariables: stateVariables$v,
-        dependencies: [
-            bangUtils,
-            messageBuses,
-            commonsWaitEngineConfigure,
-            commonsWaitFrame,
-        ],
-    };
-};
-// ------------------------------------------------------------------- //
-const nodeImplementations$9 = {
-    'tgl': makeNodeImplementation$7({
-        prepareStoreValueBang: ({ maxValue }) => `value === 0 ? ${maxValue}: 0`
-    }),
-    'nbx': makeNodeImplementation$7({
-        prepareStoreValue: ({ minValue, maxValue }) => `Math.min(Math.max(value,${minValue}),${maxValue})`
-    }),
-    'hsl': makeNodeImplementation$7({}),
-    'hradio': makeNodeImplementation$7({}),
-};
-nodeImplementations$9['vsl'] = nodeImplementations$9['hsl'];
-nodeImplementations$9['vradio'] = nodeImplementations$9['hradio'];
-const builders$9 = {
-    'tgl': builderWithoutMin,
-    'nbx': builderWithInit,
-    'hsl': builderWithInit,
-    'vsl': builderWithInit,
-    'hradio': builderWithoutMin,
-    'vradio': builderWithoutMin,
-};
-
-/*
- * Copyright (c) 2022-2023 Sébastien Piquemal <sebpiq@protonmail.com>, Chris McCormick.
- *
- * This file is part of WebPd
- * (see https://github.com/sebpiq/WebPd).
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public License
- * along with this program. If not, see <http://www.gnu.org/licenses/>.
- */
-// ------------------------------- node builder ------------------------------ //
-const builder$t = {
+const builder$u = {
     translateArgs: ({ args: [init, receive, send] }) => ({
         outputOnLoad: !!init,
         sendBusName: assertOptionalString(send) || EMPTY_BUS_NAME,
@@ -14249,7 +14434,7 @@ const builder$t = {
     build,
 };
 // ------------------------------- generateDeclarations ------------------------------ //
-const generateDeclarations$k = (context) => {
+const generateDeclarations$l = (context) => {
     const { state, snds, node: { id, args }, macros: { Var, Func }, compilation: { codeVariableNames: { nodes } } } = context;
     return `
         function ${state.funcMessageReceiver} ${Func([
@@ -14272,7 +14457,7 @@ const generateDeclarations$k = (context) => {
     `;
 };
 // ------------------------------- generateMessageReceivers ------------------------------ //
-const generateMessageReceivers$m = (context) => {
+const generateMessageReceivers$n = (context) => {
     const { state, globs } = context;
     return ({
         '0': `
@@ -14282,10 +14467,10 @@ const generateMessageReceivers$m = (context) => {
     });
 };
 // ------------------------------------------------------------------- //
-const nodeImplementation$n = {
-    generateDeclarations: generateDeclarations$k,
-    generateMessageReceivers: generateMessageReceivers$m,
-    stateVariables: stateVariables$v,
+const nodeImplementation$o = {
+    generateDeclarations: generateDeclarations$l,
+    generateMessageReceivers: generateMessageReceivers$n,
+    stateVariables: stateVariables$T,
     dependencies: [
         bangUtils,
         messageBuses,
@@ -14315,14 +14500,14 @@ const nodeImplementation$n = {
  */
 // TODO : use standard "unsupported message" from compile-generateDeclarations
 // ------------------------------- node builder ------------------------------ //
-const builder$s = {
+const builder$t = {
     translateArgs: ({ args: [_, __, receive, send] }) => ({
         sendBusName: assertOptionalString(send) || EMPTY_BUS_NAME,
         receiveBusName: assertOptionalString(receive) || EMPTY_BUS_NAME,
     }),
     build,
 };
-const makeNodeImplementation$6 = ({ initValue, messageMatch, }) => {
+const makeNodeImplementation$5 = ({ initValue, messageMatch, }) => {
     // ------------------------------- generateDeclarations ------------------------------ //
     const generateDeclarations = (context) => {
         const { state, globs, macros: { Var, Func }, node: { id }, compilation: { codeVariableNames: { nodes } } } = context;
@@ -14382,7 +14567,7 @@ const makeNodeImplementation$6 = ({ initValue, messageMatch, }) => {
     return {
         generateDeclarations,
         generateMessageReceivers,
-        stateVariables: stateVariables$v,
+        stateVariables: stateVariables$T,
         dependencies: [
             bangUtils,
             messageBuses,
@@ -14391,21 +14576,21 @@ const makeNodeImplementation$6 = ({ initValue, messageMatch, }) => {
         ],
     };
 };
-const builders$8 = {
-    'floatatom': builder$s,
-    'symbolatom': builder$s,
-    'listbox': builder$s,
+const builders$7 = {
+    'floatatom': builder$t,
+    'symbolatom': builder$t,
+    'listbox': builder$t,
 };
-const nodeImplementations$8 = {
-    'floatatom': makeNodeImplementation$6({
+const nodeImplementations$7 = {
+    'floatatom': makeNodeImplementation$5({
         initValue: `msg_floats([0])`,
         messageMatch: (m) => `msg_isMatching(${m}, [MSG_FLOAT_TOKEN])`
     }),
-    'symbolatom': makeNodeImplementation$6({
+    'symbolatom': makeNodeImplementation$5({
         initValue: `msg_strings([''])`,
         messageMatch: (m) => `msg_isMatching(${m}, [MSG_STRING_TOKEN])`
     }),
-    'listbox': makeNodeImplementation$6({
+    'listbox': makeNodeImplementation$5({
         initValue: `msg_bang()`,
     })
 };
@@ -14431,7 +14616,7 @@ const nodeImplementations$8 = {
  */
 const stateVariables$u = {};
 // ------------------------------- node builder ------------------------------ //
-const builder$r = {
+const builder$s = {
     translateArgs: () => ({}),
     build: () => ({
         inlets: {},
@@ -14440,10 +14625,10 @@ const builder$r = {
     }),
 };
 // ------------------------------- generateDeclarations ------------------------------ //
-const generateDeclarations$j = ({ snds }) => `commons_waitFrame(0, () => ${snds.$0}(msg_bang()))`;
+const generateDeclarations$k = ({ snds }) => `commons_waitFrame(0, () => ${snds.$0}(msg_bang()))`;
 // ------------------------------------------------------------------- //
-const nodeImplementation$m = {
-    generateDeclarations: generateDeclarations$j,
+const nodeImplementation$n = {
+    generateDeclarations: generateDeclarations$k,
     stateVariables: stateVariables$u,
     dependencies: [bangUtils, commonsWaitFrame],
 };
@@ -14482,7 +14667,7 @@ const stateVariables$t = {
 // TODO: proper support for $ args
 // TODO: simple number - shortcut for float
 // ------------------------------- node builder ------------------------------ //
-const builder$q = {
+const builder$r = {
     translateArgs: (pdNode) => ({
         value: assertOptionalNumber(pdNode.args[0]) || 0,
     }),
@@ -14498,7 +14683,7 @@ const builder$q = {
     }),
 };
 // ------------------------------- generateDeclarations ------------------------------ //
-const makeDeclare = (prepareValueCode = 'value') => ({ node: { args }, state, macros: { Var, Func } }) => `
+const makeGenerateDeclarations = (prepareValueCode = 'value') => ({ node: { args }, state, macros: { Var, Func } }) => `
         let ${Var(state.value, 'Float')} = 0
 
         const ${state.funcSetValue} = ${Func([
@@ -14508,7 +14693,7 @@ const makeDeclare = (prepareValueCode = 'value') => ({ node: { args }, state, ma
         ${state.funcSetValue}(${args.value})
     `;
 // ------------------------------- generateMessageReceivers ------------------------------ //
-const generateMessageReceivers$l = ({ snds, globs, state, }) => ({
+const generateMessageReceivers$m = ({ snds, globs, state, }) => ({
     '0': `
     if (msg_isMatching(${globs.m}, [MSG_FLOAT_TOKEN])) {
         ${state.funcSetValue}(msg_readFloatToken(${globs.m}, 0))
@@ -14524,22 +14709,22 @@ const generateMessageReceivers$l = ({ snds, globs, state, }) => ({
     '1': coldFloatInletWithSetter(globs.m, state.funcSetValue),
 });
 // ------------------------------------------------------------------- //
-const builders$7 = {
-    float: builder$q,
+const builders$6 = {
+    float: builder$r,
     f: { aliasTo: 'float' },
-    int: builder$q,
+    int: builder$r,
     i: { aliasTo: 'int' },
 };
-const nodeImplementations$7 = {
+const nodeImplementations$6 = {
     float: {
-        generateDeclarations: makeDeclare(),
-        generateMessageReceivers: generateMessageReceivers$l,
+        generateDeclarations: makeGenerateDeclarations(),
+        generateMessageReceivers: generateMessageReceivers$m,
         stateVariables: stateVariables$t,
         dependencies: [bangUtils],
     },
     int: {
-        generateDeclarations: makeDeclare('roundFloatAsPdInt(value)'),
-        generateMessageReceivers: generateMessageReceivers$l,
+        generateDeclarations: makeGenerateDeclarations('roundFloatAsPdInt(value)'),
+        generateMessageReceivers: generateMessageReceivers$m,
         stateVariables: stateVariables$t,
         dependencies: [roundFloatAsPdInt, bangUtils],
     },
@@ -14547,7 +14732,7 @@ const nodeImplementations$7 = {
 
 const stateVariables$s = {};
 // ------------------------------- node builder ------------------------------ //
-const builder$p = {
+const builder$q = {
     translateArgs: () => ({}),
     build: () => ({
         inlets: {
@@ -14558,7 +14743,7 @@ const builder$p = {
         },
     }),
 };
-const makeNodeImplementation$5 = ({ operationCode, dependencies = [], }) => {
+const makeNodeImplementation$4 = ({ operationCode, dependencies = [], }) => {
     // ------------------------------- generateMessageReceivers ------------------------------ //
     const generateMessageReceivers = ({ globs, snds, macros: { Var } }) => ({
         '0': `
@@ -14572,32 +14757,32 @@ const makeNodeImplementation$5 = ({ operationCode, dependencies = [], }) => {
     return { generateMessageReceivers, stateVariables: stateVariables$s, dependencies };
 };
 // ------------------------------------------------------------------- //
-const nodeImplementations$6 = {
-    'abs': makeNodeImplementation$5({ operationCode: `Math.abs(value)` }),
-    'wrap': makeNodeImplementation$5({ operationCode: `(1 + (value % 1)) % 1` }),
-    'cos': makeNodeImplementation$5({ operationCode: `Math.cos(value)` }),
-    'sqrt': makeNodeImplementation$5({ operationCode: `value >= 0 ? Math.pow(value, 0.5): 0` }),
-    'mtof': makeNodeImplementation$5({ operationCode: `mtof(value)`, dependencies: [mtof] }),
-    'ftom': makeNodeImplementation$5({ operationCode: `ftom(value)`, dependencies: [ftom] }),
-    'rmstodb': makeNodeImplementation$5({ operationCode: `value <= 0 ? 0 : 20 * Math.log(value) / Math.LN10 + 100` }),
-    'dbtorms': makeNodeImplementation$5({ operationCode: `value <= 0 ? 0 : Math.exp(Math.LN10 * (value - 100) / 20)` }),
-    'powtodb': makeNodeImplementation$5({ operationCode: `value <= 0 ? 0 : 10 * Math.log(value) / Math.LN10 + 100` }),
-    'dbtopow': makeNodeImplementation$5({ operationCode: `value <= 0 ? 0 : Math.exp(Math.LN10 * (value - 100) / 10)` }),
+const nodeImplementations$5 = {
+    'abs': makeNodeImplementation$4({ operationCode: `Math.abs(value)` }),
+    'wrap': makeNodeImplementation$4({ operationCode: `(1 + (value % 1)) % 1` }),
+    'cos': makeNodeImplementation$4({ operationCode: `Math.cos(value)` }),
+    'sqrt': makeNodeImplementation$4({ operationCode: `value >= 0 ? Math.pow(value, 0.5): 0` }),
+    'mtof': makeNodeImplementation$4({ operationCode: `mtof(value)`, dependencies: [mtof] }),
+    'ftom': makeNodeImplementation$4({ operationCode: `ftom(value)`, dependencies: [ftom] }),
+    'rmstodb': makeNodeImplementation$4({ operationCode: `value <= 0 ? 0 : 20 * Math.log(value) / Math.LN10 + 100` }),
+    'dbtorms': makeNodeImplementation$4({ operationCode: `value <= 0 ? 0 : Math.exp(Math.LN10 * (value - 100) / 20)` }),
+    'powtodb': makeNodeImplementation$4({ operationCode: `value <= 0 ? 0 : 10 * Math.log(value) / Math.LN10 + 100` }),
+    'dbtopow': makeNodeImplementation$4({ operationCode: `value <= 0 ? 0 : Math.exp(Math.LN10 * (value - 100) / 10)` }),
     // Implement vu as a noop
-    'vu': makeNodeImplementation$5({ operationCode: `value` }),
+    'vu': makeNodeImplementation$4({ operationCode: `value` }),
 };
-const builders$6 = {
-    'abs': builder$p,
-    'cos': builder$p,
-    'wrap': builder$p,
-    'sqrt': builder$p,
-    'mtof': builder$p,
-    'ftom': builder$p,
-    'rmstodb': builder$p,
-    'dbtorms': builder$p,
-    'powtodb': builder$p,
-    'dbtopow': builder$p,
-    'vu': builder$p,
+const builders$5 = {
+    'abs': builder$q,
+    'cos': builder$q,
+    'wrap': builder$q,
+    'sqrt': builder$q,
+    'mtof': builder$q,
+    'ftom': builder$q,
+    'rmstodb': builder$q,
+    'dbtorms': builder$q,
+    'powtodb': builder$q,
+    'dbtopow': builder$q,
+    'vu': builder$q,
 };
 
 /*
@@ -14624,7 +14809,7 @@ const stateVariables$r = {
     rightOp: 1,
 };
 // ------------------------------- node builder ------------------------------ //
-const makeBuilder$1 = (defaultValue) => ({
+const makeBuilder = (defaultValue) => ({
     translateArgs: (pdNode) => {
         const value = assertOptionalNumber(pdNode.args[0]);
         return {
@@ -14650,28 +14835,28 @@ const makeBuilder$1 = (defaultValue) => ({
         return undefined;
     },
 });
-const makeNodeImplementation$4 = ({ generateOperation, dependencies = [], }) => {
+const makeNodeImplementation$3 = ({ generateOperation, dependencies = [], }) => {
     const generateLoop = ({ ins, outs }) => `${outs.$0} = ${generateOperation(ins.$0, ins.$1)}`;
     return { generateLoop, stateVariables: stateVariables$r, dependencies };
 };
 // ------------------------------------------------------------------- //
-const nodeImplementations$5 = {
-    '+~': makeNodeImplementation$4({ generateOperation: (leftOp, rightOp) => `${leftOp} + ${rightOp}` }),
-    '-~': makeNodeImplementation$4({ generateOperation: (leftOp, rightOp) => `${leftOp} - ${rightOp}` }),
-    '*~': makeNodeImplementation$4({ generateOperation: (leftOp, rightOp) => `${leftOp} * ${rightOp}` }),
-    '/~': makeNodeImplementation$4({ generateOperation: (leftOp, rightOp) => `${rightOp} !== 0 ? ${leftOp} / ${rightOp} : 0` }),
-    'min~': makeNodeImplementation$4({ generateOperation: (leftOp, rightOp) => `Math.min(${leftOp}, ${rightOp})` }),
-    'max~': makeNodeImplementation$4({ generateOperation: (leftOp, rightOp) => `Math.max(${leftOp}, ${rightOp})` }),
-    'pow~': makeNodeImplementation$4({ generateOperation: (leftOp, rightOp) => `pow(${leftOp}, ${rightOp})`, dependencies: [pow] }),
+const nodeImplementations$4 = {
+    '+~': makeNodeImplementation$3({ generateOperation: (leftOp, rightOp) => `${leftOp} + ${rightOp}` }),
+    '-~': makeNodeImplementation$3({ generateOperation: (leftOp, rightOp) => `${leftOp} - ${rightOp}` }),
+    '*~': makeNodeImplementation$3({ generateOperation: (leftOp, rightOp) => `${leftOp} * ${rightOp}` }),
+    '/~': makeNodeImplementation$3({ generateOperation: (leftOp, rightOp) => `${rightOp} !== 0 ? ${leftOp} / ${rightOp} : 0` }),
+    'min~': makeNodeImplementation$3({ generateOperation: (leftOp, rightOp) => `Math.min(${leftOp}, ${rightOp})` }),
+    'max~': makeNodeImplementation$3({ generateOperation: (leftOp, rightOp) => `Math.max(${leftOp}, ${rightOp})` }),
+    'pow~': makeNodeImplementation$3({ generateOperation: (leftOp, rightOp) => `pow(${leftOp}, ${rightOp})`, dependencies: [pow] }),
 };
-const builders$5 = {
-    '+~': makeBuilder$1(0),
-    '-~': makeBuilder$1(0),
-    '*~': makeBuilder$1(0),
-    '/~': makeBuilder$1(0),
-    'min~': makeBuilder$1(0),
-    'max~': makeBuilder$1(0),
-    'pow~': makeBuilder$1(0),
+const builders$4 = {
+    '+~': makeBuilder(0),
+    '-~': makeBuilder(0),
+    '*~': makeBuilder(0),
+    '/~': makeBuilder(0),
+    'min~': makeBuilder(0),
+    'max~': makeBuilder(0),
+    'pow~': makeBuilder(0),
 };
 
 /*
@@ -14696,7 +14881,7 @@ const builders$5 = {
 const stateVariables$q = {};
 // TODO : implement seed
 // ------------------------------- node builder ------------------------------ //
-const builder$o = {
+const builder$p = {
     translateArgs: () => ({}),
     build: () => {
         return {
@@ -14714,7 +14899,7 @@ const generateLoop$4 = ({ outs }) => `
     ${outs.$0} = Math.random() * 2 - 1
 `;
 // ------------------------------- generateMessageReceivers ------------------------------ //
-const generateMessageReceivers$k = ({ globs }) => ({
+const generateMessageReceivers$l = ({ globs }) => ({
     '0': `
     if (
         msg_isMatching(${globs.m}, [MSG_STRING_TOKEN, MSG_FLOAT_TOKEN])
@@ -14726,7 +14911,7 @@ const generateMessageReceivers$k = ({ globs }) => ({
     `,
 });
 // ------------------------------------------------------------------- //
-const nodeImplementation$l = { generateLoop: generateLoop$4, generateMessageReceivers: generateMessageReceivers$k, stateVariables: stateVariables$q };
+const nodeImplementation$m = { generateLoop: generateLoop$4, generateMessageReceivers: generateMessageReceivers$l, stateVariables: stateVariables$q };
 
 /*
  * Copyright (c) 2022-2023 Sébastien Piquemal <sebpiq@protonmail.com>, Chris McCormick.
@@ -14799,7 +14984,7 @@ const stateVariables$p = {
 };
 // TODO : Implement 4-point interpolation for delread4
 // ------------------------------- node builder ------------------------------ //
-const builder$n = {
+const builder$o = {
     translateArgs: ({ args }) => ({
         delayName: assertOptionalString(args[0]) || '',
         initDelayMsec: assertOptionalNumber(args[1]) || 0,
@@ -14819,7 +15004,7 @@ const builder$n = {
         return undefined;
     },
 };
-const makeNodeImplementation$3 = () => {
+const makeNodeImplementation$2 = () => {
     // ------------------------------- generateDeclarations ------------------------------ //
     const generateDeclarations = ({ state, node: { args }, macros: { Var, Func } }) => `
         let ${Var(state.delayName, 'string')} = ""
@@ -14867,13 +15052,13 @@ const makeNodeImplementation$3 = () => {
         ],
     };
 };
-const builders$4 = {
-    'delread~': builder$n,
-    'delread4~': builder$n,
+const builders$3 = {
+    'delread~': builder$o,
+    'delread4~': builder$o,
 };
-const nodeImplementations$4 = {
-    'delread~': makeNodeImplementation$3(),
-    'delread4~': makeNodeImplementation$3(),
+const nodeImplementations$3 = {
+    'delread~': makeNodeImplementation$2(),
+    'delread4~': makeNodeImplementation$2(),
 };
 
 /*
@@ -14902,7 +15087,7 @@ const stateVariables$o = {
 };
 // TODO : default maxDurationMsec in Pd ? 
 // ------------------------------- node builder ------------------------------ //
-const builder$m = {
+const builder$n = {
     translateArgs: ({ args }) => ({
         delayName: assertOptionalString(args[0]) || '',
         maxDurationMsec: assertOptionalNumber(args[1]) || 100,
@@ -14923,7 +15108,7 @@ const builder$m = {
     },
 };
 // ------------------------------- generateDeclarations ------------------------------ //
-const generateDeclarations$i = ({ state, globs, node: { args }, macros: { Var, Func } }) => `
+const generateDeclarations$j = ({ state, globs, node: { args }, macros: { Var, Func } }) => `
     let ${Var(state.delayName, 'string')} = ""
     let ${Var(state.buffer, 'buf_SoundBuffer')} = DELAY_BUFFERS_NULL
 
@@ -14957,7 +15142,7 @@ const generateLoop$3 = ({ ins, state }) => `
     buf_writeSample(${state.buffer}, ${ins.$0})
 `;
 // ------------------------------- generateMessageReceivers ------------------------------ //
-const generateMessageReceivers$j = ({ state, globs }) => ({
+const generateMessageReceivers$k = ({ state, globs }) => ({
     '0_message': `
         if (msg_isAction(${globs.m}, 'clear')) {
             buf_clear(${state.buffer})
@@ -14966,11 +15151,11 @@ const generateMessageReceivers$j = ({ state, globs }) => ({
     `
 });
 // ------------------------------------------------------------------- //
-const nodeImplementation$k = {
+const nodeImplementation$l = {
     generateLoop: generateLoop$3,
     stateVariables: stateVariables$o,
-    generateMessageReceivers: generateMessageReceivers$j,
-    generateDeclarations: generateDeclarations$i,
+    generateMessageReceivers: generateMessageReceivers$k,
+    generateDeclarations: generateDeclarations$j,
     dependencies: [computeUnitInSamples, delayBuffers, stringMsgUtils]
 };
 
@@ -15000,7 +15185,7 @@ const stateVariables$n = {
 // TODO : tests + cleaner implementations
 // TODO : separate rfilters with lastInput from the ones that don't need
 // ------------------------------- node builder ------------------------------ //
-const builder$l = {
+const builder$m = {
     translateArgs: ({ args }) => ({
         initValue: assertOptionalNumber(args[0]) || 0,
     }),
@@ -15020,7 +15205,7 @@ const builder$l = {
         return undefined;
     },
 };
-const makeNodeImplementation$2 = ({ generateOperation, }) => {
+const makeNodeImplementation$1 = ({ generateOperation, }) => {
     // ------------------------------- generateDeclarations ------------------------------ //
     const generateDeclarations = ({ state, macros: { Var }, }) => `
         let ${Var(state.lastOutput, 'Float')} = 0
@@ -15038,19 +15223,19 @@ const makeNodeImplementation$2 = ({ generateOperation, }) => {
     };
 };
 // ------------------------------------------------------------------- //
-const builders$3 = {
-    'rpole~': builder$l,
-    'rzero~': builder$l,
-    'rzero_rev~': builder$l,
+const builders$2 = {
+    'rpole~': builder$m,
+    'rzero~': builder$m,
+    'rzero_rev~': builder$m,
 };
-const nodeImplementations$3 = {
-    'rpole~': makeNodeImplementation$2({
+const nodeImplementations$2 = {
+    'rpole~': makeNodeImplementation$1({
         generateOperation: (input, coeff, lastOutput) => `${input} + ${coeff} * ${lastOutput}`,
     }),
-    'rzero~': makeNodeImplementation$2({
+    'rzero~': makeNodeImplementation$1({
         generateOperation: (input, coeff, _, lastInput) => `${input} - ${coeff} * ${lastInput}`,
     }),
-    'rzero_rev~': makeNodeImplementation$2({
+    'rzero_rev~': makeNodeImplementation$1({
         generateOperation: (input, coeff, _, lastInput) => `${lastInput} - ${coeff} * ${input}`
     }),
 };
@@ -15083,7 +15268,7 @@ const stateVariables$m = {
 // TODO : tests + cleaner implementations
 // TODO : separate cfilters with lastInputRe lastInputIm from the ones that don't need
 // ------------------------------- node builder ------------------------------ //
-const builder$k = {
+const builder$l = {
     translateArgs: ({ args }) => ({
         initCoeffRe: assertOptionalNumber(args[0]) || 0,
         initCoeffIm: assertOptionalNumber(args[1]) || 0,
@@ -15116,7 +15301,7 @@ const builder$k = {
         return undefined;
     },
 };
-const makeNodeImplementation$1 = ({ generateOperationRe, generateOperationIm, }) => {
+const makeNodeImplementation = ({ generateOperationRe, generateOperationIm, }) => {
     // ------------------------------- generateDeclarations ------------------------------ //
     const generateDeclarations = ({ state, macros: { Var }, }) => `
         let ${Var(state.lastOutputRe, 'Float')} = 0
@@ -15139,18 +15324,18 @@ const makeNodeImplementation$1 = ({ generateOperationRe, generateOperationIm, })
     };
 };
 // ------------------------------------------------------------------- //
-const builders$2 = {
-    'cpole~': builder$k,
-    'czero~': builder$k,
+const builders$1 = {
+    'cpole~': builder$l,
+    'czero~': builder$l,
 };
-const nodeImplementations$2 = {
-    'cpole~': makeNodeImplementation$1({
+const nodeImplementations$1 = {
+    'cpole~': makeNodeImplementation({
         // *outre++ = nextre + lastre * coefre - lastim * coefim
         generateOperationRe: (inputRe, _, coeffRe, coeffIm, lastOutputRe, lastOutputIm) => `${inputRe} + ${lastOutputRe} * ${coeffRe} - ${lastOutputIm} * ${coeffIm}`,
         // *outim++ = nextim + lastre * coefim + lastim * coefre;
         generateOperationIm: (_, inputIm, coeffRe, coeffIm, lastOutputRe, lastOutputIm) => `${inputIm} + ${lastOutputRe} * ${coeffIm} + ${lastOutputIm} * ${coeffRe}`,
     }),
-    'czero~': makeNodeImplementation$1({
+    'czero~': makeNodeImplementation({
         // *outre++ = nextre - lastre * coefre + lastim * coefim;
         generateOperationRe: (inputRe, _, coeffRe, coeffIm, __, ___, lastInputRe, lastInputIm) => `${inputRe} - ${lastInputRe} * ${coeffRe} + ${lastInputIm} * ${coeffIm}`,
         // *outim++ = nextim - lastre * coefim - lastim * coefre;
@@ -15187,7 +15372,7 @@ const stateVariables$l = {
 // TODO : tests + cleaner implementations
 // TODO : separate rfilters with lastInput from the ones that don't need
 // ------------------------------- node builder ------------------------------ //
-const builder$j = {
+const builder$k = {
     translateArgs: ({ args }) => ({
         initValue: assertOptionalNumber(args[0]) || 0,
     }),
@@ -15208,7 +15393,7 @@ const builder$j = {
     },
 };
 // ------------------------------- generateDeclarations ------------------------------ //
-const generateDeclarations$h = ({ state, macros: { Var }, }) => `
+const generateDeclarations$i = ({ state, macros: { Var }, }) => `
     let ${Var(state.previous, 'Float')} = 0
     let ${Var(state.current, 'Float')} = 0
     let ${Var(state.coeff, 'Float')} = 0
@@ -15222,10 +15407,10 @@ const generateLoop$2 = ({ ins, state, outs, globs }) => `
     ${outs.$0} = ${state.normal} * (${state.current} - ${state.previous})
     ${state.previous} = ${state.current}
 `;
-const nodeImplementation$j = {
+const nodeImplementation$k = {
     generateLoop: generateLoop$2,
     stateVariables: stateVariables$l,
-    generateDeclarations: generateDeclarations$h,
+    generateDeclarations: generateDeclarations$i,
 };
 
 /*
@@ -15256,7 +15441,7 @@ const stateVariables$k = {
 // TODO : tests + cleaner implementations
 // TODO : separate rfilters with lastInput from the ones that don't need
 // ------------------------------- node builder ------------------------------ //
-const builder$i = {
+const builder$j = {
     translateArgs: ({ args }) => ({
         frequency: assertOptionalNumber(args[0]) || 0,
     }),
@@ -15277,7 +15462,7 @@ const builder$i = {
     },
 };
 // ------------------------------- generateDeclarations ------------------------------ //
-const generateDeclarations$g = ({ state, macros: { Var }, }) => `
+const generateDeclarations$h = ({ state, macros: { Var }, }) => `
     let ${Var(state.previous, 'Float')} = 0
     let ${Var(state.coeff, 'Float')} = 0
 `;
@@ -15287,14 +15472,14 @@ const generateLoop$1 = ({ ins, state, outs, globs }) => `
     ${state.previous} = ${outs.$0} = ${state.coeff} * ${ins.$0} + (1 - ${state.coeff}) * ${state.previous}
 `;
 // ------------------------------- generateMessageReceivers ------------------------------ //
-const generateMessageReceivers$i = ({ globs, state }) => ({
+const generateMessageReceivers$j = ({ globs, state }) => ({
     '1': coldFloatInletWithSetter(globs.m, state.funcSetFreq),
 });
-const nodeImplementation$i = {
+const nodeImplementation$j = {
     generateLoop: generateLoop$1,
     stateVariables: stateVariables$k,
-    generateMessageReceivers: generateMessageReceivers$i,
-    generateDeclarations: generateDeclarations$g,
+    generateMessageReceivers: generateMessageReceivers$j,
+    generateDeclarations: generateDeclarations$h,
 };
 
 /*
@@ -15335,7 +15520,7 @@ const stateVariables$j = {
 // TODO : this uses bp~ implementation, not vcf. Rewrite using pd's implementation : 
 // https://github.com/pure-data/pure-data/blob/master/src/d_osc.c
 // ------------------------------- node builder ------------------------------ //
-const builder$h = {
+const builder$i = {
     translateArgs: ({ args }) => ({
         frequency: assertOptionalNumber(args[0]) || 0,
         Q: assertOptionalNumber(args[1]) || 0,
@@ -15353,7 +15538,7 @@ const builder$h = {
     }),
 };
 // ------------------------------- generateDeclarations ------------------------------ //
-const generateDeclarations$f = ({ state, globs, node: { args }, macros: { Var, Func } }) => `
+const generateDeclarations$g = ({ state, globs, node: { args }, macros: { Var, Func } }) => `
     let ${Var(state.frequency, 'Float')} = ${args.frequency}
     let ${Var(state.Q, 'Float')} = ${args.Q}
     let ${Var(state.coef1, 'Float')} = 0
@@ -15399,15 +15584,15 @@ const generateLoop = ({ ins, outs, state }) => `
     ${state.ym1} = ${state.y}
 `;
 // ------------------------------- generateMessageReceivers ------------------------------ //
-const generateMessageReceivers$h = ({ state, globs }) => ({
+const generateMessageReceivers$i = ({ state, globs }) => ({
     '2': coldFloatInletWithSetter(globs.m, state.funcSetQ),
 });
 // ------------------------------------------------------------------- //
-const nodeImplementation$h = {
+const nodeImplementation$i = {
     generateLoop,
     stateVariables: stateVariables$j,
-    generateMessageReceivers: generateMessageReceivers$h,
-    generateDeclarations: generateDeclarations$f,
+    generateMessageReceivers: generateMessageReceivers$i,
+    generateDeclarations: generateDeclarations$g,
 };
 
 /*
@@ -15438,7 +15623,7 @@ const stateVariables$i = {
 //      sends "" when receiving a number
 //      sends <string> when receiving a string
 // ------------------------------- node builder ------------------------------ //
-const builder$g = {
+const builder$h = {
     skipDollarArgsResolution: true,
     translateArgs: ({ args }) => {
         const templates = [[]];
@@ -15471,7 +15656,7 @@ const builder$g = {
     }),
 };
 // ------------------------------ generateDeclarations ------------------------------ //
-const generateDeclarations$e = (context) => {
+const generateDeclarations$f = (context) => {
     const { state, node, macros: { Var, Func }, } = context;
     const transferCodes = node.args.templates.map((template, i) => buildMsgTransferCode(context, template, i));
     return renderCode `
@@ -15491,7 +15676,7 @@ const generateDeclarations$e = (context) => {
     `;
 };
 // ------------------------------- generateMessageReceivers ------------------------------ //
-const generateMessageReceivers$g = ({ snds, state, globs, macros: { Var, Func }, }) => {
+const generateMessageReceivers$h = ({ snds, state, globs, macros: { Var, Func }, }) => {
     return {
         '0': `
         if (
@@ -15537,7 +15722,7 @@ const generateMessageReceivers$g = ({ snds, state, globs, macros: { Var, Func },
     };
 };
 // ------------------------------------------------------------------- //
-const nodeImplementation$g = { generateDeclarations: generateDeclarations$e, generateMessageReceivers: generateMessageReceivers$g, stateVariables: stateVariables$i };
+const nodeImplementation$h = { generateDeclarations: generateDeclarations$f, generateMessageReceivers: generateMessageReceivers$h, stateVariables: stateVariables$i };
 const buildMsgTransferCode = ({ state, macros: { Var } }, template, index) => {
     const outTemplate = `${state.outTemplates}[${index}]`;
     const outMessage = `${state.outMessages}[${index}]`;
@@ -15687,7 +15872,7 @@ const stateVariables$h = {
 };
 // TODO : implement missing list operations
 // ------------------------------- node builder ------------------------------ //
-const builder$f = {
+const builder$g = {
     translateArgs: ({ args }) => {
         const operation = assertOptionalString(args[0]) || 'append';
         let operationArgs = args.slice(1);
@@ -15740,7 +15925,7 @@ const builder$f = {
     },
 };
 // ------------------------------- generateDeclarations ------------------------------ //
-const generateDeclarations$d = ({ state, node: { args }, macros: { Var, Func }, }) => {
+const generateDeclarations$e = ({ state, node: { args }, macros: { Var, Func }, }) => {
     switch (args.operation) {
         case 'split':
             return `
@@ -15776,7 +15961,7 @@ const generateDeclarations$d = ({ state, node: { args }, macros: { Var, Func }, 
     }
 };
 // ------------------------------- generateMessageReceivers ------------------------------ //
-const generateMessageReceivers$f = ({ snds, globs, state, macros: { Var }, node: { args } }) => {
+const generateMessageReceivers$g = ({ snds, globs, state, macros: { Var }, node: { args } }) => {
     const prepareInMessage = `const ${Var('inMessage', 'Message')} = msg_isBang(${globs.m}) ? msg_create([]): ${globs.m}`;
     switch (args.operation) {
         case 'split':
@@ -15843,10 +16028,10 @@ const generateMessageReceivers$f = ({ snds, globs, state, macros: { Var }, node:
     }
 };
 // ------------------------------------------------------------------- //
-const nodeImplementation$f = {
-    generateMessageReceivers: generateMessageReceivers$f,
+const nodeImplementation$g = {
+    generateMessageReceivers: generateMessageReceivers$g,
     stateVariables: stateVariables$h,
-    generateDeclarations: generateDeclarations$d,
+    generateDeclarations: generateDeclarations$e,
     dependencies: [bangUtils, msgUtils]
 };
 
@@ -15870,6 +16055,79 @@ const nodeImplementation$f = {
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 const stateVariables$g = {
+    value: 1,
+};
+// TODO: proper support for $ args
+// TODO: simple number - shortcut for float
+// ------------------------------- node builder ------------------------------ //
+const builder$f = {
+    translateArgs: (pdNode) => ({
+        value: assertOptionalString(pdNode.args[0]) || '',
+    }),
+    build: () => ({
+        inlets: {
+            '0': { type: 'message', id: '0' },
+            '1': { type: 'message', id: '1' },
+        },
+        outlets: {
+            '0': { type: 'message', id: '0' },
+        },
+        isPushingMessages: true,
+    }),
+};
+// ------------------------------- generateDeclarations ------------------------------ //
+const generateDeclarations$d = ({ node: { args }, state, macros: { Var } }) => `
+    let ${Var(state.value, 'string')} = "${args.value}"
+`;
+// ------------------------------- generateMessageReceivers ------------------------------ //
+const generateMessageReceivers$f = ({ snds, globs, state, }) => ({
+    '0': `
+    if (msg_isBang(${globs.m})) {
+        ${snds.$0}(msg_strings([${state.value}]))
+        return
+
+    } else if (msg_isMatching(${globs.m}, [MSG_STRING_TOKEN])) {
+        ${state.value} = msg_readStringToken(${globs.m}, 0)
+        ${snds.$0}(msg_strings([${state.value}]))
+        return
+
+    }
+    `,
+    '1': `
+    if (msg_isMatching(${globs.m}, [MSG_STRING_TOKEN])) {
+        ${state.value} = msg_readStringToken(${globs.m}, 0)
+        return 
+    }
+    `,
+});
+// ------------------------------------------------------------------- //
+const nodeImplementation$f = {
+    generateMessageReceivers: generateMessageReceivers$f,
+    stateVariables: stateVariables$g,
+    generateDeclarations: generateDeclarations$d,
+    dependencies: [bangUtils, messageBuses]
+};
+
+/*
+ * Copyright (c) 2022-2023 Sébastien Piquemal <sebpiq@protonmail.com>, Chris McCormick.
+ *
+ * This file is part of WebPd
+ * (see https://github.com/sebpiq/WebPd).
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with this program. If not, see <http://www.gnu.org/licenses/>.
+ */
+const stateVariables$f = {
     busName: 1,
 };
 // ------------------------------- node builder ------------------------------ //
@@ -15899,7 +16157,7 @@ const generateMessageReceivers$e = ({ state, globs, }) => ({
 });
 // ------------------------------------------------------------------- //
 const nodeImplementation$e = {
-    stateVariables: stateVariables$g,
+    stateVariables: stateVariables$f,
     generateDeclarations: generateDeclarations$c,
     generateMessageReceivers: generateMessageReceivers$e,
     dependencies: [messageBuses, commonsWaitEngineConfigure],
@@ -15924,7 +16182,7 @@ const nodeImplementation$e = {
  * You should have received a copy of the GNU Lesser General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
-const stateVariables$f = {};
+const stateVariables$e = {};
 // ------------------------------- node builder ------------------------------ //
 const builder$d = {
     translateArgs: (pdNode) => ({
@@ -15946,7 +16204,7 @@ const generateDeclarations$b = ({ compilation: { codeVariableNames: { nodes } },
 `;
 // ------------------------------------------------------------------- //
 const nodeImplementation$d = {
-    stateVariables: stateVariables$f,
+    stateVariables: stateVariables$e,
     generateDeclarations: generateDeclarations$b,
     dependencies: [messageBuses, commonsWaitEngineConfigure],
 };
@@ -15970,7 +16228,7 @@ const nodeImplementation$d = {
  * You should have received a copy of the GNU Lesser General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
-const stateVariables$e = {
+const stateVariables$d = {
     operations: 1,
     buildMessage1: 1,
 };
@@ -15990,8 +16248,8 @@ const builder$c = {
     }),
 };
 // ------------------------------ generateDeclarations ------------------------------ //
-const generateDeclarations$a = ({ state, macros: { Func, Var } }) => `
-    class SfOperation {
+const sharedCode = ({ macros: { Var } }) => renderCode `
+    class SoundfilerOperation {
         ${Var('url', 'string')}
         ${Var('arrayNames', 'Array<string>')}
         ${Var('resize', 'boolean')}
@@ -16000,7 +16258,9 @@ const generateDeclarations$a = ({ state, macros: { Func, Var } }) => `
         ${Var('skip', 'Float')}
         ${Var('soundInfo', 'fs_SoundInfo')}
     }
-    const ${Var(state.operations, 'Map<fs_OperationId, SfOperation>')} = new Map()
+`;
+const generateDeclarations$a = ({ state, macros: { Func, Var } }) => `
+    const ${Var(state.operations, 'Map<fs_OperationId, SoundfilerOperation>')} = new Map()
 
     const ${state.buildMessage1} = ${Func([
     Var('soundInfo', 'fs_SoundInfo')
@@ -16041,7 +16301,7 @@ const generateMessageReceivers$d = ({ state, globs, snds, macros: { Func, Var } 
             endianness: '',
             extraOptions: '',
         }
-        const ${Var('operation', 'SfOperation')} = {
+        const ${Var('operation', 'SoundfilerOperation')} = {
             arrayNames: [],
             resize: false,
             maxSize: -1,
@@ -16138,7 +16398,7 @@ const generateMessageReceivers$d = ({ state, globs, snds, macros: { Func, Var } 
         Var('status', 'fs_OperationStatus'),
         Var('sound', 'FloatArray[]'),
     ], 'void')} => {
-                const ${Var('operation', 'SfOperation')} = ${state.operations}.get(id)
+                const ${Var('operation', 'SoundfilerOperation')} = ${state.operations}.get(id)
                 ${state.operations}.delete(id)
                 let ${Var('i', 'Int')} = 0
                 let ${Var('maxFramesRead', 'Float')} = 0
@@ -16236,7 +16496,7 @@ const generateMessageReceivers$d = ({ state, globs, snds, macros: { Func, Var } 
         Var('id', 'fs_OperationId'),
         Var('status', 'fs_OperationStatus'),
     ], 'void')} => {
-                const ${Var('operation', 'SfOperation')} = ${state.operations}.get(id)
+                const ${Var('operation', 'SoundfilerOperation')} = ${state.operations}.get(id)
                 ${state.operations}.delete(id)
                 ${snds.$1}(${state.buildMessage1}(operation.soundInfo))
                 ${snds.$0}(msg_floats([operation.framesToWrite]))
@@ -16260,8 +16520,9 @@ const generateMessageReceivers$d = ({ state, globs, snds, macros: { Func, Var } 
 const nodeImplementation$c = {
     generateDeclarations: generateDeclarations$a,
     generateMessageReceivers: generateMessageReceivers$d,
-    stateVariables: stateVariables$e,
+    stateVariables: stateVariables$d,
     dependencies: [
+        sharedCode,
         parseSoundFileOpenOpts,
         commonsArrays,
         fsReadSoundFile,
@@ -16288,7 +16549,7 @@ const nodeImplementation$c = {
  * You should have received a copy of the GNU Lesser General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
-const stateVariables$d = {};
+const stateVariables$c = {};
 // ------------------------------- node builder ------------------------------ //
 const builder$b = {
     translateArgs: (pdNode) => {
@@ -16316,7 +16577,7 @@ const generateMessageReceivers$c = ({ globs, node: { args } }) => ({
     `,
 });
 // ------------------------------------------------------------------- //
-const nodeImplementation$b = { generateMessageReceivers: generateMessageReceivers$c, stateVariables: stateVariables$d };
+const nodeImplementation$b = { generateMessageReceivers: generateMessageReceivers$c, stateVariables: stateVariables$c };
 
 const TYPE_ARGUMENTS = [
     'float',
@@ -16416,7 +16677,7 @@ const messageTokenToString = ({ macros: { Func, Var } }) => `
  * You should have received a copy of the GNU Lesser General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
-const stateVariables$c = {};
+const stateVariables$b = {};
 // TODO : 
 // - pointer
 // ------------------------------- node builder ------------------------------ //
@@ -16444,7 +16705,7 @@ const generateMessageReceivers$b = ({ snds, globs, node: { args: { typeArguments
 // ------------------------------------------------------------------- //
 const nodeImplementation$a = {
     generateMessageReceivers: generateMessageReceivers$b,
-    stateVariables: stateVariables$c,
+    stateVariables: stateVariables$b,
     dependencies: [
         messageTokenToFloat,
         messageTokenToString,
@@ -16471,7 +16732,7 @@ const nodeImplementation$a = {
  * You should have received a copy of the GNU Lesser General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
-const stateVariables$b = {
+const stateVariables$a = {
     currentValue: 1,
 };
 // ------------------------------- node builder ------------------------------ //
@@ -16517,7 +16778,7 @@ const generateMessageReceivers$a = ({ snds, globs, state, macros: { Var }, }) =>
 // ------------------------------------------------------------------- //
 const nodeImplementation$9 = {
     generateMessageReceivers: generateMessageReceivers$a,
-    stateVariables: stateVariables$b,
+    stateVariables: stateVariables$a,
     generateDeclarations: generateDeclarations$9,
     dependencies: [bangUtils],
 };
@@ -16541,7 +16802,7 @@ const nodeImplementation$9 = {
  * You should have received a copy of the GNU Lesser General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
-const stateVariables$a = {
+const stateVariables$9 = {
     threshold: 1
 };
 // ------------------------------- node builder ------------------------------ //
@@ -16580,7 +16841,7 @@ const generateMessageReceivers$9 = ({ snds, globs, state, macros: { Var } }) => 
     '1': coldFloatInlet(globs.m, state.threshold),
 });
 // ------------------------------------------------------------------- //
-const nodeImplementation$8 = { generateMessageReceivers: generateMessageReceivers$9, stateVariables: stateVariables$a, generateDeclarations: generateDeclarations$8 };
+const nodeImplementation$8 = { generateMessageReceivers: generateMessageReceivers$9, stateVariables: stateVariables$9, generateDeclarations: generateDeclarations$8 };
 
 /*
  * Copyright (c) 2022-2023 Sébastien Piquemal <sebpiq@protonmail.com>, Chris McCormick.
@@ -16601,7 +16862,7 @@ const nodeImplementation$8 = { generateMessageReceivers: generateMessageReceiver
  * You should have received a copy of the GNU Lesser General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
-const stateVariables$9 = {
+const stateVariables$8 = {
     minValue: 1,
     maxValue: 1,
 };
@@ -16643,7 +16904,7 @@ const generateMessageReceivers$8 = ({ snds, globs, state }) => ({
 // ------------------------------------------------------------------- //
 const nodeImplementation$7 = {
     generateMessageReceivers: generateMessageReceivers$8,
-    stateVariables: stateVariables$9,
+    stateVariables: stateVariables$8,
     generateDeclarations: generateDeclarations$7,
 };
 
@@ -16666,7 +16927,7 @@ const nodeImplementation$7 = {
  * You should have received a copy of the GNU Lesser General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
-const stateVariables$8 = {
+const stateVariables$7 = {
     filterType: 1,
     floatFilter: 1,
     stringFilter: 1,
@@ -16797,7 +17058,7 @@ const generateMessageReceivers$7 = ({ snds, globs, state, node: { args } }) => {
 // ------------------------------------------------------------------- //
 const nodeImplementation$6 = {
     generateMessageReceivers: generateMessageReceivers$7,
-    stateVariables: stateVariables$8,
+    stateVariables: stateVariables$7,
     generateDeclarations: generateDeclarations$6,
     dependencies: [bangUtils, msgUtils]
 };
@@ -16821,7 +17082,7 @@ const nodeImplementation$6 = {
  * You should have received a copy of the GNU Lesser General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
-const stateVariables$7 = {
+const stateVariables$6 = {
     isClosed: 1,
     funcSetIsClosed: 1,
 };
@@ -16863,7 +17124,7 @@ const generateMessageReceivers$6 = ({ snds, globs, state }) => ({
 // ------------------------------------------------------------------- //
 const nodeImplementation$5 = {
     generateMessageReceivers: generateMessageReceivers$6,
-    stateVariables: stateVariables$7,
+    stateVariables: stateVariables$6,
     generateDeclarations: generateDeclarations$5,
 };
 
@@ -16886,7 +17147,7 @@ const nodeImplementation$5 = {
  * You should have received a copy of the GNU Lesser General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
-const stateVariables$6 = {
+const stateVariables$5 = {
     continueIter: 1,
 };
 // ------------------------------- node builder ------------------------------ //
@@ -16936,7 +17197,7 @@ const generateMessageReceivers$5 = ({ snds, globs, state, macros: { Var } }) => 
 // ------------------------------------------------------------------- //
 const nodeImplementation$4 = {
     generateMessageReceivers: generateMessageReceivers$5,
-    stateVariables: stateVariables$6,
+    stateVariables: stateVariables$5,
     generateDeclarations: generateDeclarations$4,
     dependencies: [bangUtils],
 };
@@ -16960,7 +17221,7 @@ const nodeImplementation$4 = {
  * You should have received a copy of the GNU Lesser General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
-const stateVariables$5 = {
+const stateVariables$4 = {
     maxValue: 1,
     funcSetMaxValue: 1,
 };
@@ -17009,7 +17270,7 @@ const generateMessageReceivers$4 = ({ snds, globs, state }) => ({
 // ------------------------------------------------------------------- //
 const nodeImplementation$3 = {
     generateMessageReceivers: generateMessageReceivers$4,
-    stateVariables: stateVariables$5,
+    stateVariables: stateVariables$4,
     generateDeclarations: generateDeclarations$3,
     dependencies: [bangUtils],
 };
@@ -17033,7 +17294,7 @@ const nodeImplementation$3 = {
  * You should have received a copy of the GNU Lesser General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
-const stateVariables$4 = {
+const stateVariables$3 = {
     delay: 1,
     scheduledMessages: 1,
     outputMessages: 1,
@@ -17221,7 +17482,7 @@ const generateMessageReceivers$3 = ({ node, snds, globs, state }) => ({
 // ------------------------------------------------------------------- //
 const nodeImplementation$2 = {
     generateMessageReceivers: generateMessageReceivers$3,
-    stateVariables: stateVariables$4,
+    stateVariables: stateVariables$3,
     generateDeclarations: generateDeclarations$2,
     dependencies: [
         pipeGlobalCode,
@@ -17253,7 +17514,7 @@ const nodeImplementation$2 = {
  * You should have received a copy of the GNU Lesser General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
-const stateVariables$3 = {
+const stateVariables$2 = {
     floatValues: 1,
     stringValues: 1,
 };
@@ -17331,7 +17592,7 @@ const generateMessageReceivers$2 = ({ snds, globs, state, node, macros: { Var } 
 // ------------------------------------------------------------------- //
 const nodeImplementation$1 = {
     generateMessageReceivers: generateMessageReceivers$2,
-    stateVariables: stateVariables$3,
+    stateVariables: stateVariables$2,
     generateDeclarations: generateDeclarations$1,
     dependencies: [messageTokenToString, messageTokenToFloat, bangUtils]
 };
@@ -17355,7 +17616,7 @@ const nodeImplementation$1 = {
  * You should have received a copy of the GNU Lesser General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
-const stateVariables$2 = {};
+const stateVariables$1 = {};
 // ------------------------------- node builder ------------------------------ //
 const builder = {
     translateArgs: ({ args }) => ({
@@ -17400,7 +17661,7 @@ const generateMessageReceivers$1 = ({ snds, globs, node: { args } }) => ({
 // ------------------------------------------------------------------- //
 const nodeImplementation = {
     generateMessageReceivers: generateMessageReceivers$1,
-    stateVariables: stateVariables$2,
+    stateVariables: stateVariables$1,
 };
 
 /*
@@ -17422,7 +17683,7 @@ const nodeImplementation = {
  * You should have received a copy of the GNU Lesser General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
-const stateVariables$1 = {
+const stateVariables = {
     floatInputs: 1,
     stringInputs: 1,
     outputs: 1,
@@ -17649,10 +17910,10 @@ const preprocessExpression = (args) => {
     return expression.split(';')
         .map(expression => expression.trim());
 };
-const nodeImplementations$1 = {
+const nodeImplementations = {
     'expr': {
         generateMessageReceivers,
-        stateVariables: stateVariables$1,
+        stateVariables,
         generateDeclarations,
         dependencies: [
             messageTokenToString,
@@ -17664,7 +17925,7 @@ const nodeImplementations$1 = {
     },
     'expr~': {
         generateMessageReceivers,
-        stateVariables: stateVariables$1,
+        stateVariables,
         generateDeclarations,
         generateLoop: loopExprTilde,
         dependencies: [
@@ -17676,7 +17937,7 @@ const nodeImplementations$1 = {
         ],
     },
 };
-const builders$1 = {
+const builders = {
     'expr': builderExpr,
     'expr~': builderExprTilde,
 };
@@ -17700,188 +17961,17 @@ const builders$1 = {
  * You should have received a copy of the GNU Lesser General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
-const stateVariables = {
-    leftOp: 1,
-    rightOp: 1,
-    funcSetRightOp: 1,
-    funcSetLeftOp: 1,
-};
-// ------------------------------- node builder ------------------------------ //
-const makeBuilder = (defaultValue) => ({
-    translateArgs: (pdNode) => {
-        const value = assertOptionalNumber(pdNode.args[0]);
-        return {
-            value: value !== undefined ? value : defaultValue,
-        };
-    },
-    build: () => ({
-        inlets: {
-            '0': { type: 'message', id: '0' },
-            '1': { type: 'message', id: '1' },
-        },
-        outlets: {
-            '0': { type: 'message', id: '0' },
-        },
-    }),
-});
-const makeNodeImplementation = ({ generateOperation, dependencies = [], prepareLeftOp = 'value', prepareRightOp = 'value', }) => {
-    // ------------------------------ generateDeclarations ------------------------------ //
-    const generateDeclarations = ({ state, macros: { Var, Func }, node: { args }, }) => `
-        let ${Var(state.leftOp, 'Float')} = 0
-        let ${Var(state.rightOp, 'Float')} = 0
-
-        const ${state.funcSetLeftOp} = ${Func([Var('value', 'Float')], 'void')} => {
-            ${state.leftOp} = ${prepareLeftOp}
-        }
-
-        const ${state.funcSetRightOp} = ${Func([Var('value', 'Float')], 'void')} => {
-            ${state.rightOp} = ${prepareRightOp}
-        }
-
-        ${state.funcSetLeftOp}(0)
-        ${state.funcSetRightOp}(${args.value})
-    `;
-    // ------------------------------- generateMessageReceivers ------------------------------ //
-    const generateMessageReceivers = ({ state, globs, snds, }) => ({
-        '0': `
-        if (msg_isMatching(${globs.m}, [MSG_FLOAT_TOKEN])) {
-            ${state.funcSetLeftOp}(msg_readFloatToken(${globs.m}, 0))
-            ${snds.$0}(msg_floats([${generateOperation(state)}]))
-            return
-        
-        } else if (msg_isBang(${globs.m})) {
-            ${snds.$0}(msg_floats([${generateOperation(state)}]))
-            return
-        }
-        `,
-        '1': coldFloatInletWithSetter(globs.m, state.funcSetRightOp),
-    });
-    return {
-        generateDeclarations,
-        generateMessageReceivers,
-        stateVariables,
-        dependencies: [bangUtils, ...dependencies],
-    };
-};
-// ------------------------------------------------------------------- //
-const nodeImplementations = {
-    '+': makeNodeImplementation({
-        generateOperation: (state) => `${state.leftOp} + ${state.rightOp}`,
-    }),
-    '-': makeNodeImplementation({
-        generateOperation: (state) => `${state.leftOp} - ${state.rightOp}`,
-    }),
-    '*': makeNodeImplementation({
-        generateOperation: (state) => `${state.leftOp} * ${state.rightOp}`,
-    }),
-    '/': makeNodeImplementation({
-        generateOperation: (state) => `${state.rightOp} !== 0 ? ${state.leftOp} / ${state.rightOp}: 0`,
-    }),
-    'max': makeNodeImplementation({
-        generateOperation: (state) => `Math.max(${state.leftOp}, ${state.rightOp})`,
-    }),
-    'min': makeNodeImplementation({
-        generateOperation: (state) => `Math.min(${state.leftOp}, ${state.rightOp})`,
-    }),
-    mod: makeNodeImplementation({
-        prepareLeftOp: `value > 0 ? Math.floor(value): Math.ceil(value)`,
-        prepareRightOp: `Math.floor(Math.abs(value))`,
-        // Modulo in Pd works so that negative values passed to the [mod] function cycle seamlessly :
-        // -3 % 3 = 0 ; -2 % 3 = 1 ; -1 % 3 = 2 ; 0 % 3 = 0 ; 1 % 3 = 1 ; ...
-        // So we need to translate the leftOp so that it is > 0 in order for the javascript % function to work.
-        generateOperation: (state) => `${state.rightOp} !== 0 ? (${state.rightOp} + (${state.leftOp} % ${state.rightOp})) % ${state.rightOp}: 0`,
-    }),
-    // Legacy modulo
-    '%': makeNodeImplementation({
-        generateOperation: (state) => `${state.leftOp} % ${state.rightOp}`,
-    }),
-    pow: makeNodeImplementation({
-        generateOperation: (state) => `pow(${state.leftOp}, ${state.rightOp})`,
-        dependencies: [pow],
-    }),
-    log: makeNodeImplementation({
-        generateOperation: (state) => `Math.log(${state.leftOp}) / Math.log(${state.rightOp})`,
-    }),
-    '||': makeNodeImplementation({
-        prepareLeftOp: `Math.floor(Math.abs(value))`,
-        prepareRightOp: `Math.floor(Math.abs(value))`,
-        generateOperation: (state) => `${state.leftOp} || ${state.rightOp} ? 1: 0`,
-    }),
-    '&&': makeNodeImplementation({
-        prepareLeftOp: `Math.floor(Math.abs(value))`,
-        prepareRightOp: `Math.floor(Math.abs(value))`,
-        generateOperation: (state) => `${state.leftOp} && ${state.rightOp} ? 1: 0`,
-    }),
-    '>': makeNodeImplementation({
-        generateOperation: (state) => `${state.leftOp} > ${state.rightOp} ? 1: 0`,
-    }),
-    '>=': makeNodeImplementation({
-        generateOperation: (state) => `${state.leftOp} >= ${state.rightOp} ? 1: 0`,
-    }),
-    '<': makeNodeImplementation({
-        generateOperation: (state) => `${state.leftOp} < ${state.rightOp} ? 1: 0`,
-    }),
-    '<=': makeNodeImplementation({
-        generateOperation: (state) => `${state.leftOp} <= ${state.rightOp} ? 1: 0`,
-    }),
-    '==': makeNodeImplementation({
-        generateOperation: (state) => `${state.leftOp} == ${state.rightOp} ? 1: 0`,
-    }),
-    '!=': makeNodeImplementation({
-        generateOperation: (state) => `${state.leftOp} != ${state.rightOp} ? 1: 0`,
-    }),
-};
-const builders = {
-    '+': makeBuilder(0),
-    '-': makeBuilder(0),
-    '*': makeBuilder(1),
-    '/': makeBuilder(1),
-    'max': makeBuilder(0),
-    'min': makeBuilder(1),
-    mod: makeBuilder(0),
-    '%': makeBuilder(0),
-    pow: makeBuilder(0),
-    log: makeBuilder(Math.E),
-    '||': makeBuilder(0),
-    '&&': makeBuilder(0),
-    '>': makeBuilder(0),
-    '>=': makeBuilder(0),
-    '<': makeBuilder(0),
-    '<=': makeBuilder(0),
-    '==': makeBuilder(0),
-    '!=': makeBuilder(0),
-};
-
-/*
- * Copyright (c) 2022-2023 Sébastien Piquemal <sebpiq@protonmail.com>, Chris McCormick.
- *
- * This file is part of WebPd
- * (see https://github.com/sebpiq/WebPd).
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public License
- * along with this program. If not, see <http://www.gnu.org/licenses/>.
- */
 const NODE_BUILDERS = {
     ...nodeBuilders,
-    ...builders$5,
-    ...builders$a,
-    ...builders$b,
-    ...builders$3,
-    ...builders$2,
     ...builders$4,
-    'noise~': builder$o,
+    ...builders$8,
+    ...builders$9,
+    ...builders$2,
+    ...builders$1,
+    ...builders$3,
+    'noise~': builder$p,
     'snapshot~': builder$L,
-    'sig~': builder$T,
+    'sig~': builder$U,
     'samphold~': builder$M,
     'clip~': builder$N,
     'vline~': builder$K,
@@ -17889,32 +17979,33 @@ const NODE_BUILDERS = {
     'dac~': builder$R,
     'adc~': builder$Q,
     'samplerate~': builder$P,
-    'tabplay~': builder$E,
-    'readsf~': builder$D,
-    'writesf~': builder$C,
+    'tabplay~': builder$F,
+    'readsf~': builder$E,
+    'writesf~': builder$D,
     'vd~': { aliasTo: 'delread4~' },
-    'bp~': builder$B,
-    'hip~': builder$j,
-    'lop~': builder$i,
-    'vcf~': builder$h,
-    'delwrite~': builder$m,
-    'throw~': builder$A,
-    'catch~': builder$z,
-    'send~': builder$y,
+    'bp~': builder$C,
+    'hip~': builder$k,
+    'lop~': builder$j,
+    'vcf~': builder$i,
+    'delwrite~': builder$n,
+    'throw~': builder$B,
+    'catch~': builder$A,
+    'send~': builder$z,
     's~': { aliasTo: 'send~' },
-    'receive~': builder$x,
+    'receive~': builder$y,
     'r~': { aliasTo: 'receive~' },
-    ...builders$9,
-    ...builders$8,
-    ...builders,
-    ...builders$6,
+    ...builders$b,
     ...builders$7,
-    ...builders$1,
-    bang: builder$t,
+    ...builders$a,
+    ...builders$5,
+    ...builders$6,
+    ...builders,
+    bang: builder$u,
     bng: { aliasTo: 'bang' },
     b: { aliasTo: 'bang' },
-    list: builder$f,
-    loadbang: builder$r,
+    list: builder$g,
+    symbol: builder$f,
+    loadbang: builder$s,
     send: builder$e,
     s: { aliasTo: 'send' },
     receive: builder$d,
@@ -17934,19 +18025,19 @@ const NODE_BUILDERS = {
     route: builder$6,
     select: { aliasTo: 'route' },
     sel: { aliasTo: 'route' },
-    msg: builder$g,
-    metro: builder$w,
-    timer: builder$v,
-    delay: builder$u,
+    msg: builder$h,
+    metro: builder$x,
+    timer: builder$w,
+    delay: builder$v,
     del: { aliasTo: 'delay' },
     line: builder$I,
     soundfiler: builder$c,
     tabread: builder$G,
-    tabwrite: builder$F,
+    tabwrite: builder$S,
     // The following are internal nodes used by the compiler
     // to help reproduce Pd's behavior
-    '_mixer~': builder$U,
-    '_routemsg': builder$S,
+    '_mixer~': builder$V,
+    '_routemsg': builder$T,
     // The following don't need implementations as they will never
     // show up in the graph traversal.
     graph: { isNoop: true },
@@ -17958,15 +18049,15 @@ const NODE_BUILDERS = {
     openpanel: { isNoop: true },
 };
 const NODE_IMPLEMENTATIONS = {
-    ...nodeImplementations$5,
-    ...nodeImplementations$a,
-    ...nodeImplementations$b,
-    ...nodeImplementations$3,
-    ...nodeImplementations$2,
     ...nodeImplementations$4,
-    'noise~': nodeImplementation$l,
+    ...nodeImplementations$8,
+    ...nodeImplementations$9,
+    ...nodeImplementations$2,
+    ...nodeImplementations$1,
+    ...nodeImplementations$3,
+    'noise~': nodeImplementation$m,
     'snapshot~': nodeImplementation$E,
-    'sig~': nodeImplementation$L,
+    'sig~': nodeImplementation$M,
     'samphold~': nodeImplementation$F,
     'clip~': nodeImplementation$G,
     'vline~': nodeImplementation$D,
@@ -17974,29 +18065,30 @@ const NODE_IMPLEMENTATIONS = {
     'dac~': nodeImplementation$J,
     'adc~': nodeImplementation$I,
     'samplerate~': nodeImplementation$H,
-    'tabplay~': nodeImplementation$y,
-    'readsf~': nodeImplementation$x,
-    'writesf~': nodeImplementation$w,
-    'delwrite~': nodeImplementation$k,
-    'bp~': nodeImplementation$v,
-    'hip~': nodeImplementation$j,
-    'lop~': nodeImplementation$i,
-    'vcf~': nodeImplementation$h,
-    'throw~': nodeImplementation$u,
-    'catch~': nodeImplementation$t,
-    'send~': nodeImplementation$s,
-    'receive~': nodeImplementation$r,
-    ...nodeImplementations$9,
-    ...nodeImplementations$8,
-    ...nodeImplementations,
+    'tabplay~': nodeImplementation$z,
+    'readsf~': nodeImplementation$y,
+    'writesf~': nodeImplementation$x,
+    'delwrite~': nodeImplementation$l,
+    'bp~': nodeImplementation$w,
+    'hip~': nodeImplementation$k,
+    'lop~': nodeImplementation$j,
+    'vcf~': nodeImplementation$i,
+    'throw~': nodeImplementation$v,
+    'catch~': nodeImplementation$u,
+    'send~': nodeImplementation$t,
+    'receive~': nodeImplementation$s,
+    ...nodeImplementations$b,
     ...nodeImplementations$7,
+    ...nodeImplementations$a,
     ...nodeImplementations$6,
-    ...nodeImplementations$1,
-    bang: nodeImplementation$n,
-    list: nodeImplementation$f,
+    ...nodeImplementations$5,
+    ...nodeImplementations,
+    bang: nodeImplementation$o,
+    list: nodeImplementation$g,
+    symbol: nodeImplementation$f,
     send: nodeImplementation$e,
     receive: nodeImplementation$d,
-    loadbang: nodeImplementation$m,
+    loadbang: nodeImplementation$n,
     print: nodeImplementation$b,
     trigger: nodeImplementation$a,
     change: nodeImplementation$9,
@@ -18009,17 +18101,17 @@ const NODE_IMPLEMENTATIONS = {
     until: nodeImplementation$4,
     route: nodeImplementation$6,
     random: nodeImplementation$3,
-    msg: nodeImplementation$g,
-    metro: nodeImplementation$q,
-    timer: nodeImplementation$p,
-    delay: nodeImplementation$o,
+    msg: nodeImplementation$h,
+    metro: nodeImplementation$r,
+    timer: nodeImplementation$q,
+    delay: nodeImplementation$p,
     line: nodeImplementation$B,
     tabread: nodeImplementation$A,
-    tabwrite: nodeImplementation$z,
+    tabwrite: nodeImplementation$K,
     soundfiler: nodeImplementation$c,
     // Internal nodes
-    '_mixer~': nodeImplementation$M,
-    '_routemsg': nodeImplementation$K,
+    '_mixer~': nodeImplementation$N,
+    '_routemsg': nodeImplementation$L,
 };
 
 var fetchRetry = function (fetch, defaults) {

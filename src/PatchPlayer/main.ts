@@ -1,5 +1,4 @@
 import { ControlsValues, createModels, initializeControlValues } from './models'
-import { createEngine } from './webpd-engine'
 import { createViews } from './views'
 import {
     renderCommentsViews,
@@ -8,7 +7,7 @@ import {
 } from './render'
 import { assertNonNullable, nextTick } from './misc-utils'
 import { PatchPlayer, PatchPlayerWithSettings, Settings } from './types'
-import { Run, Build, AppGenerator } from 'webpd'
+import { Build, AppGenerator, Browser } from 'webpd'
 
 export const create = (artefacts: Build.Artefacts, patchUrl: string | null): PatchPlayer => {
     const dspGraph = assertNonNullable(
@@ -83,7 +82,7 @@ export const start = async (
 
     ELEMS.loadingLabel.innerHTML = 'loading assemblyscript compiler ...'
     console.log('PatchPlayer START')
-    await Run.registerWebPdWorkletNode(patchPlayer.audioContext)
+    await Browser.initialize(patchPlayer.audioContext)
 
     ELEMS.loadingLabel.innerHTML = 'generating GUI ...'
     await nextTick()
@@ -99,7 +98,7 @@ export const start = async (
     } catch (err) {
         console.error(`Failed to get microphone stream ${err}`)
     }
-    patchPlayer.webpdNode = await createEngine(patchPlayer, stream, artefacts)
+    patchPlayer.webpdNode = await createAudioNode(patchPlayer, stream, artefacts)
     patchPlayer.rootElem = rootElem
 
     ELEMS.loadingLabel.style.display = 'none'
@@ -118,6 +117,30 @@ export const destroy = (patchPlayer: PatchPlayer) => {
     patchPlayer.audioContext.suspend()
 }
 
+export const createAudioNode = async (
+    patchPlayer: PatchPlayer,
+    stream: MediaStream | null,
+    artefacts: Build.Artefacts
+) => {
+    if (!artefacts.compiledJs && !artefacts.wasm) {
+        throw new Error(`Missing artefacts for creating the engine`)
+    }
+
+    const webpdNode = await Browser.run(
+        patchPlayer.audioContext,
+        (artefacts.compiledJs || artefacts.wasm)!,
+        Browser.createDefaultRunSettings(patchPlayer.patchUrl || '.')
+    )
+
+    if (stream) {
+        const sourceNode =
+            patchPlayer.audioContext.createMediaStreamSource(stream)
+        sourceNode.connect(webpdNode)
+    }
+    webpdNode.connect(patchPlayer.audioContext.destination)
+    return webpdNode
+}
+
 const _startSound = (patchPlayer: PatchPlayerWithSettings) => {
     // https://github.com/WebAudio/web-audio-api/issues/345
     if (patchPlayer.audioContext.state === 'suspended') {
@@ -125,3 +148,4 @@ const _startSound = (patchPlayer: PatchPlayerWithSettings) => {
     }
     initializeControlValues(patchPlayer)
 }
+

@@ -33,7 +33,7 @@ export const selectBuildInputArtefacts = createSelector(
         if (inFormat === null || arrayBuffer === null) {
             return null
         }
-        return Build.preloadArtefact(
+        return Build.loadArtefact(
             Build.createArtefacts(),
             arrayBuffer,
             inFormat

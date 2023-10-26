@@ -71,12 +71,14 @@ function* makeBuild() {
                 audioSettings: {
                     channelCount: { in: 2, out: 2 },
                     bitDepth: BIT_DEPTH,
+                },
+                renderAudioSettings: {
                     sampleRate: 44100,
                     blockSize: 4096,
                     previewDurationSeconds: previewDurationSeconds || 30,
                 },
                 inletCallerSpecs: patchPlayer ? patchPlayer.inletCallersSpecs : undefined,
-                rootUrl: url ? getRootUrl(url): null
+                patchUrl: url ? url: null
             }
             const requestPayload: RequestPayload = {
                 artefacts: tempArtefacts, step, settings
@@ -130,9 +132,4 @@ function* makeBuild() {
             patchPlayer,
         })
     )
-}
-
-const getRootUrl = (patchUrl: string) => {
-    const parsedUrl = new URL(patchUrl, window.location.origin)
-    return parsedUrl.origin + parsedUrl.pathname.split('/').slice(0, -1).join('/')
 }
