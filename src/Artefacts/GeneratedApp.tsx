@@ -75,8 +75,9 @@ const GeneratedApp: React.FunctionComponent<Props> = ({
         <Container>
             <RootFilename>{filename}</RootFilename>
             <FilesContainer>
+                <tbody>
                 {Object.entries(app).map(([filename, contents]) => (
-                    <tr>
+                    <tr key={filename}>
                         <td> ∟ {filename}</td>
                         <td>
                             {filesize(
@@ -87,6 +88,7 @@ const GeneratedApp: React.FunctionComponent<Props> = ({
                         </td>
                     </tr>
                 ))}
+                </tbody>
             </FilesContainer>
             {extraButtons ? (
                 <ButtonsContainer>{extraButtons}</ButtonsContainer>
