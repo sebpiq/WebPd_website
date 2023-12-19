@@ -1,7 +1,7 @@
 import styled from 'styled-components'
 import { Box } from './components'
 // eslint-disable-next-line import/no-webpack-loader-syntax
-import README from '!!html-loader!markdown-loader?modules!webpd/README.md'
+import README from '!!html-loader?{"minimize":false}!markdown-loader?modules!webpd/README.md'
 import { theme } from './theme'
 import { ReactComponent as GitHubLogoSvg } from './images/github-mark.svg'
 import { ReactComponent as HeartSvg } from './images/heart.svg'
