@@ -5,7 +5,7 @@ import buildInput from "./build-input"
 
 export const AVAILABLE_OUTPUT_FORMATS: Array<Build.BuildFormat> = [
     'wav',
-    'wasm',
+    'app',
 ]
 
 interface BuildOutputState {

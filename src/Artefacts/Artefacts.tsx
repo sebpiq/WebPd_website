@@ -40,7 +40,7 @@ const Artefacts = () => {
                     <ArtefactViewer
                         artefacts={artefacts}
                         format={outFormat}
-                        filename={'output.' + outFormat}
+                        filename={outFormat !== 'app' ? 'output.' + outFormat: undefined}
                         showDownloadButton={true}
                         extraButtons={[<Button key="clear" onClick={onClear}>clear</Button>]}
                     />

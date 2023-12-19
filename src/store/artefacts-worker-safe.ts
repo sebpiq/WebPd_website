@@ -1,4 +1,4 @@
-import { Browser, Build, PdJson } from "webpd"
+import { Browser, Build, PdJson } from 'webpd'
 
 export interface WorkerSafeBuildSettings {
     audioSettings: Build.Settings['audioSettings']
@@ -8,10 +8,14 @@ export interface WorkerSafeBuildSettings {
 }
 
 export const workerSafePerformBuildStep = async (
-    artefacts: Build.Artefacts, step: Build.BuildFormat, workerSafeBuildSettings: WorkerSafeBuildSettings
+    artefacts: Build.Artefacts,
+    step: Build.BuildFormat,
+    workerSafeBuildSettings: WorkerSafeBuildSettings
 ) => {
     const settings: Build.Settings = {
-        ...Browser.defaultSettingsForBuild(workerSafeBuildSettings.rootUrl || ''),
+        ...Browser.defaultSettingsForBuild(
+            workerSafeBuildSettings.rootUrl || ''
+        ),
         audioSettings: workerSafeBuildSettings.audioSettings,
         renderAudioSettings: workerSafeBuildSettings.renderAudioSettings,
         io: workerSafeBuildSettings.io,

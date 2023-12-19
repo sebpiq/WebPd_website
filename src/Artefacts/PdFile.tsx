@@ -1,7 +1,7 @@
 import styled from 'styled-components'
 import React from 'react'
 import { Build } from 'webpd'
-import { ArtefactButtonsContainer, Filename, fileViewportMixin } from '../components'
+import { ArtefactButtonsContainer, Filename, artefactTextMixin, fileViewportMixin } from '../components'
 import { theme } from '../theme'
 
 interface Props {
@@ -17,11 +17,10 @@ const Container = styled.div`
 
 const Pre = styled.pre`
     ${fileViewportMixin}
-    letter-spacing: 0.1em;
+    ${artefactTextMixin}
     overflow: auto;
     margin: 0;
     padding: 0;
-    opacity: 0.3;
 `
 
 const ButtonsContainer = styled(ArtefactButtonsContainer)`

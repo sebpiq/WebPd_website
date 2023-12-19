@@ -26,7 +26,7 @@ export const selectBuildSteps = createSelector(
             }
         }
         if (
-            outFormat === 'wav' &&
+            ['wav', 'app'].includes(outFormat) &&
             ['pd', 'pdJson', 'dspGraph'].includes(inFormat)
         ) {
             return Build.listBuildSteps(

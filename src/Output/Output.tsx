@@ -47,7 +47,7 @@ const BuildConfig = () => {
         inFormat &&
         outFormat &&
         ['pd', 'pdJson', 'dspGraph'].includes(inFormat) &&
-        ['wav', 'patchPlayer'].includes(outFormat)
+        ['wav', 'patchPlayer', 'app'].includes(outFormat)
     const errors = useAppSelector(selectConsoleErrors)
 
     const onGo = () => {

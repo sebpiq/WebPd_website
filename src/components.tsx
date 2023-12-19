@@ -77,6 +77,12 @@ export const fileViewportMixin = `
     user-select: none;
 `
 
+export const artefactTextMixin = `
+    letter-spacing: 0.1em;
+    opacity: 0.3;
+    user-select: none;
+`
+
 export const Or = styled.span`
     font-size: 120%;
     font-weight: bold;

@@ -12,6 +12,8 @@ import { theme } from '../theme'
 const BUILD_WEBSITE_FORMATS = {
     ...Build.BUILD_FORMATS,
     patchPlayer: { description: 'Patch player' },
+    wav: { description: 'Audio preview' },
+    app: { description: 'Complete web app' },
 }
 
 const BUILD_WEBSITE_FORMATS_INFO: {

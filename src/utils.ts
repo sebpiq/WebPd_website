@@ -1,4 +1,8 @@
-export const download = (filename: string, data: string | ArrayBuffer, mimetype: string) => {
+export const download = (
+    filename: string,
+    data: string | ArrayBuffer,
+    mimetype: string
+) => {
     const blob = new Blob([data], { type: mimetype })
     if ((window.navigator as any).msSaveOrOpenBlob) {
         ;(window.navigator as any).msSaveBlob(blob, filename)
@@ -12,6 +16,8 @@ export const download = (filename: string, data: string | ArrayBuffer, mimetype:
     }
 }
 
-export const round = (val: number, dec=4) => {
+export const round = (val: number, dec = 4) => {
     return Math.floor(val * Math.pow(10, dec)) / Math.pow(10, dec)
 }
+
+export const byteCountInString = (str: string) => new Blob([str]).size

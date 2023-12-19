@@ -2,6 +2,7 @@ import { Build } from 'webpd'
 import PdFile from './PdFile'
 import Wasm from './Wasm'
 import Wav from './Wav'
+import GeneratedApp from './GeneratedApp'
 
 interface Props {
     format: Build.BuildFormat
@@ -43,6 +44,15 @@ const ArtefactViewer: React.FunctionComponent<Props> = ({
                     wav={artefacts.wav}
                     showDownloadButton={showDownloadButton}
                     extraButtons={extraButtons}
+                />
+            ) : null
+        case 'app':
+            return artefacts.app ? (
+                <GeneratedApp
+                    app={artefacts.app}
+                    filename={filename || 'app.zip'}
+                    extraButtons={extraButtons}
+                    showDownloadButton={showDownloadButton}
                 />
             ) : null
     }
