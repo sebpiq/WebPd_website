@@ -3,20 +3,20 @@ import { Browser, Build, PdJson } from "webpd"
 export interface WorkerSafeBuildSettings {
     audioSettings: Build.Settings['audioSettings']
     renderAudioSettings: Build.Settings['renderAudioSettings']
-    inletCallerSpecs: Build.Settings['inletCallerSpecs']
-    patchUrl: string | null
+    io: Build.Settings['io']
+    rootUrl: string | null
 }
 
 export const workerSafePerformBuildStep = async (
     artefacts: Build.Artefacts, step: Build.BuildFormat, workerSafeBuildSettings: WorkerSafeBuildSettings
 ) => {
     const settings: Build.Settings = {
-        ...Browser.createDefaultBuildSettings(workerSafeBuildSettings.patchUrl || ''),
+        ...Browser.defaultSettingsForBuild(workerSafeBuildSettings.rootUrl || ''),
         audioSettings: workerSafeBuildSettings.audioSettings,
         renderAudioSettings: workerSafeBuildSettings.renderAudioSettings,
-        inletCallerSpecs: workerSafeBuildSettings.inletCallerSpecs,
-        abstractionLoader: workerSafeBuildSettings.patchUrl
-            ? Browser.makeUrlAbstractionLoader(workerSafeBuildSettings.patchUrl)
+        io: workerSafeBuildSettings.io,
+        abstractionLoader: workerSafeBuildSettings.rootUrl
+            ? Browser.makeUrlAbstractionLoader(workerSafeBuildSettings.rootUrl)
             : localAbstractionLoader,
     }
     return Build.performBuildStep(artefacts, step, settings)

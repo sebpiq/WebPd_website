@@ -22,10 +22,10 @@ const BUILD_WEBSITE_FORMATS_INFO: {
     dspGraph: {
         info: 'Will compile a DSP graph that is used internally by the WebPd compiler to generate the audio output.',
     },
-    compiledJs: {
+    javascript: {
         info: 'Will compile a JavaScript function for generating audio.',
     },
-    compiledAsc: {
+    assemblyscript: {
         info: 'Will compile an AssemblyScript function which can then be compiled to Web Assembly.',
     },
     wasm: { info: 'Will generate a Web Assembly module from your patch. This module can be loaded again here at a later time to play your patch.' },
@@ -33,7 +33,7 @@ const BUILD_WEBSITE_FORMATS_INFO: {
     patchPlayer: {
         info: 'Will render a interactive interface allowing to play your patch online.',
     },
-    appTemplate: {
+    app: {
         info: 'Will generate a bare bones web page embedding your patch. A good starter to build an audio web site of your own.'
     }
 }

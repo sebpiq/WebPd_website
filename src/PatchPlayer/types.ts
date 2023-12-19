@@ -19,7 +19,7 @@ export interface PatchPlayer {
     webpdNode: any // runtime.WebPdWorkletNode | null
     pdJson: PdJson.Pd
     controls: Array<AppGenerator.ControlTree>
-    inletCallersSpecs: Build.Settings['inletCallerSpecs']
+    io: Build.Settings['io']
     controlsViews: Array<ControlTreeView>
     commentsViews: Array<CommentView>
     controlsValues: ControlsValues

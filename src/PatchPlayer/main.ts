@@ -9,7 +9,10 @@ import { assertNonNullable, nextTick } from './misc-utils'
 import { PatchPlayer, PatchPlayerWithSettings, Settings } from './types'
 import { Build, AppGenerator, Browser } from 'webpd'
 
-export const create = (artefacts: Build.Artefacts, patchUrl: string | null): PatchPlayer => {
+export const create = (
+    artefacts: Build.Artefacts,
+    patchUrl: string | null
+): PatchPlayer => {
     const dspGraph = assertNonNullable(
         artefacts.dspGraph,
         'artefacts.dspGraph not defined'
@@ -36,7 +39,12 @@ export const create = (artefacts: Build.Artefacts, patchUrl: string | null): Pat
         controlsValues,
         controlsViews,
         commentsViews,
-        inletCallersSpecs: AppGenerator.collectGuiControlsInletCallerSpecs(controls, dspGraph.graph),
+        io: {
+            messageReceivers: AppGenerator.collectIoMessageReceiversFromGui(
+                controls,
+                dspGraph.graph
+            ),
+        },
         settings: null,
     }
 }
@@ -98,7 +106,11 @@ export const start = async (
     } catch (err) {
         console.error(`Failed to get microphone stream ${err}`)
     }
-    patchPlayer.webpdNode = await createAudioNode(patchPlayer, stream, artefacts)
+    patchPlayer.webpdNode = await createAudioNode(
+        patchPlayer,
+        stream,
+        artefacts
+    )
     patchPlayer.rootElem = rootElem
 
     ELEMS.loadingLabel.style.display = 'none'
@@ -122,14 +134,14 @@ export const createAudioNode = async (
     stream: MediaStream | null,
     artefacts: Build.Artefacts
 ) => {
-    if (!artefacts.compiledJs && !artefacts.wasm) {
+    if (!artefacts.javascript && !artefacts.wasm) {
         throw new Error(`Missing artefacts for creating the engine`)
     }
 
     const webpdNode = await Browser.run(
         patchPlayer.audioContext,
-        (artefacts.compiledJs || artefacts.wasm)!,
-        Browser.createDefaultRunSettings(patchPlayer.patchUrl || '.')
+        (artefacts.javascript || artefacts.wasm)!,
+        Browser.defaultSettingsForRun(patchPlayer.patchUrl || '.')
     )
 
     if (stream) {
@@ -148,4 +160,3 @@ const _startSound = (patchPlayer: PatchPlayerWithSettings) => {
     }
     initializeControlValues(patchPlayer)
 }
-

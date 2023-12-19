@@ -18,7 +18,7 @@ export const selectBuildSteps = createSelector(
         if (outFormat === 'patchPlayer') {
             switch (codeTarget) {
                 case 'JavaScript':
-                    outFormat = 'compiledJs'
+                    outFormat = 'javascript'
                     break
                 case 'WebAssembly':
                     outFormat = 'wasm'
@@ -32,7 +32,7 @@ export const selectBuildSteps = createSelector(
             return Build.listBuildSteps(
                 inFormat,
                 outFormat,
-                codeTarget === 'JavaScript' ? 'compiledJs' : 'wasm'
+                codeTarget === 'JavaScript' ? 'javascript' : 'wasm'
             )
         } else {
             return Build.listBuildSteps(inFormat, outFormat)

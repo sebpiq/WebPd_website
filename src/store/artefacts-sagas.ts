@@ -1,5 +1,5 @@
 import { call, delay, put, select, takeLatest } from 'redux-saga/effects'
-import { Build } from 'webpd'
+import { Browser, Build } from 'webpd'
 import { create as createPatchPlayer } from '../PatchPlayer/main'
 import { PatchPlayer } from '../PatchPlayer/types'
 import artefacts from './artefacts'
@@ -77,8 +77,8 @@ function* makeBuild() {
                     blockSize: 4096,
                     previewDurationSeconds: previewDurationSeconds || 30,
                 },
-                inletCallerSpecs: patchPlayer ? patchPlayer.inletCallersSpecs : undefined,
-                patchUrl: url ? url: null
+                io: patchPlayer ? patchPlayer.io : undefined,
+                rootUrl: url ? Browser.urlDirName(url): null
             }
             const requestPayload: RequestPayload = {
                 artefacts: tempArtefacts, step, settings

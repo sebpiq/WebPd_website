@@ -30,18 +30,18 @@ const Debug = () => {
         )
     }
 
-    const onDowloadCompiledJs = () => {
+    const onDowloadJavascriptCode = () => {
         download(
             'debug.code.js',
-            artefacts.compiledJs!,
+            artefacts.javascript!,
             'application/javascript'
         )
     }
 
-    const onDowloadCompiledAsc = () => {
+    const onDowloadAssemblyscriptCode = () => {
         download(
             'debug.code.asc',
-            artefacts.compiledAsc!,
+            artefacts.assemblyscript!,
             'application/assemblyscript'
         )
     }
@@ -74,26 +74,26 @@ const Debug = () => {
                 </>
             ) : null}
 
-            {artefacts.compiledJs ? (
+            {artefacts.javascript ? (
                 <>
                     <H3>
                         Compiled JS{' '}
-                        <Button onClick={onDowloadCompiledJs}>Download</Button>
+                        <Button onClick={onDowloadJavascriptCode}>Download</Button>
                     </H3>
                     <ArtefactContainer>
-                        {artefacts.compiledJs}
+                        {artefacts.javascript}
                     </ArtefactContainer>
                 </>
             ) : null}
 
-            {artefacts.compiledAsc ? (
+            {artefacts.assemblyscript ? (
                 <>
                     <H3>
                         Compiled ASC{' '}
-                        <Button onClick={onDowloadCompiledAsc}>Download</Button>
+                        <Button onClick={onDowloadAssemblyscriptCode}>Download</Button>
                     </H3>
                     <ArtefactContainer>
-                        {artefacts.compiledAsc}
+                        {artefacts.assemblyscript}
                     </ArtefactContainer>
                 </>
             ) : null}

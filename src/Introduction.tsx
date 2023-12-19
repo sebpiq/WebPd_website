@@ -1,14 +1,17 @@
 import styled from 'styled-components'
 import { Box } from './components'
 // eslint-disable-next-line import/no-webpack-loader-syntax
-import introUrl from '!!markdown-loader?modules!webpd/README.md'
-import { useEffect, useState } from 'react'
+import README from '!!html-loader!markdown-loader?modules!webpd/README.md'
 import { theme } from './theme'
 import { ReactComponent as GitHubLogoSvg } from './images/github-mark.svg'
 import { ReactComponent as HeartSvg } from './images/heart.svg'
 
 const INTRO_START = '<!-- intro start -->'
 const INTRO_END = '<!-- intro end -->'
+const README_INTRO = README.slice(
+    README.indexOf(INTRO_START) + INTRO_START.length,
+    README.indexOf(INTRO_END)
+)
 
 const Container = styled(Box)`
     background: linear-gradient(
@@ -80,51 +83,31 @@ const OpenCollectiveButton = styled.a`
     margin-left: ${theme.spacings.space1};
 `
 
-const Introduction = () => {
-    const [mdText, setMdText] = useState<string | null>(null)
-    useEffect(() => {
-        const doRequest = async () => {
-            const response = await fetch(introUrl)
-            if (!response.ok) {
-                throw new Error(`Failed to load text`)
-            }
-            let mdText = await response.text()
-            mdText = mdText.slice(
-                mdText.indexOf(INTRO_START) + INTRO_START.length,
-                mdText.indexOf(INTRO_END)
-            )
-            setMdText(mdText)
-        }
-        doRequest()
-    }, [])
-    return (
-        <Container>
-            <H1>WebPd</H1>
-            {mdText ? (
-                <RenderedMarkdownContainer
-                    dangerouslySetInnerHTML={{ __html: mdText }}
-                />
-            ) : null}
-            <ButtonsContainer>
-                <GitHubButton
-                    href="https://github.com/sebpiq/WebPd"
-                    target="_blank"
-                    rel="noopener"
-                >
-                    Read more
-                    <GitHubLogoSvg viewBox="0 0 97.627 96" />
-                </GitHubButton>
-                <OpenCollectiveButton
-                    href="https://opencollective.com/webpd"
-                    target="_blank"
-                    rel="noopener"
-                >
-                    Donate
-                    <HeartSvg />
-                </OpenCollectiveButton>
-            </ButtonsContainer>
-        </Container>
-    )
-}
+const Introduction = () => (
+    <Container>
+        <H1>WebPd</H1>
+        <RenderedMarkdownContainer
+            dangerouslySetInnerHTML={{ __html: README_INTRO }}
+        />
+        <ButtonsContainer>
+            <GitHubButton
+                href="https://github.com/sebpiq/WebPd"
+                target="_blank"
+                rel="noopener"
+            >
+                Read more
+                <GitHubLogoSvg viewBox="0 0 97.627 96" />
+            </GitHubButton>
+            <OpenCollectiveButton
+                href="https://opencollective.com/webpd"
+                target="_blank"
+                rel="noopener"
+            >
+                Donate
+                <HeartSvg />
+            </OpenCollectiveButton>
+        </ButtonsContainer>
+    </Container>
+)
 
 export default Introduction

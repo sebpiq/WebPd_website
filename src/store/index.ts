@@ -65,7 +65,7 @@ const _valueToStringFlag = (value: boolean) => value ? '1' : '0'
 ReduxQuerySync({
     store,
     params: {
-        jsOrAsc: {
+        jsOrAs: {
             selector: selectBuildOutputCodeTarget,
             action: buildOutput.actions.setCodeTarget,
             defaultValue: buildOutput.getInitialState().codeTarget,

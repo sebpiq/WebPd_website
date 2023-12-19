@@ -23,7 +23,7 @@ export const sendMsgToWebPd = (
     msg: Message
 ) => {
     ;(patchPlayer.webpdNode as any).port.postMessage({
-        type: 'inletCaller',
+        type: 'io:messageReceiver',
         payload: {
             nodeId,
             portletId: PORTLET_ID,
