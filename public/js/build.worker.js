@@ -1210,16 +1210,17 @@ const removeDeadSources = (sources, graphTraversal) => {
 var name = "@webpd/compiler";
 var version = "0.1.0";
 var description = "WebPd compiler package";
-var main = "./dist/index.js";
-var types = "./dist/types/index.d.ts";
+var main = "./dist/src/index.js";
+var types = "./dist/src/index.d.ts";
 var type = "module";
 var license = "LGPL-3.0";
 var author = "Sébastien Piquemal";
 var scripts = {
-	test: "NODE_OPTIONS='--experimental-vm-modules --no-warnings' npx jest --runInBand --config jest.mjs --testTimeout 10000",
-	"build:dist": "npx rollup --config rollup.mjs",
-	"build:bindings": "npx rollup --config rollup-bindings.mjs",
-	"build:all": "rm -rf dist; npm run build:dist; npm run build:bindings",
+	test: "NODE_OPTIONS='--experimental-vm-modules --no-warnings' npx jest --runInBand --config node_modules/@webpd/dev/configs/jest.js",
+	"build:dist": "npx rollup --config node_modules/@webpd/dev/configs/dist.rollup.mjs",
+	"build:bindings": "npx rollup --config configs/bindings.rollup.mjs",
+	"build:all": "npm run clean; npm run build:dist; npm run build:bindings",
+	clean: "rm -rf dist",
 	prettier: "npm explore @webpd/dev -- npm run prettier $(pwd)/src",
 	eslint: "npm explore @webpd/dev -- npm run eslint $(pwd)/src"
 };
@@ -16138,14 +16139,14 @@ const nodeCore$d = ({ globs }) => Sequence$1([
         Var$1('Float', 'frequency'),
     ], 'void') `
         state.frequency = (frequency < 0.001) ? 10: frequency
-        ${variableNames$f.updateCoefs}()
+        ${variableNames$f.updateCoefs}(state)
     `,
     Func$1(variableNames$f.setQ, [
         Var$1(variableNames$f.stateClass, 'state'),
         Var$1('Float', 'Q'),
     ], 'void') `
         state.Q = Math.max(Q, 0)
-        ${variableNames$f.updateCoefs}()
+        ${variableNames$f.updateCoefs}(state)
     `,
 ]);
 const initialization$c = ({ node: { args }, state }) => ast$1 `
@@ -20293,16 +20294,14 @@ const defaultSettingsForBuild = (rootUrl) => ({
  * @param rootUrl
  * @returns
  */
-const makeUrlAbstractionLoader = (rootUrl) => {
-    return makeAbstractionLoader(async (nodeType) => {
-        const url = `${rootUrl}/${(nodeType.endsWith('.pd') ? nodeType : `${nodeType}.pd`)}`;
-        const response = await fetch(url);
-        if (!response.ok) {
-            throw new UnknownNodeTypeError(nodeType);
-        }
-        return await response.text();
-    });
-};
+const makeUrlAbstractionLoader = (rootUrl) => makeAbstractionLoader(async (nodeType) => {
+    const url = `${rootUrl}/${nodeType.endsWith('.pd') ? nodeType : `${nodeType}.pd`}`;
+    const response = await fetch(url);
+    if (!response.ok) {
+        throw new UnknownNodeTypeError(nodeType);
+    }
+    return await response.text();
+});
 
 const workerSafePerformBuildStep = async (artefacts, step, workerSafeBuildSettings) => {
     const settings = {
