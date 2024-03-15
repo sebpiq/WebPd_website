@@ -1,5 +1,4 @@
-import { Build, DspGraph } from 'webpd'
-import { PdJson, AppGenerator } from 'webpd'
+import { Build, DspGraph, PdJson, GuiControls } from 'webpd'
 import { round } from './math-utils'
 import { sendMsgToWebPd, throttled } from './misc-utils'
 import { PatchPlayerWithSettings } from './types'
@@ -17,9 +16,9 @@ export const createModels = (
     pdJson: PdJson.Pd,
     controlsValues: ControlsValues,
 ) => {
-    const { controls, comments } = AppGenerator.discoverGuiControls(pdJson)
+    const { controls, comments } = GuiControls.discoverGuiControls(pdJson)
 
-    AppGenerator.traverseGuiControls(controls, (control) => {
+    GuiControls.traverseGuiControls(controls, (control) => {
         let valueTransform: ValueTransform = (v) => v
         if (control.node.type === 'bng') {
             valueTransform = (v: any) => v.state === true ? 'bang' : null
@@ -33,7 +32,7 @@ export const createModels = (
 
     // We make sure all controls are inside a container at top level for easier layout
     const controlsModels = controls.map((control) => {
-        const controlContainer: AppGenerator.ControlContainer = {
+        const controlContainer: GuiControls.ControlContainer = {
             type: 'container',
             patch: control.patch,
             node: control.node,
@@ -50,7 +49,7 @@ export const createModels = (
 
 export const setControlValue = (
     patchPlayer: PatchPlayerWithSettings,
-    control: AppGenerator.Control,
+    control: GuiControls.Control,
     rawValue: number
 ) => {
     const { node, patch } = control
@@ -69,7 +68,7 @@ export const setControlValue = (
 
 export const getControlValue = (
     patchPlayer: PatchPlayerWithSettings,
-    control: AppGenerator.Control
+    control: GuiControls.Control
 ) => {
     const { node, patch } = control
     const nodeId = Build.buildGraphNodeId(patch.id, node.id)
@@ -88,7 +87,7 @@ export const initializeControlValues = (
 
 const _registerControlValue = (
     controlsValues: ControlsValues,
-    control: AppGenerator.Control,
+    control: GuiControls.Control,
     valueTransform: ValueTransform
 ) => {
     const { node, patch } = control

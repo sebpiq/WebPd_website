@@ -1,4 +1,4 @@
-import { PdJson, AppGenerator } from 'webpd'
+import { PdJson, GuiControls } from 'webpd'
 import {
     sumPoints,
     computePointsBoundingBox,
@@ -16,7 +16,7 @@ const DIGIT_WIDTH_PD_PX = 7
 export interface ControlView {
     type: 'control'
     label: string | null
-    control: AppGenerator.Control
+    control: GuiControls.Control
     dimensions: Point
     position: Point
 }
@@ -24,7 +24,7 @@ export interface ControlView {
 export interface ContainerView {
     type: 'container'
     label: string | null
-    control: AppGenerator.ControlContainer
+    control: GuiControls.ControlContainer
     dimensions: Point
     children: Array<ControlTreeView>
     position: Point
@@ -39,8 +39,8 @@ export interface CommentView {
 }
 
 export const createViews = (
-    controls: Array<AppGenerator.ControlTree>,
-    comments: Array<AppGenerator.Comment>
+    controls: Array<GuiControls.ControlTree>,
+    comments: Array<GuiControls.Comment>
 ): {
     controlsViews: Array<ControlTreeView>
     commentsViews: Array<CommentView>
@@ -58,7 +58,7 @@ export const createViews = (
 }
 
 export const _createControlsViewsRecurs = (
-    controls: Array<AppGenerator.ControlTree>
+    controls: Array<GuiControls.ControlTree>
 ): Array<ControlTreeView> => {
     const controlsViews: Array<ControlTreeView> = controls.map((control) => {
         switch (control.type) {
@@ -115,7 +115,7 @@ export const _createControlsViewsRecurs = (
 }
 
 const _createCommentsViews = (
-    comments: Array<AppGenerator.Comment>
+    comments: Array<GuiControls.Comment>
 ): Array<CommentView> =>
     comments.map((comment) => ({
         type: 'comment',

@@ -7,7 +7,7 @@ import {
 } from './render'
 import { assertNonNullable, nextTick } from './misc-utils'
 import { PatchPlayer, PatchPlayerWithSettings, Settings } from './types'
-import { Build, AppGenerator, Browser } from 'webpd'
+import { Build, Browser } from 'webpd'
 
 export const create = (
     artefacts: Build.Artefacts,
@@ -40,7 +40,7 @@ export const create = (
         controlsViews,
         commentsViews,
         io: {
-            messageReceivers: AppGenerator.collectIoMessageReceiversFromGui(
+            messageReceivers: Build.collectIoMessageReceiversFromGui(
                 controls,
                 dspGraph.graph
             ),

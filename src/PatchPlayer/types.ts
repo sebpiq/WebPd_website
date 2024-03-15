@@ -1,4 +1,4 @@
-import { AppGenerator, Build, PdJson } from 'webpd'
+import { GuiControls, Build, PdJson } from 'webpd'
 import { ControlsValues } from './models'
 import { CommentView, ControlTreeView } from './views'
 
@@ -18,7 +18,7 @@ export interface PatchPlayer {
     audioContext: AudioContext
     webpdNode: any // runtime.WebPdWorkletNode | null
     pdJson: PdJson.Pd
-    controls: Array<AppGenerator.ControlTree>
+    controls: Array<GuiControls.ControlTree>
     io: Build.Settings['io']
     controlsViews: Array<ControlTreeView>
     commentsViews: Array<CommentView>
