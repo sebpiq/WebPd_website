@@ -2646,6 +2646,7 @@ const commonsArrays = {
         `,
     ]),
     exports: [{ name: 'commons_getArray' }, { name: 'commons_setArray' }],
+    dependencies: [sked],
 };
 const commonsWaitFrame = {
     codeGenerator: () => Sequence$1([
@@ -3644,6 +3645,7 @@ const instantiateAndDedupeDependencies = (settings, dependencies, globs) => {
 };
 const engineMinimalDependencies = () => [
     core,
+    commonsArrays,
     commonsWaitFrame,
     msg$1,
 ];
@@ -13198,15 +13200,19 @@ const linesUtils = {
  * You should have received a copy of the GNU Lesser General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
-// TODO : unit testing
-// TODO : amount = 0 ?
-// TODO : missing persec and all per...
 const computeUnitInSamples = () => Func$3('computeUnitInSamples', [
     Var$3('Float', 'sampleRate'),
     Var$3('Float', 'amount'),
     Var$3('string', 'unit'),
 ], 'Float') `
-        if (unit === 'msec' || unit === 'millisecond') {
+        if (unit.slice(0, 3) === 'per') {
+            if (amount !== 0) {
+                amount = 1 / amount
+            }
+            unit = unit.slice(3)
+        }
+
+        if (unit === 'msec' || unit === 'milliseconds' || unit === 'millisecond') {
             return amount / 1000 * sampleRate
         } else if (unit === 'sec' || unit === 'seconds' || unit === 'second') {
             return amount * sampleRate
