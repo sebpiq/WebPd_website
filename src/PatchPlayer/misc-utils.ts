@@ -1,8 +1,6 @@
-import { DspGraph, Message } from 'webpd'
-import { PORTLET_ID } from './constants'
-import { PatchPlayer } from './types'
-
 export const nextTick = () => new Promise((resolve) => setTimeout(resolve, 1))
+
+export const timeout = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
 
 export const throttled = <P extends Array<any>>(
     delay: number,
@@ -15,21 +13,6 @@ export const throttled = <P extends Array<any>>(
         }
         timeout = setTimeout(() => func(...args), delay) as any
     }
-}
-
-export const sendMsgToWebPd = (
-    patchPlayer: PatchPlayer,
-    nodeId: DspGraph.NodeId,
-    msg: Message
-) => {
-    ;(patchPlayer.webpdNode as any).port.postMessage({
-        type: 'io:messageReceiver',
-        payload: {
-            nodeId,
-            portletId: PORTLET_ID,
-            message: msg,
-        },
-    })
 }
 
 export const assertNonNullable = <T>(obj: T, errMessage?: string) => {

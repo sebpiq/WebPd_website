@@ -14,6 +14,10 @@ const EXAMPLES = {
     randomperc1: {
         display: "Martin's Brinkmann randomperc1",
         url: './patches/Martin-Brinkmann-randomperc1.pd'
+    },
+    uiDemo: {
+        display: "WebPd website UI demo",
+        url: './patches/WebPd-website-UI-demo.pd'
     }
 }
 

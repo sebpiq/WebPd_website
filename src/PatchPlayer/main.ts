@@ -1,30 +1,34 @@
-import { ControlsValues, createModels, initializeControlValues } from './models'
-import { createViews } from './views'
-import {
-    renderCommentsViews,
-    renderControlViews,
-    renderStructure,
-} from './render'
+import { initializeValues, receiveMsgFromWebPd } from './controller'
+import { buildViewsIndex, createViews } from './views'
+import { renderViews, renderStructure } from './render'
 import { assertNonNullable, nextTick } from './misc-utils'
-import { PatchPlayer, PatchPlayerWithSettings, Settings } from './types'
-import { Build, Browser } from 'webpd'
+import {
+    Controller,
+    PatchPlayer,
+    PatchPlayerWithSettings,
+    Settings,
+} from './types'
+import { Build, Browser, WebPdMetadata } from 'webpd'
 
-export const create = (
+export const create = async (
     artefacts: Build.Artefacts,
     patchUrl: string | null
-): PatchPlayer => {
-    const dspGraph = assertNonNullable(
-        artefacts.dspGraph,
-        'artefacts.dspGraph not defined'
+): Promise<PatchPlayer> => {
+    const compiledPatch = assertNonNullable(
+        artefacts.javascript || artefacts.wasm,
+        'artefacts.javascript or artefacts.wasm should be defined'
     )
 
-    const controlsValues: ControlsValues = {
+    const engineMetadata = await Browser.readMetadata(compiledPatch)
+
+    const controller: Controller = {
         values: {},
-        transforms: {},
+        functions: {},
     }
 
-    const { controls, comments } = createModels(dspGraph.pd, controlsValues)
-    const { controlsViews, commentsViews } = createViews(controls, comments)
+    const rootViews = createViews(
+        engineMetadata.customMetadata as unknown as WebPdMetadata
+    )
 
     const audioContext = new AudioContext()
     audioContext.suspend()
@@ -34,16 +38,10 @@ export const create = (
         patchUrl,
         audioContext,
         webpdNode: null,
-        pdJson: dspGraph.pd,
-        controls,
-        controlsValues,
-        controlsViews,
-        commentsViews,
-        io: {
-            messageReceivers: Build.collectIoMessageReceiversFromGui(
-                controls,
-                dspGraph.graph
-            ),
+        controller,
+        views: {
+            root: rootViews,
+            indexed: buildViewsIndex(rootViews),
         },
         settings: null,
     }
@@ -56,47 +54,47 @@ export const start = async (
 ) => {
     const patchPlayer: PatchPlayerWithSettings = {
         ...patchPlayerWithoutSettings,
-        controlsValues: {
-            ...patchPlayerWithoutSettings.controlsValues,
+        controller: {
+            ...patchPlayerWithoutSettings.controller,
             values: settings.initialValues ? { ...settings.initialValues } : {},
         },
         settings,
     }
 
+    // ----- Create and initialize HTML structure of the patch player
     const rootElem = document.createElement('div')
 
     patchPlayer.settings.container.appendChild(rootElem)
-    // TODO
-    // loadStateFromUrl()
-    const ELEMS = renderStructure(rootElem)
+    const htmlElements = renderStructure(rootElem)
 
     if (patchPlayer.settings.showCredits !== true) {
-        ELEMS.creditsButton.style.display = 'none'
+        htmlElements.creditsButton.style.display = 'none'
     }
 
-    ELEMS.creditsButton.onclick = () => {
-        if (ELEMS.creditsContainer.classList.contains('expanded')) {
-            ELEMS.creditsContainer.classList.remove('expanded')
+    htmlElements.creditsButton.onclick = () => {
+        if (htmlElements.creditsContainer.classList.contains('expanded')) {
+            htmlElements.creditsContainer.classList.remove('expanded')
         } else {
-            ELEMS.creditsContainer.classList.add('expanded')
+            htmlElements.creditsContainer.classList.add('expanded')
         }
     }
 
-    ELEMS.startButton.style.display = 'none'
-    ELEMS.startButton.onclick = () => {
-        ELEMS.loadingContainer.style.display = 'none'
+    htmlElements.startButton.style.display = 'none'
+    htmlElements.startButton.onclick = () => {
+        htmlElements.loadingContainer.style.display = 'none'
         _startSound(patchPlayer)
     }
 
-    ELEMS.loadingLabel.innerHTML = 'loading assemblyscript compiler ...'
+    htmlElements.loadingLabel.innerHTML = 'loading assemblyscript compiler ...'
+
+    // ----- Initialize WebPd and render views
     console.log('PatchPlayer START')
     await Browser.initialize(patchPlayer.audioContext)
 
-    ELEMS.loadingLabel.innerHTML = 'generating GUI ...'
+    htmlElements.loadingLabel.innerHTML = 'generating GUI ...'
     await nextTick()
 
-    renderControlViews(patchPlayer, ELEMS.controlsRoot)
-    renderCommentsViews(patchPlayer, ELEMS.controlsRoot)
+    renderViews(patchPlayer, htmlElements.viewsRoot)
 
     await nextTick()
 
@@ -106,15 +104,15 @@ export const start = async (
     } catch (err) {
         console.error(`Failed to get microphone stream ${err}`)
     }
-    patchPlayer.webpdNode = await createAudioNode(
+    patchPlayer.webpdNode = await _createAudioNode(
         patchPlayer,
         stream,
         artefacts
     )
     patchPlayer.rootElem = rootElem
 
-    ELEMS.loadingLabel.style.display = 'none'
-    ELEMS.startButton.style.display = 'block'
+    htmlElements.loadingLabel.style.display = 'none'
+    htmlElements.startButton.style.display = 'block'
 
     return patchPlayer
 }
@@ -129,8 +127,8 @@ export const destroy = (patchPlayer: PatchPlayer) => {
     patchPlayer.audioContext.suspend()
 }
 
-export const createAudioNode = async (
-    patchPlayer: PatchPlayer,
+const _createAudioNode = async (
+    patchPlayer: PatchPlayerWithSettings,
     stream: MediaStream | null,
     artefacts: Build.Artefacts
 ) => {
@@ -141,7 +139,10 @@ export const createAudioNode = async (
     const webpdNode = await Browser.run(
         patchPlayer.audioContext,
         (artefacts.javascript || artefacts.wasm)!,
-        Browser.defaultSettingsForRun(patchPlayer.patchUrl || '.')
+        Browser.defaultSettingsForRun(
+            patchPlayer.patchUrl || '.',
+            (...args) => receiveMsgFromWebPd(patchPlayer, ...args),
+        )
     )
 
     if (stream) {
@@ -158,5 +159,5 @@ const _startSound = (patchPlayer: PatchPlayerWithSettings) => {
     if (patchPlayer.audioContext.state === 'suspended') {
         patchPlayer.audioContext.resume()
     }
-    initializeControlValues(patchPlayer)
+    initializeValues(patchPlayer)
 }

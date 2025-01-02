@@ -1,12 +1,4 @@
-export interface Point {
-    x: number
-    y: number
-}
-
-export interface Rectangle {
-    topLeft: Point,
-    bottomRight: Point,
-}
+import { Point, Rectangle } from "./types"
 
 export const sumPoints = (p1: Point, p2: Point) => ({
     x: p1.x + p2.x,

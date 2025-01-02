@@ -7,18 +7,27 @@ import {
     selectBuildInputArtefacts,
     selectBuildInputUrl,
 } from './build-input-selectors'
-import { selectBuildOutputFormat, selectBuildOutputPreviewDurationSeconds } from './build-output-selectors'
+import {
+    selectBuildOutputFormat,
+    selectBuildOutputPreviewDurationSeconds,
+} from './build-output-selectors'
 import { selectBuildSteps } from './shared-selectors'
 import { BIT_DEPTH } from '../types'
 import { selectAppDebug } from './app-selectors'
-import { WorkerSafeBuildSettings, workerSafePerformBuildStep } from './artefacts-worker-safe'
+import {
+    WorkerSafeBuildSettings,
+    workerSafePerformBuildStep,
+} from './artefacts-worker-safe'
 import { RequestPayload, ResponsePayload } from '../workers/build'
 
 export function* watchStartBuild() {
     yield takeLatest(artefacts.actions.startBuild.type, makeBuild)
 }
 
-function sendBuildStepToWorker(worker: Worker, requestPayload: RequestPayload): Promise<ResponsePayload> {
+function sendBuildStepToWorker(
+    worker: Worker,
+    requestPayload: RequestPayload
+): Promise<ResponsePayload> {
     return new Promise((resolve) => {
         worker.onmessage = (event: MessageEvent<ResponsePayload>) => {
             resolve(event.data)
@@ -40,9 +49,9 @@ function* makeBuild() {
     const url: ReturnType<typeof selectBuildInputUrl> = yield select(
         selectBuildInputUrl
     )
-    const previewDurationSeconds: ReturnType<typeof selectBuildOutputPreviewDurationSeconds> = yield select(
-        selectBuildOutputPreviewDurationSeconds
-    )
+    const previewDurationSeconds: ReturnType<
+        typeof selectBuildOutputPreviewDurationSeconds
+    > = yield select(selectBuildOutputPreviewDurationSeconds)
     const debug: ReturnType<typeof selectAppDebug> = yield select(
         selectAppDebug
     )
@@ -77,24 +86,34 @@ function* makeBuild() {
                     blockSize: 4096,
                     previewDurationSeconds: previewDurationSeconds || 30,
                 },
-                io: patchPlayer ? patchPlayer.io : undefined,
-                rootUrl: url ? Browser.urlDirName(url): null
+                rootUrl: url ? Browser.urlDirName(url) : null,
             }
             const requestPayload: RequestPayload = {
-                artefacts: tempArtefacts, step, settings
+                artefacts: tempArtefacts,
+                step,
+                settings,
             }
 
             // Didn't manage to build the AssemblyScript compiler in a worker, so execute the ASC compilation
             // in main thread, while everything else goes to worker.
             let result: Awaited<ReturnType<typeof Build.performBuildStep>>
             if (step === 'wasm') {
-                result = yield call(workerSafePerformBuildStep, tempArtefacts, step, settings)
+                result = yield call(
+                    workerSafePerformBuildStep,
+                    tempArtefacts,
+                    step,
+                    settings
+                )
             } else {
-                const responsePayload: ResponsePayload = yield call(sendBuildStepToWorker, worker, requestPayload)
+                const responsePayload: ResponsePayload = yield call(
+                    sendBuildStepToWorker,
+                    worker,
+                    requestPayload
+                )
                 result = responsePayload.result
                 tempArtefacts = responsePayload.artefacts
             }
-            
+
             const errors = result.status === 1 ? result.errors : undefined
             yield put(
                 artefacts.actions.stepComplete({
@@ -103,7 +122,7 @@ function* makeBuild() {
                     errors,
                     warnings: result.warnings,
                 })
-                )
+            )
             if (result.status === 1) {
                 return
             }
@@ -122,8 +141,14 @@ function* makeBuild() {
             return
         }
 
-        if (step === 'dspGraph' && outFormat === 'patchPlayer') {
-            patchPlayer = createPatchPlayer(tempArtefacts, url || null)
+        if (
+            (step === 'javascript' || step === 'wasm') && outFormat === 'patchPlayer'
+        ) {
+            patchPlayer = yield call(
+                createPatchPlayer,
+                tempArtefacts,
+                url || null
+            )
         }
     }
     yield put(

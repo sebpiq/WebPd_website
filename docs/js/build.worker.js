@@ -135,6 +135,41 @@ const isString = (obj) => typeof obj === 'string';
  * You should have received a copy of the GNU Lesser General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
+const CONTROL_TYPE = {
+    floatatom: 'floatatom',
+    symbolatom: 'symbolatom',
+    listbox: 'listbox',
+    bng: 'bng',
+    tgl: 'tgl',
+    nbx: 'nbx',
+    vsl: 'vsl',
+    hsl: 'hsl',
+    vradio: 'vradio',
+    hradio: 'hradio',
+    vu: 'vu',
+    cnv: 'cnv',
+    msg: 'msg',
+};
+
+/*
+ * Copyright (c) 2022-2023 Sébastien Piquemal <sebpiq@protonmail.com>, Chris McCormick.
+ *
+ * This file is part of WebPd
+ * (see https://github.com/sebpiq/WebPd).
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with this program. If not, see <http://www.gnu.org/licenses/>.
+ */
 /**
  * @param coordsTokenizedLine Defined only if the patch declares a graph on its parent,
  * i.e. if the patch has a UI visible in its parent.
@@ -213,10 +248,7 @@ const hydrateNodePatch = (id, { tokens }) => {
         patchId: parseStringToken(tokens[1]),
         nodeClass: 'subpatch',
         args,
-        layout: {
-            x: parseIntToken(tokens[2]),
-            y: parseIntToken(tokens[3]),
-        },
+        layout: hydrateNodeLayoutPosition(tokens),
     };
 };
 const hydrateNodeArray = (id, { tokens }) => ({
@@ -225,35 +257,41 @@ const hydrateNodeArray = (id, { tokens }) => ({
     type: 'array',
     nodeClass: 'array',
     arrayId: parseStringToken(tokens[1]),
+    layout: {},
 });
-const hydrateNodeBase = (id, tokens) => {
+const hydrateNodeBase = (tokens) => {
     const elementType = tokens[1];
-    let type = ''; // the object name
-    let args; // the construction args for the object
-    // 2 categories here :
-    //  - elems whose name is `elementType`
-    //  - elems whose name is `token[4]`
-    if (elementType === 'obj') {
-        type = parseStringToken(tokens[4]);
-        args = tokens.slice(5);
+    let type = '';
+    switch (elementType) {
+        // If text, we need to re-join all tokens
+        case 'text':
+            return {
+                type: 'text',
+                args: [tokens.slice(4).join(' ')],
+                nodeClass: 'text',
+            };
+        // 2 categories here :
+        //  - elems whose name is `elementType`
+        //  - elems whose name is `token[4]`
+        case 'obj':
+            type = parseStringToken(tokens[4]);
+            return {
+                type,
+                args: tokens.slice(5),
+                nodeClass: Object.keys(CONTROL_TYPE).includes(type)
+                    ? 'control'
+                    : 'generic',
+            };
+        default:
+            type = parseStringToken(elementType);
+            return {
+                type,
+                args: tokens.slice(4),
+                nodeClass: Object.keys(CONTROL_TYPE).includes(type)
+                    ? 'control'
+                    : 'generic',
+            };
     }
-    else {
-        type = parseStringToken(elementType);
-        args = tokens.slice(4);
-    }
-    // If text, we need to re-join all tokens
-    if (elementType === 'text') {
-        args = [tokens.slice(4).join(' ')];
-    }
-    return {
-        id,
-        type,
-        args,
-        layout: {
-            x: parseFloatToken(tokens[2]),
-            y: parseFloatToken(tokens[3]),
-        },
-    };
 };
 const hydrateConnection = ({ tokens, }) => ({
     source: {
@@ -265,21 +303,28 @@ const hydrateConnection = ({ tokens, }) => ({
         portletId: parseIntToken(tokens[5]),
     },
 });
-const hydrateNodeGeneric = (nodeBase) => {
-    const node = {
-        ...nodeBase,
-        nodeClass: 'generic',
-    };
-    node.args = node.args.map(parseArg);
-    return node;
-};
+const hydrateNodeGeneric = (id, type, tokens, layout) => ({
+    id,
+    type,
+    args: tokens.map(parseArg),
+    nodeClass: 'generic',
+    layout,
+});
+const hydrateNodeText = (id, tokens, layout) => ({
+    id,
+    type: 'text',
+    args: tokens.map(parseArg),
+    nodeClass: 'text',
+    layout,
+});
 // This is put here just for readability of the main `parse` function
-const hydrateNodeControl = (nodeBase) => {
-    const args = nodeBase.args;
+const hydrateNodeControl = (id, type, args, layout) => {
     const node = {
-        ...nodeBase,
-        type: nodeBase.type,
+        id,
+        type,
+        args,
         nodeClass: 'control',
+        layout,
     };
     if (node.type === 'floatatom' ||
         node.type === 'symbolatom' ||
@@ -500,6 +545,10 @@ function hydrateLineAfterComma(node, lineAfterComma) {
     }
     return node;
 }
+const hydrateNodeLayoutPosition = (tokens) => ({
+    x: parseIntToken(tokens[2]),
+    y: parseIntToken(tokens[3]),
+});
 
 /*
  * Copyright (c) 2022-2023 Sébastien Piquemal <sebpiq@protonmail.com>, Chris McCormick.
@@ -603,41 +652,6 @@ const tokenizeLine = (line) => {
  * You should have received a copy of the GNU Lesser General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
-const CONTROL_TYPE = {
-    floatatom: 'floatatom',
-    symbolatom: 'symbolatom',
-    listbox: 'listbox',
-    bng: 'bng',
-    tgl: 'tgl',
-    nbx: 'nbx',
-    vsl: 'vsl',
-    hsl: 'hsl',
-    vradio: 'vradio',
-    hradio: 'hradio',
-    vu: 'vu',
-    cnv: 'cnv',
-    msg: 'msg',
-};
-
-/*
- * Copyright (c) 2022-2023 Sébastien Piquemal <sebpiq@protonmail.com>, Chris McCormick.
- *
- * This file is part of WebPd
- * (see https://github.com/sebpiq/WebPd).
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public License
- * along with this program. If not, see <http://www.gnu.org/licenses/>.
- */
 const DEFAULT_ARRAY_SIZE = 100;
 const NODES = ['obj', 'floatatom', 'symbolatom', 'listbox', 'msg', 'text'];
 const nextPatchId = () => `${++nextPatchId.counter}`;
@@ -667,7 +681,10 @@ var parse = (pdString) => {
         _computePatchPortlets(c, patchId);
         if (c.patchTokenizedLinesMap[patchId].length) {
             c.patchTokenizedLinesMap[patchId].forEach(({ tokens, lineIndex }) => {
-                c.errors.push({ message: `"${tokens[0]} ${tokens[1]}" unexpected chunk`, lineIndex });
+                c.errors.push({
+                    message: `"${tokens[0]} ${tokens[1]}" unexpected chunk`,
+                    lineIndex,
+                });
             });
         }
     });
@@ -693,14 +710,19 @@ const _parsePatches = (c, isPatchRoot) => {
     let patchCoordsTokens = null;
     let iterCounter = -1;
     let continueIteration = true;
-    let firstLineIndex = c.tokenizedLines[0] ? c.tokenizedLines[0].lineIndex : -1;
+    let firstLineIndex = c.tokenizedLines[0]
+        ? c.tokenizedLines[0].lineIndex
+        : -1;
     while (c.tokenizedLines.length && continueIteration) {
         const { tokens, lineIndex } = c.tokenizedLines[0];
-        if (_tokensMatch(tokens, '#N', 'struct')
-            || _tokensMatch(tokens, '#X', 'declare')
-            || _tokensMatch(tokens, '#X', 'scalar')
-            || _tokensMatch(tokens, '#X', 'f')) {
-            c.warnings.push({ message: `"${tokens[0]} ${tokens[1]}" chunk is not supported`, lineIndex });
+        if (_tokensMatch(tokens, '#N', 'struct') ||
+            _tokensMatch(tokens, '#X', 'declare') ||
+            _tokensMatch(tokens, '#X', 'scalar') ||
+            _tokensMatch(tokens, '#X', 'f')) {
+            c.warnings.push({
+                message: `"${tokens[0]} ${tokens[1]}" chunk is not supported`,
+                lineIndex,
+            });
             c.tokenizedLines.shift();
             continue;
         }
@@ -770,7 +792,10 @@ const _parsePatches = (c, isPatchRoot) => {
         });
     }
     if (patchCanvasTokens === null) {
-        c.errors.push({ message: `Parsing failed #canvas missing`, lineIndex: firstLineIndex });
+        c.errors.push({
+            message: `Parsing failed #canvas missing`,
+            lineIndex: firstLineIndex,
+        });
         return;
     }
     if (isPatchRoot) {
@@ -872,15 +897,18 @@ const _parseNodesAndConnections = (c, patchId) => {
             }
             else if (NODES.some((nodeType) => _tokensMatch(tokens, '#X', nodeType))) {
                 const tokenizedLine = patchTokenizedLines.shift();
-                const nodeBase = hydrateNodeBase(nextId(), tokenizedLine.tokens);
-                if (Object.keys(CONTROL_TYPE).includes(nodeBase.type)) {
-                    node = hydrateNodeControl(nodeBase);
-                    node = hydrateLineAfterComma(node, tokenizedLine.lineAfterComma);
+                const { nodeClass, type, args } = hydrateNodeBase(tokenizedLine.tokens);
+                const layout = hydrateNodeLayoutPosition(tokenizedLine.tokens);
+                if (nodeClass === 'control') {
+                    node = hydrateNodeControl(nextId(), type, args, layout);
+                }
+                else if (nodeClass === 'text') {
+                    node = hydrateNodeText(nextId(), args, layout);
                 }
                 else {
-                    node = hydrateNodeGeneric(nodeBase);
-                    node = hydrateLineAfterComma(node, tokenizedLine.lineAfterComma);
+                    node = hydrateNodeGeneric(nextId(), type, args, layout);
                 }
+                node = hydrateLineAfterComma(node, tokenizedLine.lineAfterComma);
             }
             if (node) {
                 patch.nodes[node.id] = node;
@@ -1053,7 +1081,7 @@ var packageInfo = {
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 /** Helper to build engine metadata from compilation object */
-const buildMetadata = ({ variableNamesReadOnly, precompiledCode: { dependencies }, settings: { audio: audioSettings, io }, }) => {
+const buildMetadata = ({ variableNamesReadOnly, precompiledCode: { dependencies }, settings: { audio: audioSettings, io, customMetadata }, }) => {
     const filteredGlobals = {};
     const exportsAndImportsNames = [
         ...dependencies.exports,
@@ -1069,6 +1097,7 @@ const buildMetadata = ({ variableNamesReadOnly, precompiledCode: { dependencies 
     }));
     return {
         libVersion: packageInfo.version,
+        customMetadata,
         settings: {
             audio: {
                 ...audioSettings,
@@ -2225,7 +2254,7 @@ var renderToJavascript = (renderInput) => {
                 },
                 messageSenders: {
                     ${Object.entries(settings.io.messageSenders).map(([nodeId, spec]) => ast$1 `${nodeId}: {
-                            ${spec.portletIds.map(outletId => `"${outletId}": () => undefined,`)}
+                            ${spec.map(outletId => `"${outletId}": () => undefined,`)}
                         },`)}
                 },
             }
@@ -3897,12 +3926,12 @@ var precompile = (precompilationInput) => {
     // to be done, so that these nodes are handled by the rest of the precompilation.
     addNodeImplementationsForMessageIo(precompilation.nodeImplementations);
     Object.entries(precompilationInput.settings.io.messageReceivers).forEach(([specNodeId, spec]) => {
-        spec.portletIds.forEach((specInletId) => {
+        spec.forEach((specInletId) => {
             precompileIoMessageReceiver(precompilation, specNodeId, specInletId);
         });
     });
     Object.entries(precompilationInput.settings.io.messageSenders).forEach(([specNodeId, spec]) => {
-        spec.portletIds.forEach((specInletId) => {
+        spec.forEach((specInletId) => {
             precompileIoMessageSender(precompilation, specNodeId, specInletId);
         });
     });
@@ -4032,26 +4061,28 @@ const initializePrecompilation = (precompilationRawInput) => {
 };
 
 /** Asserts user provided settings are valid (or throws error) and sets default values. */
-const validateSettings = (compilationSettings, target) => {
-    const arrays = compilationSettings.arrays || {};
+const validateSettings = (userSettings, target) => {
+    const arrays = userSettings.arrays || {};
     const io = {
-        messageReceivers: (compilationSettings.io || {}).messageReceivers || {},
-        messageSenders: (compilationSettings.io || {}).messageSenders || {},
+        messageReceivers: (userSettings.io || {}).messageReceivers || {},
+        messageSenders: (userSettings.io || {}).messageSenders || {},
     };
-    const debug = compilationSettings.debug || false;
-    const audio = compilationSettings.audio || {
+    const debug = userSettings.debug || false;
+    const audio = userSettings.audio || {
         channelCount: { in: 2, out: 2 },
         bitDepth: 64,
     };
     if (![32, 64].includes(audio.bitDepth)) {
         throw new InvalidSettingsError(`"bitDepth" can be only 32 or 64`);
     }
+    const customMetadata = userSettings.customMetadata || {};
     return {
         audio,
         arrays,
         io,
         debug,
         target,
+        customMetadata,
     };
 };
 class InvalidSettingsError extends Error {
@@ -4104,191 +4135,142 @@ var index = (graph, nodeImplementations, target, compilationSettings) => {
     };
 };
 
-var WEBPD_RUNTIME_CODE = "var WebPdRuntime = (function (exports) {\n  'use strict';\n\n  var WEB_PD_WORKLET_PROCESSOR_CODE = \"/*\\n * Copyright (c) 2022-2023 Sébastien Piquemal <sebpiq@protonmail.com>, Chris McCormick.\\n *\\n * This file is part of WebPd\\n * (see https://github.com/sebpiq/WebPd).\\n *\\n * This program is free software: you can redistribute it and/or modify\\n * it under the terms of the GNU Lesser General Public License as published by\\n * the Free Software Foundation, either version 3 of the License, or\\n * (at your option) any later version.\\n *\\n * This program is distributed in the hope that it will be useful,\\n * but WITHOUT ANY WARRANTY; without even the implied warranty of\\n * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the\\n * GNU Lesser General Public License for more details.\\n *\\n * You should have received a copy of the GNU Lesser General Public License\\n * along with this program. If not, see <http://www.gnu.org/licenses/>.\\n */\\nconst FS_CALLBACK_NAMES = [\\n    'onReadSoundFile',\\n    'onOpenSoundReadStream',\\n    'onWriteSoundFile',\\n    'onOpenSoundWriteStream',\\n    'onSoundStreamData',\\n    'onCloseSoundStream',\\n];\\nclass WasmWorkletProcessor extends AudioWorkletProcessor {\\n    constructor() {\\n        super();\\n        this.port.onmessage = this.onMessage.bind(this);\\n        this.settings = {\\n            blockSize: null,\\n            sampleRate,\\n        };\\n        this.dspConfigured = false;\\n        this.engine = null;\\n    }\\n    process(inputs, outputs) {\\n        const output = outputs[0];\\n        const input = inputs[0];\\n        if (!this.dspConfigured) {\\n            if (!this.engine) {\\n                return true;\\n            }\\n            this.settings.blockSize = output[0].length;\\n            this.engine.initialize(this.settings.sampleRate, this.settings.blockSize);\\n            this.dspConfigured = true;\\n        }\\n        this.engine.dspLoop(input, output);\\n        return true;\\n    }\\n    onMessage(messageEvent) {\\n        const message = messageEvent.data;\\n        switch (message.type) {\\n            case 'code:WASM':\\n                this.setWasm(message.payload.wasmBuffer);\\n                break;\\n            case 'code:JS':\\n                this.setJsCode(message.payload.jsCode);\\n                break;\\n            case 'io:messageReceiver':\\n                this.engine.io.messageReceivers[message.payload.nodeId][message.payload.portletId](message.payload.message);\\n                break;\\n            case 'fs':\\n                const returned = this.engine.globals.fs[message.payload.functionName].apply(null, message.payload.arguments);\\n                this.port.postMessage({\\n                    type: 'fs',\\n                    payload: {\\n                        functionName: message.payload.functionName + '_return',\\n                        operationId: message.payload.arguments[0],\\n                        returned,\\n                    },\\n                });\\n                break;\\n            case 'destroy':\\n                this.destroy();\\n                break;\\n            default:\\n                new Error(`unknown message type ${message.type}`);\\n        }\\n    }\\n    // TODO : control for channelCount of wasmModule\\n    setWasm(wasmBuffer) {\\n        return AssemblyScriptWasmBindings.createEngine(wasmBuffer).then((engine) => this.setEngine(engine));\\n    }\\n    setJsCode(code) {\\n        const engine = JavaScriptBindings.createEngine(code);\\n        this.setEngine(engine);\\n    }\\n    setEngine(engine) {\\n        if (engine.globals.fs) {\\n            FS_CALLBACK_NAMES.forEach((functionName) => {\\n                engine.globals.fs[functionName] = (...args) => {\\n                    // We don't use transferables, because that would imply reallocating each time new array in the engine.\\n                    this.port.postMessage({\\n                        type: 'fs',\\n                        payload: {\\n                            functionName,\\n                            arguments: args,\\n                        },\\n                    });\\n                };\\n            });\\n        }\\n        this.engine = engine;\\n        this.dspConfigured = false;\\n    }\\n    destroy() {\\n        this.process = () => false;\\n    }\\n}\\nregisterProcessor('webpd-node', WasmWorkletProcessor);\\n\";\n\n  var ASSEMBLY_SCRIPT_WASM_BINDINGS_CODE = \"var AssemblyScriptWasmBindings = (function (exports) {\\n    'use strict';\\n\\n    const _proxyGetHandlerThrowIfKeyUnknown = (target, key, path) => {\\n        if (!(key in target)) {\\n            if ([\\n                'toJSON',\\n                'Symbol(Symbol.toStringTag)',\\n                'constructor',\\n                '$typeof',\\n                '$$typeof',\\n                '@@__IMMUTABLE_ITERABLE__@@',\\n                '@@__IMMUTABLE_RECORD__@@',\\n                'then',\\n            ].includes(key)) {\\n                return true;\\n            }\\n            throw new Error(`namespace${path ? ` <${path.keys.join('.')}>` : ''} doesn't know key \\\"${String(key)}\\\"`);\\n        }\\n        return false;\\n    };\\n\\n    const getFloatArrayType = (bitDepth) => bitDepth === 64 ? Float64Array : Float32Array;\\n    const proxyAsModuleWithBindings = (rawModule, bindings) => new Proxy({}, {\\n        get: (_, k) => {\\n            if (bindings.hasOwnProperty(k)) {\\n                const key = String(k);\\n                const bindingSpec = bindings[key];\\n                switch (bindingSpec.type) {\\n                    case 'raw':\\n                        if (k in rawModule) {\\n                            return rawModule[key];\\n                        }\\n                        else {\\n                            throw new Error(`Key ${String(key)} doesn't exist in raw module`);\\n                        }\\n                    case 'proxy':\\n                    case 'callback':\\n                        return bindingSpec.value;\\n                }\\n            }\\n            else {\\n                return undefined;\\n            }\\n        },\\n        has: function (_, k) {\\n            return k in bindings;\\n        },\\n        set: (_, k, newValue) => {\\n            if (bindings.hasOwnProperty(String(k))) {\\n                const key = String(k);\\n                const bindingSpec = bindings[key];\\n                if (bindingSpec.type === 'callback') {\\n                    bindingSpec.value = newValue;\\n                }\\n                else {\\n                    throw new Error(`Binding key ${String(key)} is read-only`);\\n                }\\n            }\\n            else {\\n                throw new Error(`Key ${String(k)} is not defined in bindings`);\\n            }\\n            return true;\\n        },\\n    });\\n    const proxyWithEngineNameMapping = (rawModule, variableNamesIndex) => proxyWithNameMapping(rawModule, {\\n        globals: variableNamesIndex.globals,\\n        io: variableNamesIndex.io,\\n    });\\n    const proxyWithNameMapping = (rawModule, variableNamesIndex) => {\\n        if (typeof variableNamesIndex === 'string') {\\n            return rawModule[variableNamesIndex];\\n        }\\n        else if (typeof variableNamesIndex === 'object') {\\n            return new Proxy(rawModule, {\\n                get: (_, k) => {\\n                    const key = String(k);\\n                    if (key in rawModule) {\\n                        return Reflect.get(rawModule, key);\\n                    }\\n                    else if (key in variableNamesIndex) {\\n                        const nextVariableNames = variableNamesIndex[key];\\n                        return proxyWithNameMapping(rawModule, nextVariableNames);\\n                    }\\n                    else if (_proxyGetHandlerThrowIfKeyUnknown(rawModule, key)) {\\n                        return undefined;\\n                    }\\n                },\\n                has: function (_, k) {\\n                    return k in rawModule || k in variableNamesIndex;\\n                },\\n                set: (_, k, value) => {\\n                    const key = String(k);\\n                    if (key in variableNamesIndex) {\\n                        const variableName = variableNamesIndex[key];\\n                        if (typeof variableName !== 'string') {\\n                            throw new Error(`Failed to set value for key ${String(k)}: variable name is not a string`);\\n                        }\\n                        return Reflect.set(rawModule, variableName, value);\\n                    }\\n                    else {\\n                        throw new Error(`Key ${String(k)} is not defined in raw module`);\\n                    }\\n                },\\n            });\\n        }\\n        else {\\n            throw new Error(`Invalid name mapping`);\\n        }\\n    };\\n\\n    const liftString = (rawModule, pointer) => {\\n        if (!pointer) {\\n            throw new Error('Cannot lift a null pointer');\\n        }\\n        pointer = pointer >>> 0;\\n        const end = (pointer +\\n            new Uint32Array(rawModule.memory.buffer)[(pointer - 4) >>> 2]) >>>\\n            1;\\n        const memoryU16 = new Uint16Array(rawModule.memory.buffer);\\n        let start = pointer >>> 1;\\n        let string = '';\\n        while (end - start > 1024) {\\n            string += String.fromCharCode(...memoryU16.subarray(start, (start += 1024)));\\n        }\\n        return string + String.fromCharCode(...memoryU16.subarray(start, end));\\n    };\\n    const lowerString = (rawModule, value) => {\\n        if (value == null) {\\n            throw new Error('Cannot lower a null string');\\n        }\\n        const length = value.length, pointer = rawModule.__new(length << 1, 1) >>> 0, memoryU16 = new Uint16Array(rawModule.memory.buffer);\\n        for (let i = 0; i < length; ++i)\\n            memoryU16[(pointer >>> 1) + i] = value.charCodeAt(i);\\n        return pointer;\\n    };\\n    const readTypedArray = (rawModule, constructor, pointer) => {\\n        if (!pointer) {\\n            throw new Error('Cannot lift a null pointer');\\n        }\\n        const memoryU32 = new Uint32Array(rawModule.memory.buffer);\\n        return new constructor(rawModule.memory.buffer, memoryU32[(pointer + 4) >>> 2], memoryU32[(pointer + 8) >>> 2] / constructor.BYTES_PER_ELEMENT);\\n    };\\n    const lowerFloatArray = (rawModule, bitDepth, data) => {\\n        const arrayType = getFloatArrayType(bitDepth);\\n        const arrayPointer = rawModule.globals.core.createFloatArray(data.length);\\n        const array = readTypedArray(rawModule, arrayType, arrayPointer);\\n        array.set(data);\\n        return { array, arrayPointer };\\n    };\\n    const lowerListOfFloatArrays = (rawModule, bitDepth, data) => {\\n        const arraysPointer = rawModule.globals.core.x_createListOfArrays();\\n        data.forEach((array) => {\\n            const { arrayPointer } = lowerFloatArray(rawModule, bitDepth, array);\\n            rawModule.globals.core.x_pushToListOfArrays(arraysPointer, arrayPointer);\\n        });\\n        return arraysPointer;\\n    };\\n    const readListOfFloatArrays = (rawModule, bitDepth, listOfArraysPointer) => {\\n        const listLength = rawModule.globals.core.x_getListOfArraysLength(listOfArraysPointer);\\n        const arrays = [];\\n        const arrayType = getFloatArrayType(bitDepth);\\n        for (let i = 0; i < listLength; i++) {\\n            const arrayPointer = rawModule.globals.core.x_getListOfArraysElem(listOfArraysPointer, i);\\n            arrays.push(readTypedArray(rawModule, arrayType, arrayPointer));\\n        }\\n        return arrays;\\n    };\\n\\n    const instantiateWasmModule = async (wasmBuffer, wasmImports = {}) => {\\n        const instanceAndModule = await WebAssembly.instantiate(wasmBuffer, {\\n            env: {\\n                abort: (messagePointer, _, lineNumber, columnNumber) => {\\n                    const message = liftString(wasmExports, messagePointer);\\n                    lineNumber = lineNumber;\\n                    columnNumber = columnNumber;\\n                    (() => {\\n                        throw Error(`${message} at ${lineNumber}:${columnNumber}`);\\n                    })();\\n                },\\n                seed: () => {\\n                    return (() => {\\n                        return Date.now() * Math.random();\\n                    })();\\n                },\\n                'console.log': (textPointer) => {\\n                    console.log(liftString(wasmExports, textPointer));\\n                },\\n            },\\n            ...wasmImports,\\n        });\\n        const wasmExports = instanceAndModule.instance\\n            .exports;\\n        return instanceAndModule.instance;\\n    };\\n\\n    const updateWasmInOuts = ({ refs, cache, }) => {\\n        cache.wasmOutput = readTypedArray(refs.rawModule, cache.arrayType, refs.rawModule.globals.core.x_getOutput());\\n        cache.wasmInput = readTypedArray(refs.rawModule, cache.arrayType, refs.rawModule.globals.core.x_getInput());\\n    };\\n    const createEngineLifecycleBindings = (engineContext) => {\\n        const { refs, cache, metadata } = engineContext;\\n        return {\\n            initialize: {\\n                type: 'proxy',\\n                value: (sampleRate, blockSize) => {\\n                    metadata.settings.audio.blockSize = blockSize;\\n                    metadata.settings.audio.sampleRate = sampleRate;\\n                    cache.blockSize = blockSize;\\n                    refs.rawModule.initialize(sampleRate, blockSize);\\n                    updateWasmInOuts(engineContext);\\n                },\\n            },\\n            dspLoop: {\\n                type: 'proxy',\\n                value: (input, output) => {\\n                    for (let channel = 0; channel < input.length; channel++) {\\n                        cache.wasmInput.set(input[channel], channel * cache.blockSize);\\n                    }\\n                    updateWasmInOuts(engineContext);\\n                    refs.rawModule.dspLoop();\\n                    updateWasmInOuts(engineContext);\\n                    for (let channel = 0; channel < output.length; channel++) {\\n                        output[channel].set(cache.wasmOutput.subarray(cache.blockSize * channel, cache.blockSize * (channel + 1)));\\n                    }\\n                },\\n            },\\n        };\\n    };\\n\\n    const createCommonsBindings = (engineContext) => {\\n        const { refs, cache } = engineContext;\\n        return {\\n            getArray: {\\n                type: 'proxy',\\n                value: (arrayName) => {\\n                    const arrayNamePointer = lowerString(refs.rawModule, arrayName);\\n                    const arrayPointer = refs.rawModule.globals.commons.getArray(arrayNamePointer);\\n                    return readTypedArray(refs.rawModule, cache.arrayType, arrayPointer);\\n                },\\n            },\\n            setArray: {\\n                type: 'proxy',\\n                value: (arrayName, array) => {\\n                    const stringPointer = lowerString(refs.rawModule, arrayName);\\n                    const { arrayPointer } = lowerFloatArray(refs.rawModule, cache.bitDepth, array);\\n                    refs.rawModule.globals.commons.setArray(stringPointer, arrayPointer);\\n                    updateWasmInOuts(engineContext);\\n                },\\n            },\\n        };\\n    };\\n\\n    const readMetadata = async (wasmBuffer) => {\\n        const inputImports = {};\\n        const wasmModule = WebAssembly.Module.imports(new WebAssembly.Module(wasmBuffer));\\n        wasmModule\\n            .filter((imprt) => imprt.module === 'input' && imprt.kind === 'function')\\n            .forEach((imprt) => (inputImports[imprt.name] = () => undefined));\\n        const wasmInstance = await instantiateWasmModule(wasmBuffer, {\\n            input: inputImports,\\n        });\\n        const rawModule = wasmInstance.exports;\\n        const stringPointer = rawModule.metadata.valueOf();\\n        const metadataJSON = liftString(rawModule, stringPointer);\\n        return JSON.parse(metadataJSON);\\n    };\\n\\n    const mapArray = (src, func) => {\\n        const dest = {};\\n        src.forEach((srcValue, i) => {\\n            const [key, destValue] = func(srcValue, i);\\n            dest[key] = destValue;\\n        });\\n        return dest;\\n    };\\n\\n    const liftMessage = (rawModule, messagePointer) => {\\n        const messageTokenTypesPointer = rawModule.globals.msg.x_getTokenTypes(messagePointer);\\n        const messageTokenTypes = readTypedArray(rawModule, Int32Array, messageTokenTypesPointer);\\n        const message = [];\\n        messageTokenTypes.forEach((tokenType, tokenIndex) => {\\n            if (tokenType === rawModule.globals.msg.FLOAT_TOKEN.valueOf()) {\\n                message.push(rawModule.globals.msg.readFloatToken(messagePointer, tokenIndex));\\n            }\\n            else if (tokenType === rawModule.globals.msg.STRING_TOKEN.valueOf()) {\\n                const stringPointer = rawModule.globals.msg.readStringToken(messagePointer, tokenIndex);\\n                message.push(liftString(rawModule, stringPointer));\\n            }\\n        });\\n        return message;\\n    };\\n    const lowerMessage = (rawModule, message) => {\\n        const template = message.reduce((template, value) => {\\n            if (typeof value === 'number') {\\n                template.push(rawModule.globals.msg.FLOAT_TOKEN.valueOf());\\n            }\\n            else if (typeof value === 'string') {\\n                template.push(rawModule.globals.msg.STRING_TOKEN.valueOf());\\n                template.push(value.length);\\n            }\\n            else {\\n                throw new Error(`invalid message value ${value}`);\\n            }\\n            return template;\\n        }, []);\\n        const templateArrayPointer = rawModule.globals.msg.x_createTemplate(template.length);\\n        const loweredTemplateArray = readTypedArray(rawModule, Int32Array, templateArrayPointer);\\n        loweredTemplateArray.set(template);\\n        const messagePointer = rawModule.globals.msg.x_create(templateArrayPointer);\\n        message.forEach((value, index) => {\\n            if (typeof value === 'number') {\\n                rawModule.globals.msg.writeFloatToken(messagePointer, index, value);\\n            }\\n            else if (typeof value === 'string') {\\n                const stringPointer = lowerString(rawModule, value);\\n                rawModule.globals.msg.writeStringToken(messagePointer, index, stringPointer);\\n            }\\n        });\\n        return messagePointer;\\n    };\\n\\n    const createIoMessageReceiversBindings = ({ metadata, refs, }) => Object.entries(metadata.settings.io.messageReceivers).reduce((bindings, [nodeId, spec]) => ({\\n        ...bindings,\\n        [nodeId]: {\\n            type: 'proxy',\\n            value: mapArray(spec.portletIds, (inletId) => [\\n                inletId,\\n                (message) => {\\n                    const messagePointer = lowerMessage(refs.rawModule, message);\\n                    refs.rawModule.io.messageReceivers[nodeId][inletId](messagePointer);\\n                },\\n            ]),\\n        },\\n    }), {});\\n    const createIoMessageSendersBindings = ({ metadata, }) => Object.entries(metadata.settings.io.messageSenders).reduce((bindings, [nodeId, spec]) => ({\\n        ...bindings,\\n        [nodeId]: {\\n            type: 'proxy',\\n            value: mapArray(spec.portletIds, (outletId) => [\\n                outletId,\\n                (_) => undefined,\\n            ]),\\n        },\\n    }), {});\\n    const ioMsgSendersImports = ({ metadata, refs, }) => {\\n        const wasmImports = {};\\n        const { variableNamesIndex } = metadata.compilation;\\n        Object.entries(metadata.settings.io.messageSenders).forEach(([nodeId, spec]) => {\\n            spec.portletIds.forEach((outletId) => {\\n                const listenerName = variableNamesIndex.io.messageSenders[nodeId][outletId];\\n                wasmImports[listenerName] = (messagePointer) => {\\n                    const message = liftMessage(refs.rawModule, messagePointer);\\n                    refs.engine.io.messageSenders[nodeId][outletId](message);\\n                };\\n            });\\n        });\\n        return wasmImports;\\n    };\\n\\n    const createFsBindings = (engineContext) => {\\n        const { refs, cache, metadata } = engineContext;\\n        const fsExportedNames = metadata.compilation.variableNamesIndex.globals.fs;\\n        return {\\n            sendReadSoundFileResponse: {\\n                type: 'proxy',\\n                value: 'x_onReadSoundFileResponse' in fsExportedNames\\n                    ? (operationId, status, sound) => {\\n                        let soundPointer = 0;\\n                        if (sound) {\\n                            soundPointer = lowerListOfFloatArrays(refs.rawModule, cache.bitDepth, sound);\\n                        }\\n                        refs.rawModule.globals.fs.x_onReadSoundFileResponse(operationId, status, soundPointer);\\n                        updateWasmInOuts(engineContext);\\n                    }\\n                    : undefined,\\n            },\\n            sendWriteSoundFileResponse: {\\n                type: 'proxy',\\n                value: 'x_onWriteSoundFileResponse' in fsExportedNames\\n                    ? refs.rawModule.globals.fs.x_onWriteSoundFileResponse\\n                    : undefined,\\n            },\\n            sendSoundStreamData: {\\n                type: 'proxy',\\n                value: 'x_onSoundStreamData' in fsExportedNames\\n                    ? (operationId, sound) => {\\n                        const soundPointer = lowerListOfFloatArrays(refs.rawModule, cache.bitDepth, sound);\\n                        const writtenFrameCount = refs.rawModule.globals.fs.x_onSoundStreamData(operationId, soundPointer);\\n                        updateWasmInOuts(engineContext);\\n                        return writtenFrameCount;\\n                    }\\n                    : undefined,\\n            },\\n            closeSoundStream: {\\n                type: 'proxy',\\n                value: 'x_onCloseSoundStream' in fsExportedNames\\n                    ? refs.rawModule.globals.fs.x_onCloseSoundStream\\n                    : undefined,\\n            },\\n            onReadSoundFile: { type: 'callback', value: () => undefined },\\n            onWriteSoundFile: { type: 'callback', value: () => undefined },\\n            onOpenSoundReadStream: { type: 'callback', value: () => undefined },\\n            onOpenSoundWriteStream: { type: 'callback', value: () => undefined },\\n            onSoundStreamData: { type: 'callback', value: () => undefined },\\n            onCloseSoundStream: { type: 'callback', value: () => undefined },\\n        };\\n    };\\n    const createFsImports = (engineContext) => {\\n        const wasmImports = {};\\n        const { cache, metadata, refs } = engineContext;\\n        const exportedNames = metadata.compilation.variableNamesIndex.globals;\\n        if ('fs' in exportedNames) {\\n            const nameMapping = proxyWithNameMapping(wasmImports, exportedNames.fs);\\n            if ('i_readSoundFile' in exportedNames.fs) {\\n                nameMapping.i_readSoundFile = (operationId, urlPointer, infoPointer) => {\\n                    const url = liftString(refs.rawModule, urlPointer);\\n                    const info = liftMessage(refs.rawModule, infoPointer);\\n                    refs.engine.globals.fs.onReadSoundFile(operationId, url, info);\\n                };\\n            }\\n            if ('i_writeSoundFile' in exportedNames.fs) {\\n                nameMapping.i_writeSoundFile = (operationId, soundPointer, urlPointer, infoPointer) => {\\n                    const sound = readListOfFloatArrays(refs.rawModule, cache.bitDepth, soundPointer);\\n                    const url = liftString(refs.rawModule, urlPointer);\\n                    const info = liftMessage(refs.rawModule, infoPointer);\\n                    refs.engine.globals.fs.onWriteSoundFile(operationId, sound, url, info);\\n                };\\n            }\\n            if ('i_openSoundReadStream' in exportedNames.fs) {\\n                nameMapping.i_openSoundReadStream = (operationId, urlPointer, infoPointer) => {\\n                    const url = liftString(refs.rawModule, urlPointer);\\n                    const info = liftMessage(refs.rawModule, infoPointer);\\n                    updateWasmInOuts(engineContext);\\n                    refs.engine.globals.fs.onOpenSoundReadStream(operationId, url, info);\\n                };\\n            }\\n            if ('i_openSoundWriteStream' in exportedNames.fs) {\\n                nameMapping.i_openSoundWriteStream = (operationId, urlPointer, infoPointer) => {\\n                    const url = liftString(refs.rawModule, urlPointer);\\n                    const info = liftMessage(refs.rawModule, infoPointer);\\n                    refs.engine.globals.fs.onOpenSoundWriteStream(operationId, url, info);\\n                };\\n            }\\n            if ('i_sendSoundStreamData' in exportedNames.fs) {\\n                nameMapping.i_sendSoundStreamData = (operationId, blockPointer) => {\\n                    const block = readListOfFloatArrays(refs.rawModule, cache.bitDepth, blockPointer);\\n                    refs.engine.globals.fs.onSoundStreamData(operationId, block);\\n                };\\n            }\\n            if ('i_closeSoundStream' in exportedNames.fs) {\\n                nameMapping.i_closeSoundStream = (...args) => refs.engine.globals.fs.onCloseSoundStream(...args);\\n            }\\n        }\\n        return wasmImports;\\n    };\\n\\n    const createEngine = async (wasmBuffer, additionalBindings) => {\\n        const metadata = await readMetadata(wasmBuffer);\\n        const bitDepth = metadata.settings.audio.bitDepth;\\n        const arrayType = getFloatArrayType(bitDepth);\\n        const engineContext = {\\n            refs: {},\\n            metadata: metadata,\\n            cache: {\\n                wasmOutput: new arrayType(0),\\n                wasmInput: new arrayType(0),\\n                arrayType,\\n                bitDepth,\\n                blockSize: 0,\\n            },\\n        };\\n        const wasmImports = {\\n            ...createFsImports(engineContext),\\n            ...ioMsgSendersImports(engineContext),\\n        };\\n        const wasmInstance = await instantiateWasmModule(wasmBuffer, {\\n            input: wasmImports,\\n        });\\n        engineContext.refs.rawModule = proxyWithEngineNameMapping(wasmInstance.exports, metadata.compilation.variableNamesIndex);\\n        const engineBindings = createEngineBindings(engineContext);\\n        const engine = proxyAsModuleWithBindings(engineContext.refs.rawModule, {\\n            ...engineBindings,\\n            ...(additionalBindings || {}),\\n        });\\n        engineContext.refs.engine = engine;\\n        return engine;\\n    };\\n    const createEngineBindings = (engineContext) => {\\n        const { metadata, refs } = engineContext;\\n        const exportedNames = metadata.compilation.variableNamesIndex.globals;\\n        const io = {\\n            messageReceivers: proxyAsModuleWithBindings(refs.rawModule, createIoMessageReceiversBindings(engineContext)),\\n            messageSenders: proxyAsModuleWithBindings(refs.rawModule, createIoMessageSendersBindings(engineContext)),\\n        };\\n        const globalsBindings = {\\n            commons: {\\n                type: 'proxy',\\n                value: proxyAsModuleWithBindings(refs.rawModule, createCommonsBindings(engineContext)),\\n            },\\n        };\\n        if ('fs' in exportedNames) {\\n            const fs = proxyAsModuleWithBindings(refs.rawModule, createFsBindings(engineContext));\\n            globalsBindings.fs = { type: 'proxy', value: fs };\\n        }\\n        return {\\n            ...createEngineLifecycleBindings(engineContext),\\n            metadata: { type: 'proxy', value: metadata },\\n            globals: {\\n                type: 'proxy',\\n                value: proxyAsModuleWithBindings(refs.rawModule, globalsBindings),\\n            },\\n            io: { type: 'proxy', value: io },\\n        };\\n    };\\n\\n    exports.createEngine = createEngine;\\n    exports.createEngineBindings = createEngineBindings;\\n\\n    return exports;\\n\\n})({});\\n\";\n\n  var JAVA_SCRIPT_BINDINGS_CODE = \"var JavaScriptBindings = (function (exports) {\\n    'use strict';\\n\\n    const _proxyGetHandlerThrowIfKeyUnknown = (target, key, path) => {\\n        if (!(key in target)) {\\n            if ([\\n                'toJSON',\\n                'Symbol(Symbol.toStringTag)',\\n                'constructor',\\n                '$typeof',\\n                '$$typeof',\\n                '@@__IMMUTABLE_ITERABLE__@@',\\n                '@@__IMMUTABLE_RECORD__@@',\\n                'then',\\n            ].includes(key)) {\\n                return true;\\n            }\\n            throw new Error(`namespace${path ? ` <${path.keys.join('.')}>` : ''} doesn't know key \\\"${String(key)}\\\"`);\\n        }\\n        return false;\\n    };\\n\\n    const getFloatArrayType = (bitDepth) => bitDepth === 64 ? Float64Array : Float32Array;\\n    const proxyAsModuleWithBindings = (rawModule, bindings) => new Proxy({}, {\\n        get: (_, k) => {\\n            if (bindings.hasOwnProperty(k)) {\\n                const key = String(k);\\n                const bindingSpec = bindings[key];\\n                switch (bindingSpec.type) {\\n                    case 'raw':\\n                        if (k in rawModule) {\\n                            return rawModule[key];\\n                        }\\n                        else {\\n                            throw new Error(`Key ${String(key)} doesn't exist in raw module`);\\n                        }\\n                    case 'proxy':\\n                    case 'callback':\\n                        return bindingSpec.value;\\n                }\\n            }\\n            else {\\n                return undefined;\\n            }\\n        },\\n        has: function (_, k) {\\n            return k in bindings;\\n        },\\n        set: (_, k, newValue) => {\\n            if (bindings.hasOwnProperty(String(k))) {\\n                const key = String(k);\\n                const bindingSpec = bindings[key];\\n                if (bindingSpec.type === 'callback') {\\n                    bindingSpec.value = newValue;\\n                }\\n                else {\\n                    throw new Error(`Binding key ${String(key)} is read-only`);\\n                }\\n            }\\n            else {\\n                throw new Error(`Key ${String(k)} is not defined in bindings`);\\n            }\\n            return true;\\n        },\\n    });\\n    const proxyWithEngineNameMapping = (rawModule, variableNamesIndex) => proxyWithNameMapping(rawModule, {\\n        globals: variableNamesIndex.globals,\\n        io: variableNamesIndex.io,\\n    });\\n    const proxyWithNameMapping = (rawModule, variableNamesIndex) => {\\n        if (typeof variableNamesIndex === 'string') {\\n            return rawModule[variableNamesIndex];\\n        }\\n        else if (typeof variableNamesIndex === 'object') {\\n            return new Proxy(rawModule, {\\n                get: (_, k) => {\\n                    const key = String(k);\\n                    if (key in rawModule) {\\n                        return Reflect.get(rawModule, key);\\n                    }\\n                    else if (key in variableNamesIndex) {\\n                        const nextVariableNames = variableNamesIndex[key];\\n                        return proxyWithNameMapping(rawModule, nextVariableNames);\\n                    }\\n                    else if (_proxyGetHandlerThrowIfKeyUnknown(rawModule, key)) {\\n                        return undefined;\\n                    }\\n                },\\n                has: function (_, k) {\\n                    return k in rawModule || k in variableNamesIndex;\\n                },\\n                set: (_, k, value) => {\\n                    const key = String(k);\\n                    if (key in variableNamesIndex) {\\n                        const variableName = variableNamesIndex[key];\\n                        if (typeof variableName !== 'string') {\\n                            throw new Error(`Failed to set value for key ${String(k)}: variable name is not a string`);\\n                        }\\n                        return Reflect.set(rawModule, variableName, value);\\n                    }\\n                    else {\\n                        throw new Error(`Key ${String(k)} is not defined in raw module`);\\n                    }\\n                },\\n            });\\n        }\\n        else {\\n            throw new Error(`Invalid name mapping`);\\n        }\\n    };\\n\\n    const createFsModule = (rawModule) => {\\n        const fsExportedNames = rawModule.metadata.compilation.variableNamesIndex.globals.fs;\\n        const fs = proxyAsModuleWithBindings(rawModule, {\\n            onReadSoundFile: { type: 'callback', value: () => undefined },\\n            onWriteSoundFile: { type: 'callback', value: () => undefined },\\n            onOpenSoundReadStream: { type: 'callback', value: () => undefined },\\n            onOpenSoundWriteStream: { type: 'callback', value: () => undefined },\\n            onSoundStreamData: { type: 'callback', value: () => undefined },\\n            onCloseSoundStream: { type: 'callback', value: () => undefined },\\n            sendReadSoundFileResponse: {\\n                type: 'proxy',\\n                value: 'x_onReadSoundFileResponse' in fsExportedNames\\n                    ? rawModule.globals.fs.x_onReadSoundFileResponse\\n                    : undefined,\\n            },\\n            sendWriteSoundFileResponse: {\\n                type: 'proxy',\\n                value: 'x_onWriteSoundFileResponse' in fsExportedNames\\n                    ? rawModule.globals.fs.x_onWriteSoundFileResponse\\n                    : undefined,\\n            },\\n            sendSoundStreamData: {\\n                type: 'proxy',\\n                value: 'x_onSoundStreamData' in fsExportedNames\\n                    ? rawModule.globals.fs.x_onSoundStreamData\\n                    : undefined,\\n            },\\n            closeSoundStream: {\\n                type: 'proxy',\\n                value: 'x_onCloseSoundStream' in fsExportedNames\\n                    ? rawModule.globals.fs.x_onCloseSoundStream\\n                    : undefined,\\n            },\\n        });\\n        if ('i_openSoundWriteStream' in fsExportedNames) {\\n            rawModule.globals.fs.i_openSoundWriteStream = (...args) => fs.onOpenSoundWriteStream(...args);\\n        }\\n        if ('i_sendSoundStreamData' in fsExportedNames) {\\n            rawModule.globals.fs.i_sendSoundStreamData = (...args) => fs.onSoundStreamData(...args);\\n        }\\n        if ('i_openSoundReadStream' in fsExportedNames) {\\n            rawModule.globals.fs.i_openSoundReadStream = (...args) => fs.onOpenSoundReadStream(...args);\\n        }\\n        if ('i_closeSoundStream' in fsExportedNames) {\\n            rawModule.globals.fs.i_closeSoundStream = (...args) => fs.onCloseSoundStream(...args);\\n        }\\n        if ('i_writeSoundFile' in fsExportedNames) {\\n            rawModule.globals.fs.i_writeSoundFile = (...args) => fs.onWriteSoundFile(...args);\\n        }\\n        if ('i_readSoundFile' in fsExportedNames) {\\n            rawModule.globals.fs.i_readSoundFile = (...args) => fs.onReadSoundFile(...args);\\n        }\\n        return fs;\\n    };\\n\\n    const createCommonsModule = (rawModule, metadata) => {\\n        const floatArrayType = getFloatArrayType(metadata.settings.audio.bitDepth);\\n        return proxyAsModuleWithBindings(rawModule, {\\n            getArray: {\\n                type: 'proxy',\\n                value: (arrayName) => rawModule.globals.commons.getArray(arrayName),\\n            },\\n            setArray: {\\n                type: 'proxy',\\n                value: (arrayName, array) => rawModule.globals.commons.setArray(arrayName, new floatArrayType(array)),\\n            },\\n        });\\n    };\\n\\n    const compileRawModule = (code) => new Function(`\\n        ${code}\\n        return exports\\n    `)();\\n    const createEngineBindings = (rawModule) => {\\n        const exportedNames = rawModule.metadata.compilation.variableNamesIndex.globals;\\n        const globalsBindings = {\\n            commons: {\\n                type: 'proxy',\\n                value: createCommonsModule(rawModule, rawModule.metadata),\\n            },\\n        };\\n        if ('fs' in exportedNames) {\\n            globalsBindings.fs = { type: 'proxy', value: createFsModule(rawModule) };\\n        }\\n        return {\\n            metadata: { type: 'raw' },\\n            initialize: { type: 'raw' },\\n            dspLoop: { type: 'raw' },\\n            io: { type: 'raw' },\\n            globals: {\\n                type: 'proxy',\\n                value: proxyAsModuleWithBindings(rawModule, globalsBindings),\\n            },\\n        };\\n    };\\n    const createEngine = (code, additionalBindings) => {\\n        const rawModule = compileRawModule(code);\\n        const rawModuleWithNameMapping = proxyWithEngineNameMapping(rawModule, rawModule.metadata.compilation.variableNamesIndex);\\n        return proxyAsModuleWithBindings(rawModule, {\\n            ...createEngineBindings(rawModuleWithNameMapping),\\n            ...(additionalBindings || {}),\\n        });\\n    };\\n\\n    exports.compileRawModule = compileRawModule;\\n    exports.createEngine = createEngine;\\n    exports.createEngineBindings = createEngineBindings;\\n\\n    return exports;\\n\\n})({});\\n\";\n\n  var fetchRetry$1 = function (fetch, defaults) {\n    defaults = defaults || {};\n    if (typeof fetch !== 'function') {\n      throw new ArgumentError('fetch must be a function');\n    }\n\n    if (typeof defaults !== 'object') {\n      throw new ArgumentError('defaults must be an object');\n    }\n\n    if (defaults.retries !== undefined && !isPositiveInteger(defaults.retries)) {\n      throw new ArgumentError('retries must be a positive integer');\n    }\n\n    if (defaults.retryDelay !== undefined && !isPositiveInteger(defaults.retryDelay) && typeof defaults.retryDelay !== 'function') {\n      throw new ArgumentError('retryDelay must be a positive integer or a function returning a positive integer');\n    }\n\n    if (defaults.retryOn !== undefined && !Array.isArray(defaults.retryOn) && typeof defaults.retryOn !== 'function') {\n      throw new ArgumentError('retryOn property expects an array or function');\n    }\n\n    var baseDefaults = {\n      retries: 3,\n      retryDelay: 1000,\n      retryOn: [],\n    };\n\n    defaults = Object.assign(baseDefaults, defaults);\n\n    return function fetchRetry(input, init) {\n      var retries = defaults.retries;\n      var retryDelay = defaults.retryDelay;\n      var retryOn = defaults.retryOn;\n\n      if (init && init.retries !== undefined) {\n        if (isPositiveInteger(init.retries)) {\n          retries = init.retries;\n        } else {\n          throw new ArgumentError('retries must be a positive integer');\n        }\n      }\n\n      if (init && init.retryDelay !== undefined) {\n        if (isPositiveInteger(init.retryDelay) || (typeof init.retryDelay === 'function')) {\n          retryDelay = init.retryDelay;\n        } else {\n          throw new ArgumentError('retryDelay must be a positive integer or a function returning a positive integer');\n        }\n      }\n\n      if (init && init.retryOn) {\n        if (Array.isArray(init.retryOn) || (typeof init.retryOn === 'function')) {\n          retryOn = init.retryOn;\n        } else {\n          throw new ArgumentError('retryOn property expects an array or function');\n        }\n      }\n\n      // eslint-disable-next-line no-undef\n      return new Promise(function (resolve, reject) {\n        var wrappedFetch = function (attempt) {\n          // As of node 18, this is no longer needed since node comes with native support for fetch:\n          /* istanbul ignore next */\n          var _input =\n            typeof Request !== 'undefined' && input instanceof Request\n              ? input.clone()\n              : input;\n          fetch(_input, init)\n            .then(function (response) {\n              if (Array.isArray(retryOn) && retryOn.indexOf(response.status) === -1) {\n                resolve(response);\n              } else if (typeof retryOn === 'function') {\n                try {\n                  // eslint-disable-next-line no-undef\n                  return Promise.resolve(retryOn(attempt, null, response))\n                    .then(function (retryOnResponse) {\n                      if(retryOnResponse) {\n                        retry(attempt, null, response);\n                      } else {\n                        resolve(response);\n                      }\n                    }).catch(reject);\n                } catch (error) {\n                  reject(error);\n                }\n              } else {\n                if (attempt < retries) {\n                  retry(attempt, null, response);\n                } else {\n                  resolve(response);\n                }\n              }\n            })\n            .catch(function (error) {\n              if (typeof retryOn === 'function') {\n                try {\n                  // eslint-disable-next-line no-undef\n                  Promise.resolve(retryOn(attempt, error, null))\n                    .then(function (retryOnResponse) {\n                      if(retryOnResponse) {\n                        retry(attempt, error, null);\n                      } else {\n                        reject(error);\n                      }\n                    })\n                    .catch(function(error) {\n                      reject(error);\n                    });\n                } catch(error) {\n                  reject(error);\n                }\n              } else if (attempt < retries) {\n                retry(attempt, error, null);\n              } else {\n                reject(error);\n              }\n            });\n        };\n\n        function retry(attempt, error, response) {\n          var delay = (typeof retryDelay === 'function') ?\n            retryDelay(attempt, error, response) : retryDelay;\n          setTimeout(function () {\n            wrappedFetch(++attempt);\n          }, delay);\n        }\n\n        wrappedFetch(0);\n      });\n    };\n  };\n\n  function isPositiveInteger(value) {\n    return Number.isInteger(value) && value >= 0;\n  }\n\n  function ArgumentError(message) {\n    this.name = 'ArgumentError';\n    this.message = message;\n  }\n\n  /*\n   * Copyright (c) 2022-2023 Sébastien Piquemal <sebpiq@protonmail.com>, Chris McCormick.\n   *\n   * This file is part of WebPd\n   * (see https://github.com/sebpiq/WebPd).\n   *\n   * This program is free software: you can redistribute it and/or modify\n   * it under the terms of the GNU Lesser General Public License as published by\n   * the Free Software Foundation, either version 3 of the License, or\n   * (at your option) any later version.\n   *\n   * This program is distributed in the hope that it will be useful,\n   * but WITHOUT ANY WARRANTY; without even the implied warranty of\n   * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the\n   * GNU Lesser General Public License for more details.\n   *\n   * You should have received a copy of the GNU Lesser General Public License\n   * along with this program. If not, see <http://www.gnu.org/licenses/>.\n   */\n  const fetchRetry = fetchRetry$1(fetch);\n  /**\n   * Note : the audio worklet feature is available only in secure context.\n   * This function will fail when used in insecure context (non-https, etc ...)\n   * @see https://developer.mozilla.org/en-US/docs/Web/API/AudioWorklet\n   */\n  const addModule = async (context, processorCode) => {\n      const blob = new Blob([processorCode], { type: 'text/javascript' });\n      const workletProcessorUrl = URL.createObjectURL(blob);\n      return context.audioWorklet.addModule(workletProcessorUrl);\n  };\n  // TODO : testing\n  const fetchFile = async (url) => {\n      let response;\n      try {\n          response = await fetchRetry(url, { retries: 3 });\n      }\n      catch (err) {\n          throw new FileError(response.status, err.toString());\n      }\n      if (!response.ok) {\n          const responseText = await response.text();\n          throw new FileError(response.status, responseText);\n      }\n      return response.arrayBuffer();\n  };\n  const audioBufferToArray = (audioBuffer) => {\n      const sound = [];\n      for (let channel = 0; channel < audioBuffer.numberOfChannels; channel++) {\n          sound.push(audioBuffer.getChannelData(channel));\n      }\n      return sound;\n  };\n  // TODO : testing\n  const fixSoundChannelCount = (sound, targetChannelCount) => {\n      if (sound.length === 0) {\n          throw new Error(`Received empty sound`);\n      }\n      const floatArrayType = sound[0].constructor;\n      const frameCount = sound[0].length;\n      const fixedSound = sound.slice(0, targetChannelCount);\n      while (sound.length < targetChannelCount) {\n          fixedSound.push(new floatArrayType(frameCount));\n      }\n      return fixedSound;\n  };\n  const resolveRelativeUrl = (rootUrl, relativeUrl) => {\n      return new URL(relativeUrl, rootUrl).href;\n  };\n  class FileError extends Error {\n      constructor(status, msg) {\n          super(`Error ${status} : ${msg}`);\n      }\n  }\n\n  /*\n   * Copyright (c) 2022-2023 Sébastien Piquemal <sebpiq@protonmail.com>, Chris McCormick.\n   *\n   * This file is part of WebPd\n   * (see https://github.com/sebpiq/WebPd).\n   *\n   * This program is free software: you can redistribute it and/or modify\n   * it under the terms of the GNU Lesser General Public License as published by\n   * the Free Software Foundation, either version 3 of the License, or\n   * (at your option) any later version.\n   *\n   * This program is distributed in the hope that it will be useful,\n   * but WITHOUT ANY WARRANTY; without even the implied warranty of\n   * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the\n   * GNU Lesser General Public License for more details.\n   *\n   * You should have received a copy of the GNU Lesser General Public License\n   * along with this program. If not, see <http://www.gnu.org/licenses/>.\n   */\n  // TODO : manage transferables\n  class WebPdWorkletNode extends AudioWorkletNode {\n      constructor(context) {\n          super(context, 'webpd-node', {\n              numberOfOutputs: 1,\n              outputChannelCount: [2],\n          });\n      }\n      destroy() {\n          this.port.postMessage({\n              type: 'destroy',\n              payload: {},\n          });\n      }\n  }\n  // Concatenate WorkletProcessor code with the Wasm bindings it needs\n  const WEBPD_WORKLET_PROCESSOR_CODE = ASSEMBLY_SCRIPT_WASM_BINDINGS_CODE +\n      ';\\n' +\n      JAVA_SCRIPT_BINDINGS_CODE +\n      ';\\n' +\n      WEB_PD_WORKLET_PROCESSOR_CODE;\n  const registerWebPdWorkletNode = (context) => {\n      return addModule(context, WEBPD_WORKLET_PROCESSOR_CODE);\n  };\n\n  /*\n   * Copyright (c) 2022-2023 Sébastien Piquemal <sebpiq@protonmail.com>, Chris McCormick.\n   *\n   * This file is part of WebPd\n   * (see https://github.com/sebpiq/WebPd).\n   *\n   * This program is free software: you can redistribute it and/or modify\n   * it under the terms of the GNU Lesser General Public License as published by\n   * the Free Software Foundation, either version 3 of the License, or\n   * (at your option) any later version.\n   *\n   * This program is distributed in the hope that it will be useful,\n   * but WITHOUT ANY WARRANTY; without even the implied warranty of\n   * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the\n   * GNU Lesser General Public License for more details.\n   *\n   * You should have received a copy of the GNU Lesser General Public License\n   * along with this program. If not, see <http://www.gnu.org/licenses/>.\n   */\n  const FILES = {};\n  const STREAMS = {};\n  class FakeStream {\n      constructor(url, sound) {\n          this.url = url;\n          this.sound = sound;\n          this.frameCount = sound[0].length;\n          this.readPosition = 0;\n      }\n  }\n  const read = async (url) => {\n      if (FILES[url]) {\n          return FILES[url];\n      }\n      const arrayBuffer = await fetchFile(url);\n      return {\n          type: 'binary',\n          data: arrayBuffer,\n      };\n  };\n  // TODO : testing\n  const readSound = async (url, context) => {\n      let fakeFile = FILES[url] || (await read(url));\n      switch (fakeFile.type) {\n          case 'binary':\n              const audioBuffer = await context.decodeAudioData(fakeFile.data);\n              return audioBufferToArray(audioBuffer);\n          case 'sound':\n              // We copy the data here o it can be manipulated freely by the host.\n              // e.g. if the buffer is sent as transferrable to the node we don't want the original to be transferred.\n              return fakeFile.data.map((array) => array.slice());\n      }\n  };\n  const writeSound = async (sound, url) => {\n      FILES[url] = {\n          type: 'sound',\n          data: sound,\n      };\n  };\n  const readStreamSound = async (operationId, url, channelCount, context) => {\n      const sound = await readSound(url, context);\n      STREAMS[operationId] = new FakeStream(url, fixSoundChannelCount(sound, channelCount));\n      return STREAMS[operationId];\n  };\n  const writeStreamSound = async (operationId, url, channelCount) => {\n      const emptySound = [];\n      for (let channel = 0; channel < channelCount; channel++) {\n          emptySound.push(new Float32Array(0));\n      }\n      STREAMS[operationId] = new FakeStream(url, emptySound);\n      FILES[url] = {\n          type: 'sound',\n          data: emptySound,\n      };\n      return STREAMS[operationId];\n  };\n  const getStream = (operationId) => {\n      return STREAMS[operationId];\n  };\n  const killStream = (operationId) => {\n      console.log('KILL STREAM', operationId);\n      delete STREAMS[operationId];\n  };\n  const pullBlock = (stream, frameCount) => {\n      const block = stream.sound.map((array) => array.slice(stream.readPosition, stream.readPosition + frameCount));\n      stream.readPosition += frameCount;\n      return block;\n  };\n  const pushBlock = (stream, block) => {\n      stream.sound = stream.sound.map((channelData, channel) => {\n          const concatenated = new Float32Array(channelData.length + block[channel].length);\n          concatenated.set(channelData);\n          concatenated.set(block[channel], channelData.length);\n          return concatenated;\n      });\n      stream.frameCount = stream.sound[0].length;\n      FILES[stream.url].data = stream.sound;\n  };\n  var fakeFs = {\n      writeSound,\n      readSound,\n      readStreamSound,\n      writeStreamSound,\n      pullBlock,\n      pushBlock,\n  };\n\n  var closeSoundStream = async (_, payload, __) => {\n      if (payload.functionName === 'onCloseSoundStream') {\n          killStream(payload.arguments[0]);\n      }\n  };\n\n  const _addPath$1 = (parent, key, _path) => {\n      const path = _ensurePath$1(_path);\n      return {\n          keys: [...path.keys, key],\n          parents: [...path.parents, parent],\n      };\n  };\n  const _ensurePath$1 = (path) => path || {\n      keys: [],\n      parents: [],\n  };\n  const _proxySetHandlerReadOnly$1 = () => {\n      throw new Error('This Proxy is read-only.');\n  };\n  const _proxyGetHandlerThrowIfKeyUnknown$1 = (target, key, path) => {\n      if (!(key in target)) {\n          // Whitelist some fields that are undefined but accessed at\n          // some point or another by our code.\n          // TODO : find a better way to do this.\n          if ([\n              'toJSON',\n              'Symbol(Symbol.toStringTag)',\n              'constructor',\n              '$typeof',\n              '$$typeof',\n              '@@__IMMUTABLE_ITERABLE__@@',\n              '@@__IMMUTABLE_RECORD__@@',\n              'then',\n          ].includes(key)) {\n              return true;\n          }\n          throw new Error(`namespace${path ? ` <${path.keys.join('.')}>` : ''} doesn't know key \"${String(key)}\"`);\n      }\n      return false;\n  };\n  const proxyAsAssigner$1 = (spec, _obj, context, _path) => {\n      const path = _path || { keys: [], parents: [] };\n      const obj = proxyAsAssigner$1.ensureValue(_obj, spec, context, path);\n      // If `_path` is provided, assign the new value to the parent object.\n      if (_path) {\n          const parent = _path.parents[_path.parents.length - 1];\n          const key = _path.keys[_path.keys.length - 1];\n          // The only case where we want to overwrite the existing value\n          // is when it was a `null` assigned by `LiteralDefaultNull`, and\n          // we want to set the real value instead.\n          if (!(key in parent) || 'LiteralDefaultNull' in spec) {\n              parent[key] = obj;\n          }\n      }\n      // If the object is a Literal, end of the recursion.\n      if ('Literal' in spec || 'LiteralDefaultNull' in spec) {\n          return obj;\n      }\n      return new Proxy(obj, {\n          get: (_, k) => {\n              const key = String(k);\n              let nextSpec;\n              if ('Index' in spec) {\n                  nextSpec = spec.Index(key, context, path);\n              }\n              else if ('Interface' in spec) {\n                  if (!(key in spec.Interface)) {\n                      throw new Error(`Interface has no entry \"${String(key)}\"`);\n                  }\n                  nextSpec = spec.Interface[key];\n              }\n              else {\n                  throw new Error('no builder');\n              }\n              return proxyAsAssigner$1(nextSpec, \n              // We use this form here instead of `obj[key]` specifically\n              // to allow Assign to play well with `ProtectedIndex`, which\n              // would raise an error if trying to access an undefined key.\n              key in obj ? obj[key] : undefined, context, _addPath$1(obj, key, path));\n          },\n          set: _proxySetHandlerReadOnly$1,\n      });\n  };\n  proxyAsAssigner$1.ensureValue = (_obj, spec, context, _path, _recursionPath) => {\n      if ('Index' in spec) {\n          return (_obj || spec.indexConstructor(context, _ensurePath$1(_path)));\n      }\n      else if ('Interface' in spec) {\n          const obj = (_obj || {});\n          Object.entries(spec.Interface).forEach(([key, nextSpec]) => {\n              obj[key] = proxyAsAssigner$1.ensureValue(obj[key], nextSpec, context, _addPath$1(obj, key, _path), _addPath$1(obj, key, _recursionPath));\n          });\n          return obj;\n      }\n      else if ('Literal' in spec) {\n          return (_obj || spec.Literal(context, _ensurePath$1(_path)));\n      }\n      else if ('LiteralDefaultNull' in spec) {\n          if (!_recursionPath) {\n              return (_obj ||\n                  spec.LiteralDefaultNull(context, _ensurePath$1(_path)));\n          }\n          else {\n              return (_obj || null);\n          }\n      }\n      else {\n          throw new Error('Invalid Assigner');\n      }\n  };\n  proxyAsAssigner$1.Interface = (a) => ({ Interface: a });\n  proxyAsAssigner$1.Index = (f, indexConstructor) => ({\n      Index: f,\n      indexConstructor: indexConstructor || (() => ({})),\n  });\n  proxyAsAssigner$1.Literal = (f) => ({\n      Literal: f,\n  });\n  proxyAsAssigner$1.LiteralDefaultNull = (f) => ({ LiteralDefaultNull: f });\n  // ---------------------------- proxyAsProtectedIndex ---------------------------- //\n  /**\n   * Helper to declare namespace objects enforcing stricter access rules.\n   * Specifically, it forbids :\n   * - reading an unknown property.\n   * - trying to overwrite an existing property.\n   */\n  const proxyAsProtectedIndex$1 = (namespace, path) => {\n      return new Proxy(namespace, {\n          get: (target, k) => {\n              const key = String(k);\n              if (_proxyGetHandlerThrowIfKeyUnknown$1(target, key, path)) {\n                  return undefined;\n              }\n              return target[key];\n          },\n          set: (target, k, newValue) => {\n              const key = _trimDollarKey$1(String(k));\n              if (target.hasOwnProperty(key)) {\n                  throw new Error(`Key \"${String(key)}\" is protected and cannot be overwritten.`);\n              }\n              else {\n                  target[key] = newValue;\n              }\n              return newValue;\n          },\n      });\n  };\n  const _trimDollarKey$1 = (key) => {\n      const match = /\\$(.*)/.exec(key);\n      if (!match) {\n          return key;\n      }\n      else {\n          return match[1];\n      }\n  };\n\n  /*\n   * Copyright (c) 2022-2023 Sébastien Piquemal <sebpiq@protonmail.com>, Chris McCormick.\n   *\n   * This file is part of WebPd\n   * (see https://github.com/sebpiq/WebPd).\n   *\n   * This program is free software: you can redistribute it and/or modify\n   * it under the terms of the GNU Lesser General Public License as published by\n   * the Free Software Foundation, either version 3 of the License, or\n   * (at your option) any later version.\n   *\n   * This program is distributed in the hope that it will be useful,\n   * but WITHOUT ANY WARRANTY; without even the implied warranty of\n   * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the\n   * GNU Lesser General Public License for more details.\n   *\n   * You should have received a copy of the GNU Lesser General Public License\n   * along with this program. If not, see <http://www.gnu.org/licenses/>.\n   */\n  const getNode$1 = (graph, nodeId) => {\n      const node = graph[nodeId];\n      if (node) {\n          return node;\n      }\n      throw new Error(`Node \"${nodeId}\" not found in graph`);\n  };\n\n  /** Helper to get node implementation or throw an error if not implemented. */\n  const getNodeImplementation$1 = (nodeImplementations, nodeType) => {\n      const nodeImplementation = nodeImplementations[nodeType];\n      if (!nodeImplementation) {\n          throw new Error(`node [${nodeType}] is not implemented`);\n      }\n      return {\n          dependencies: [],\n          ...nodeImplementation,\n      };\n  };\n\n  /*\n   * Copyright (c) 2022-2023 Sébastien Piquemal <sebpiq@protonmail.com>, Chris McCormick.\n   *\n   * This file is part of WebPd\n   * (see https://github.com/sebpiq/WebPd).\n   *\n   * This program is free software: you can redistribute it and/or modify\n   * it under the terms of the GNU Lesser General Public License as published by\n   * the Free Software Foundation, either version 3 of the License, or\n   * (at your option) any later version.\n   *\n   * This program is distributed in the hope that it will be useful,\n   * but WITHOUT ANY WARRANTY; without even the implied warranty of\n   * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the\n   * GNU Lesser General Public License for more details.\n   *\n   * You should have received a copy of the GNU Lesser General Public License\n   * along with this program. If not, see <http://www.gnu.org/licenses/>.\n   */\n  /** Generate an integer series from 0 to `count` (non-inclusive). */\n  const countTo$1 = (count) => {\n      const results = [];\n      for (let i = 0; i < count; i++) {\n          results.push(i);\n      }\n      return results;\n  };\n\n  const Sequence$1 = (content) => ({\n      astType: 'Sequence',\n      content: _processRawContent$1(_intersperse$1(content, countTo$1(content.length - 1).map(() => '\\n'))),\n  });\n  const ast$1 = (strings, ...content) => _preventToString$1({\n      astType: 'Sequence',\n      content: _processRawContent$1(_intersperse$1(strings, content)),\n  });\n  const _processRawContent$1 = (content) => {\n      // 1. Flatten arrays and AstSequence, filter out nulls, and convert numbers to strings\n      // Basically converts input to an Array<AstContent>.\n      const flattenedAndFiltered = content.flatMap((element) => {\n          if (typeof element === 'string') {\n              return [element];\n          }\n          else if (typeof element === 'number') {\n              return [element.toString()];\n          }\n          else {\n              if (element === null) {\n                  return [];\n              }\n              else if (Array.isArray(element)) {\n                  return _processRawContent$1(_intersperse$1(element, countTo$1(element.length - 1).map(() => '\\n')));\n              }\n              else if (typeof element === 'object' &&\n                  element.astType === 'Sequence') {\n                  return element.content;\n              }\n              else {\n                  return [element];\n              }\n          }\n      });\n      // 2. Combine adjacent strings\n      const [combinedContent, remainingString] = flattenedAndFiltered.reduce(([combinedContent, currentString], element) => {\n          if (typeof element === 'string') {\n              return [combinedContent, currentString + element];\n          }\n          else {\n              if (currentString.length) {\n                  return [[...combinedContent, currentString, element], ''];\n              }\n              else {\n                  return [[...combinedContent, element], ''];\n              }\n          }\n      }, [[], '']);\n      if (remainingString.length) {\n          combinedContent.push(remainingString);\n      }\n      return combinedContent;\n  };\n  /**\n   * Intersperse content from array1 with content from array2.\n   * `array1.length` must be equal to `array2.length + 1`.\n   */\n  const _intersperse$1 = (array1, array2) => {\n      if (array1.length === 0) {\n          return [];\n      }\n      return array1.slice(1).reduce((combinedContent, element, i) => {\n          return combinedContent.concat([array2[i], element]);\n      }, [array1[0]]);\n  };\n  /**\n   * Prevents AST elements from being rendered as a string, as this is\n   * most likely an error due to unproper use of `ast`.\n   * Deacivated. Activate for debugging by uncommenting the line below.\n   */\n  const _preventToString$1 = (element) => ({\n      ...element,\n      // Uncomment this to activate\n      // toString: () => { throw new Error(`Rendering element ${elemennt.astType} as string is probably an error`) }\n  });\n\n  /*\n   * Copyright (c) 2022-2023 Sébastien Piquemal <sebpiq@protonmail.com>, Chris McCormick.\n   *\n   * This file is part of WebPd\n   * (see https://github.com/sebpiq/WebPd).\n   *\n   * This program is free software: you can redistribute it and/or modify\n   * it under the terms of the GNU Lesser General Public License as published by\n   * the Free Software Foundation, either version 3 of the License, or\n   * (at your option) any later version.\n   *\n   * This program is distributed in the hope that it will be useful,\n   * but WITHOUT ANY WARRANTY; without even the implied warranty of\n   * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the\n   * GNU Lesser General Public License for more details.\n   *\n   * You should have received a copy of the GNU Lesser General Public License\n   * along with this program. If not, see <http://www.gnu.org/licenses/>.\n   */\n  // ---------------------------- VariableNamesIndex ---------------------------- //\n  const NS$1 = {\n      GLOBALS: 'G',\n      NODES: 'N',\n      NODE_TYPES: 'NT',\n      IO: 'IO',\n      COLD: 'COLD',\n  };\n  proxyAsAssigner$1.Interface({\n      nodes: proxyAsAssigner$1.Index((nodeId) => proxyAsAssigner$1.Interface({\n          signalOuts: proxyAsAssigner$1.Index((portletId) => proxyAsAssigner$1.Literal(() => _name$1(NS$1.NODES, nodeId, 'outs', portletId))),\n          messageSenders: proxyAsAssigner$1.Index((portletId) => proxyAsAssigner$1.Literal(() => _name$1(NS$1.NODES, nodeId, 'snds', portletId))),\n          messageReceivers: proxyAsAssigner$1.Index((portletId) => proxyAsAssigner$1.Literal(() => _name$1(NS$1.NODES, nodeId, 'rcvs', portletId))),\n          state: proxyAsAssigner$1.LiteralDefaultNull(() => _name$1(NS$1.NODES, nodeId, 'state')),\n      })),\n      nodeImplementations: proxyAsAssigner$1.Index((nodeType, { nodeImplementations }) => {\n          const nodeImplementation = getNodeImplementation$1(nodeImplementations, nodeType);\n          const nodeTypePrefix = (nodeImplementation.flags\n              ? nodeImplementation.flags.alphaName\n              : null) || nodeType;\n          return proxyAsAssigner$1.Index((name) => proxyAsAssigner$1.Literal(() => _name$1(NS$1.NODE_TYPES, nodeTypePrefix, name)));\n      }),\n      globals: proxyAsAssigner$1.Index((ns) => proxyAsAssigner$1.Index((name) => {\n          if (['fs'].includes(ns)) {\n              return proxyAsAssigner$1.Literal(() => _name$1(NS$1.GLOBALS, ns, name));\n              // We don't prefix stdlib core module, because these are super\n              // basic functions that are always included in the global scope.\n          }\n          else if (ns === 'core') {\n              return proxyAsAssigner$1.Literal(() => name);\n          }\n          else {\n              return proxyAsAssigner$1.Literal(() => _name$1(NS$1.GLOBALS, ns, name));\n          }\n      })),\n      io: proxyAsAssigner$1.Interface({\n          messageReceivers: proxyAsAssigner$1.Index((nodeId) => proxyAsAssigner$1.Index((inletId) => proxyAsAssigner$1.Literal(() => _name$1(NS$1.IO, 'rcv', nodeId, inletId)))),\n          messageSenders: proxyAsAssigner$1.Index((nodeId) => proxyAsAssigner$1.Index((outletId) => proxyAsAssigner$1.Literal(() => _name$1(NS$1.IO, 'snd', nodeId, outletId)))),\n      }),\n      coldDspGroups: proxyAsAssigner$1.Index((groupId) => proxyAsAssigner$1.Literal(() => _name$1(NS$1.COLD, groupId))),\n  });\n  // ---------------------------- PrecompiledCode ---------------------------- //\n  proxyAsAssigner$1.Interface({\n      graph: proxyAsAssigner$1.Literal((_, path) => ({\n          fullTraversal: [],\n          hotDspGroup: {\n              traversal: [],\n              outNodesIds: [],\n          },\n          coldDspGroups: proxyAsProtectedIndex$1({}, path),\n      })),\n      nodeImplementations: proxyAsAssigner$1.Index((nodeType, { nodeImplementations }) => proxyAsAssigner$1.Literal(() => ({\n          nodeImplementation: getNodeImplementation$1(nodeImplementations, nodeType),\n          stateClass: null,\n          core: null,\n      })), (_, path) => proxyAsProtectedIndex$1({}, path)),\n      nodes: proxyAsAssigner$1.Index((nodeId, { graph }) => proxyAsAssigner$1.Literal(() => ({\n          nodeType: getNode$1(graph, nodeId).type,\n          messageReceivers: {},\n          messageSenders: {},\n          signalOuts: {},\n          signalIns: {},\n          initialization: ast$1 ``,\n          dsp: {\n              loop: ast$1 ``,\n              inlets: {},\n          },\n          state: null,\n      })), (_, path) => proxyAsProtectedIndex$1({}, path)),\n      dependencies: proxyAsAssigner$1.Literal(() => ({\n          imports: [],\n          exports: [],\n          ast: Sequence$1([]),\n      })),\n      io: proxyAsAssigner$1.Interface({\n          messageReceivers: proxyAsAssigner$1.Index((_) => proxyAsAssigner$1.Literal((_, path) => proxyAsProtectedIndex$1({}, path)), (_, path) => proxyAsProtectedIndex$1({}, path)),\n          messageSenders: proxyAsAssigner$1.Index((_) => proxyAsAssigner$1.Literal((_, path) => proxyAsProtectedIndex$1({}, path)), (_, path) => proxyAsProtectedIndex$1({}, path)),\n      }),\n  });\n  // ---------------------------- MISC ---------------------------- //\n  const _name$1 = (...parts) => parts.map(assertValidNamePart$1).join('_');\n  const assertValidNamePart$1 = (namePart) => {\n      const isInvalid = !VALID_NAME_PART_REGEXP$1.exec(namePart);\n      if (isInvalid) {\n          throw new Error(`Invalid variable name for code generation \"${namePart}\"`);\n      }\n      return namePart;\n  };\n  const VALID_NAME_PART_REGEXP$1 = /^[a-zA-Z0-9_]+$/;\n\n  /*\n   * Copyright (c) 2022-2023 Sébastien Piquemal <sebpiq@protonmail.com>, Chris McCormick.\n   *\n   * This file is part of WebPd\n   * (see https://github.com/sebpiq/WebPd).\n   *\n   * This program is free software: you can redistribute it and/or modify\n   * it under the terms of the GNU Lesser General Public License as published by\n   * the Free Software Foundation, either version 3 of the License, or\n   * (at your option) any later version.\n   *\n   * This program is distributed in the hope that it will be useful,\n   * but WITHOUT ANY WARRANTY; without even the implied warranty of\n   * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the\n   * GNU Lesser General Public License for more details.\n   *\n   * You should have received a copy of the GNU Lesser General Public License\n   * along with this program. If not, see <http://www.gnu.org/licenses/>.\n   */\n  const FS_OPERATION_SUCCESS = 0;\n  const FS_OPERATION_FAILURE = 1;\n\n  /*\n   * Copyright (c) 2022-2023 Sébastien Piquemal <sebpiq@protonmail.com>, Chris McCormick.\n   *\n   * This file is part of WebPd\n   * (see https://github.com/sebpiq/WebPd).\n   *\n   * This program is free software: you can redistribute it and/or modify\n   * it under the terms of the GNU Lesser General Public License as published by\n   * the Free Software Foundation, either version 3 of the License, or\n   * (at your option) any later version.\n   *\n   * This program is distributed in the hope that it will be useful,\n   * but WITHOUT ANY WARRANTY; without even the implied warranty of\n   * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the\n   * GNU Lesser General Public License for more details.\n   *\n   * You should have received a copy of the GNU Lesser General Public License\n   * along with this program. If not, see <http://www.gnu.org/licenses/>.\n   */\n  var readSoundFile = async (node, payload, settings) => {\n      if (payload.functionName === 'onReadSoundFile') {\n          const [operationId, url, [channelCount]] = payload.arguments;\n          const absoluteUrl = resolveRelativeUrl(settings.rootUrl, url);\n          let operationStatus = FS_OPERATION_SUCCESS;\n          let sound = null;\n          try {\n              sound = await fakeFs.readSound(absoluteUrl, node.context);\n          }\n          catch (err) {\n              operationStatus = FS_OPERATION_FAILURE;\n              console.error(err);\n          }\n          if (sound) {\n              sound = fixSoundChannelCount(sound, channelCount);\n          }\n          node.port.postMessage({\n              type: 'fs',\n              payload: {\n                  functionName: 'sendReadSoundFileResponse',\n                  arguments: [operationId, operationStatus, sound],\n              },\n          }, \n          // Add as transferables to avoid copies between threads\n          sound.map((array) => array.buffer));\n      }\n      else if (payload.functionName === 'sendReadSoundFileResponse_return') ;\n  };\n\n  /*\n   * Copyright (c) 2022-2023 Sébastien Piquemal <sebpiq@protonmail.com>, Chris McCormick.\n   *\n   * This file is part of WebPd\n   * (see https://github.com/sebpiq/WebPd).\n   *\n   * This program is free software: you can redistribute it and/or modify\n   * it under the terms of the GNU Lesser General Public License as published by\n   * the Free Software Foundation, either version 3 of the License, or\n   * (at your option) any later version.\n   *\n   * This program is distributed in the hope that it will be useful,\n   * but WITHOUT ANY WARRANTY; without even the implied warranty of\n   * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the\n   * GNU Lesser General Public License for more details.\n   *\n   * You should have received a copy of the GNU Lesser General Public License\n   * along with this program. If not, see <http://www.gnu.org/licenses/>.\n   */\n  const BUFFER_HIGH = 10 * 44100;\n  const BUFFER_LOW = BUFFER_HIGH / 2;\n  var readSoundStream = async (node, payload, settings) => {\n      if (payload.functionName === 'onOpenSoundReadStream') {\n          const [operationId, url, [channelCount]] = payload.arguments;\n          try {\n              const absoluteUrl = resolveRelativeUrl(settings.rootUrl, url);\n              await fakeFs.readStreamSound(operationId, absoluteUrl, channelCount, node.context);\n          }\n          catch (err) {\n              console.error(err);\n              node.port.postMessage({\n                  type: 'fs',\n                  payload: {\n                      functionName: 'closeSoundStream',\n                      arguments: [operationId, FS_OPERATION_FAILURE],\n                  },\n              });\n              return;\n          }\n          streamLoop(node, operationId, 0);\n      }\n      else if (payload.functionName === 'sendSoundStreamData_return') {\n          const stream = getStream(payload.operationId);\n          if (!stream) {\n              throw new Error(`unknown stream ${payload.operationId}`);\n          }\n          streamLoop(node, payload.operationId, payload.returned);\n      }\n      else if (payload.functionName === 'closeSoundStream_return') {\n          const stream = getStream(payload.operationId);\n          if (stream) {\n              killStream(payload.operationId);\n          }\n      }\n  };\n  const streamLoop = (node, operationId, framesAvailableInEngine) => {\n      const sampleRate = node.context.sampleRate;\n      const secondsToThreshold = Math.max(framesAvailableInEngine - BUFFER_LOW, 10) / sampleRate;\n      const framesToSend = BUFFER_HIGH -\n          (framesAvailableInEngine - secondsToThreshold * sampleRate);\n      setTimeout(() => {\n          const stream = getStream(operationId);\n          if (!stream) {\n              console.log(`stream ${operationId} was maybe closed`);\n              return;\n          }\n          if (stream.readPosition < stream.frameCount) {\n              const block = pullBlock(stream, framesToSend);\n              node.port.postMessage({\n                  type: 'fs',\n                  payload: {\n                      functionName: 'sendSoundStreamData',\n                      arguments: [operationId, block],\n                  },\n              }, \n              // Add as transferables to avoid copies between threads\n              block.map((array) => array.buffer));\n          }\n          else {\n              node.port.postMessage({\n                  type: 'fs',\n                  payload: {\n                      functionName: 'closeSoundStream',\n                      arguments: [operationId, FS_OPERATION_SUCCESS],\n                  },\n              });\n          }\n      }, secondsToThreshold * 1000);\n  };\n\n  /*\n   * Copyright (c) 2022-2023 Sébastien Piquemal <sebpiq@protonmail.com>, Chris McCormick.\n   *\n   * This file is part of WebPd\n   * (see https://github.com/sebpiq/WebPd).\n   *\n   * This program is free software: you can redistribute it and/or modify\n   * it under the terms of the GNU Lesser General Public License as published by\n   * the Free Software Foundation, either version 3 of the License, or\n   * (at your option) any later version.\n   *\n   * This program is distributed in the hope that it will be useful,\n   * but WITHOUT ANY WARRANTY; without even the implied warranty of\n   * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the\n   * GNU Lesser General Public License for more details.\n   *\n   * You should have received a copy of the GNU Lesser General Public License\n   * along with this program. If not, see <http://www.gnu.org/licenses/>.\n   */\n  var writeSoundFile = async (node, payload, settings) => {\n      if (payload.functionName === 'onWriteSoundFile') {\n          const [operationId, sound, url, [channelCount]] = payload.arguments;\n          const fixedSound = fixSoundChannelCount(sound, channelCount);\n          const absoluteUrl = resolveRelativeUrl(settings.rootUrl, url);\n          await fakeFs.writeSound(fixedSound, absoluteUrl);\n          let operationStatus = FS_OPERATION_SUCCESS;\n          node.port.postMessage({\n              type: 'fs',\n              payload: {\n                  functionName: 'sendWriteSoundFileResponse',\n                  arguments: [operationId, operationStatus],\n              },\n          });\n      }\n      else if (payload.functionName === 'sendWriteSoundFileResponse_return') ;\n  };\n\n  /*\n   * Copyright (c) 2022-2023 Sébastien Piquemal <sebpiq@protonmail.com>, Chris McCormick.\n   *\n   * This file is part of WebPd\n   * (see https://github.com/sebpiq/WebPd).\n   *\n   * This program is free software: you can redistribute it and/or modify\n   * it under the terms of the GNU Lesser General Public License as published by\n   * the Free Software Foundation, either version 3 of the License, or\n   * (at your option) any later version.\n   *\n   * This program is distributed in the hope that it will be useful,\n   * but WITHOUT ANY WARRANTY; without even the implied warranty of\n   * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the\n   * GNU Lesser General Public License for more details.\n   *\n   * You should have received a copy of the GNU Lesser General Public License\n   * along with this program. If not, see <http://www.gnu.org/licenses/>.\n   */\n  var writeSoundStream = async (_, payload, settings) => {\n      if (payload.functionName === 'onOpenSoundWriteStream') {\n          const [operationId, url, [channelCount]] = payload.arguments;\n          const absoluteUrl = resolveRelativeUrl(settings.rootUrl, url);\n          await fakeFs.writeStreamSound(operationId, absoluteUrl, channelCount);\n      }\n      else if (payload.functionName === 'onSoundStreamData') {\n          const [operationId, sound] = payload.arguments;\n          const stream = getStream(operationId);\n          if (!stream) {\n              throw new Error(`unknown stream ${operationId}`);\n          }\n          pushBlock(stream, sound);\n      }\n      else if (payload.functionName === 'closeSoundStream_return') {\n          const stream = getStream(payload.operationId);\n          if (stream) {\n              killStream(payload.operationId);\n          }\n      }\n  };\n\n  var index = async (node, messageEvent, settings) => {\n      const message = messageEvent.data;\n      const { payload } = message;\n      if (message.type !== 'fs') {\n          throw new Error(`Unknown message type from node ${message.type}`);\n      }\n      if (payload.functionName === 'onReadSoundFile' ||\n          payload.functionName === 'sendReadSoundFileResponse_return') {\n          readSoundFile(node, payload, settings);\n      }\n      else if (payload.functionName === 'onOpenSoundReadStream' ||\n          payload.functionName === 'sendSoundStreamData_return') {\n          readSoundStream(node, payload, settings);\n      }\n      else if (payload.functionName === 'onWriteSoundFile' ||\n          payload.functionName === 'sendWriteSoundFileResponse_return') {\n          writeSoundFile(node, payload, settings);\n      }\n      else if (payload.functionName === 'onOpenSoundWriteStream' ||\n          payload.functionName === 'onSoundStreamData') {\n          writeSoundStream(node, payload, settings);\n      }\n      else if (payload.functionName === 'closeSoundStream_return') {\n          writeSoundStream(node, payload, settings);\n          readSoundStream(node, payload, settings);\n      }\n      else if (payload.functionName === 'onCloseSoundStream') {\n          closeSoundStream(node, payload);\n      }\n      else {\n          throw new Error(`Unknown callback ${payload.functionName}`);\n      }\n  };\n\n  var initialize = (...args) => {\n      return registerWebPdWorkletNode(...args);\n  };\n\n  const urlDirName = (url) => {\n      if (isExternalUrl(url)) {\n          return new URL('.', url).href;\n      }\n      else {\n          return new URL('.', new URL(url, document.URL).href).href;\n      }\n  };\n  const isExternalUrl = (urlString) => {\n      try {\n          const url = new URL(urlString);\n          if (url.origin !== new URL(document.URL, document.baseURI).origin) {\n              return true;\n          }\n      }\n      catch (_e) {\n          new URL(urlString, document.baseURI);\n      }\n      return false;\n  };\n\n  /*\n   * Copyright (c) 2022-2023 Sébastien Piquemal <sebpiq@protonmail.com>, Chris McCormick.\n   *\n   * This file is part of WebPd\n   * (see https://github.com/sebpiq/WebPd).\n   *\n   * This program is free software: you can redistribute it and/or modify\n   * it under the terms of the GNU Lesser General Public License as published by\n   * the Free Software Foundation, either version 3 of the License, or\n   * (at your option) any later version.\n   *\n   * This program is distributed in the hope that it will be useful,\n   * but WITHOUT ANY WARRANTY; without even the implied warranty of\n   * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the\n   * GNU Lesser General Public License for more details.\n   *\n   * You should have received a copy of the GNU Lesser General Public License\n   * along with this program. If not, see <http://www.gnu.org/licenses/>.\n   */\n  /** Generate an integer series from 0 to `count` (non-inclusive). */\n  const countTo = (count) => {\n      const results = [];\n      for (let i = 0; i < count; i++) {\n          results.push(i);\n      }\n      return results;\n  };\n\n  const Sequence = (content) => ({\n      astType: 'Sequence',\n      content: _processRawContent(_intersperse(content, countTo(content.length - 1).map(() => '\\n'))),\n  });\n  const ast = (strings, ...content) => _preventToString({\n      astType: 'Sequence',\n      content: _processRawContent(_intersperse(strings, content)),\n  });\n  const _processRawContent = (content) => {\n      // 1. Flatten arrays and AstSequence, filter out nulls, and convert numbers to strings\n      // Basically converts input to an Array<AstContent>.\n      const flattenedAndFiltered = content.flatMap((element) => {\n          if (typeof element === 'string') {\n              return [element];\n          }\n          else if (typeof element === 'number') {\n              return [element.toString()];\n          }\n          else {\n              if (element === null) {\n                  return [];\n              }\n              else if (Array.isArray(element)) {\n                  return _processRawContent(_intersperse(element, countTo(element.length - 1).map(() => '\\n')));\n              }\n              else if (typeof element === 'object' &&\n                  element.astType === 'Sequence') {\n                  return element.content;\n              }\n              else {\n                  return [element];\n              }\n          }\n      });\n      // 2. Combine adjacent strings\n      const [combinedContent, remainingString] = flattenedAndFiltered.reduce(([combinedContent, currentString], element) => {\n          if (typeof element === 'string') {\n              return [combinedContent, currentString + element];\n          }\n          else {\n              if (currentString.length) {\n                  return [[...combinedContent, currentString, element], ''];\n              }\n              else {\n                  return [[...combinedContent, element], ''];\n              }\n          }\n      }, [[], '']);\n      if (remainingString.length) {\n          combinedContent.push(remainingString);\n      }\n      return combinedContent;\n  };\n  /**\n   * Intersperse content from array1 with content from array2.\n   * `array1.length` must be equal to `array2.length + 1`.\n   */\n  const _intersperse = (array1, array2) => {\n      if (array1.length === 0) {\n          return [];\n      }\n      return array1.slice(1).reduce((combinedContent, element, i) => {\n          return combinedContent.concat([array2[i], element]);\n      }, [array1[0]]);\n  };\n  /**\n   * Prevents AST elements from being rendered as a string, as this is\n   * most likely an error due to unproper use of `ast`.\n   * Deacivated. Activate for debugging by uncommenting the line below.\n   */\n  const _preventToString = (element) => ({\n      ...element,\n      // Uncomment this to activate\n      // toString: () => { throw new Error(`Rendering element ${elemennt.astType} as string is probably an error`) }\n  });\n\n  /*\n   * Copyright (c) 2022-2023 Sébastien Piquemal <sebpiq@protonmail.com>, Chris McCormick.\n   *\n   * This file is part of WebPd\n   * (see https://github.com/sebpiq/WebPd).\n   *\n   * This program is free software: you can redistribute it and/or modify\n   * it under the terms of the GNU Lesser General Public License as published by\n   * the Free Software Foundation, either version 3 of the License, or\n   * (at your option) any later version.\n   *\n   * This program is distributed in the hope that it will be useful,\n   * but WITHOUT ANY WARRANTY; without even the implied warranty of\n   * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the\n   * GNU Lesser General Public License for more details.\n   *\n   * You should have received a copy of the GNU Lesser General Public License\n   * along with this program. If not, see <http://www.gnu.org/licenses/>.\n   */\n  const getNode = (graph, nodeId) => {\n      const node = graph[nodeId];\n      if (node) {\n          return node;\n      }\n      throw new Error(`Node \"${nodeId}\" not found in graph`);\n  };\n\n  /** Helper to get node implementation or throw an error if not implemented. */\n  const getNodeImplementation = (nodeImplementations, nodeType) => {\n      const nodeImplementation = nodeImplementations[nodeType];\n      if (!nodeImplementation) {\n          throw new Error(`node [${nodeType}] is not implemented`);\n      }\n      return {\n          dependencies: [],\n          ...nodeImplementation,\n      };\n  };\n\n  const _addPath = (parent, key, _path) => {\n      const path = _ensurePath(_path);\n      return {\n          keys: [...path.keys, key],\n          parents: [...path.parents, parent],\n      };\n  };\n  const _ensurePath = (path) => path || {\n      keys: [],\n      parents: [],\n  };\n  const _proxySetHandlerReadOnly = () => {\n      throw new Error('This Proxy is read-only.');\n  };\n  const _proxyGetHandlerThrowIfKeyUnknown = (target, key, path) => {\n      if (!(key in target)) {\n          // Whitelist some fields that are undefined but accessed at\n          // some point or another by our code.\n          // TODO : find a better way to do this.\n          if ([\n              'toJSON',\n              'Symbol(Symbol.toStringTag)',\n              'constructor',\n              '$typeof',\n              '$$typeof',\n              '@@__IMMUTABLE_ITERABLE__@@',\n              '@@__IMMUTABLE_RECORD__@@',\n              'then',\n          ].includes(key)) {\n              return true;\n          }\n          throw new Error(`namespace${path ? ` <${path.keys.join('.')}>` : ''} doesn't know key \"${String(key)}\"`);\n      }\n      return false;\n  };\n  const proxyAsAssigner = (spec, _obj, context, _path) => {\n      const path = _path || { keys: [], parents: [] };\n      const obj = proxyAsAssigner.ensureValue(_obj, spec, context, path);\n      // If `_path` is provided, assign the new value to the parent object.\n      if (_path) {\n          const parent = _path.parents[_path.parents.length - 1];\n          const key = _path.keys[_path.keys.length - 1];\n          // The only case where we want to overwrite the existing value\n          // is when it was a `null` assigned by `LiteralDefaultNull`, and\n          // we want to set the real value instead.\n          if (!(key in parent) || 'LiteralDefaultNull' in spec) {\n              parent[key] = obj;\n          }\n      }\n      // If the object is a Literal, end of the recursion.\n      if ('Literal' in spec || 'LiteralDefaultNull' in spec) {\n          return obj;\n      }\n      return new Proxy(obj, {\n          get: (_, k) => {\n              const key = String(k);\n              let nextSpec;\n              if ('Index' in spec) {\n                  nextSpec = spec.Index(key, context, path);\n              }\n              else if ('Interface' in spec) {\n                  if (!(key in spec.Interface)) {\n                      throw new Error(`Interface has no entry \"${String(key)}\"`);\n                  }\n                  nextSpec = spec.Interface[key];\n              }\n              else {\n                  throw new Error('no builder');\n              }\n              return proxyAsAssigner(nextSpec, \n              // We use this form here instead of `obj[key]` specifically\n              // to allow Assign to play well with `ProtectedIndex`, which\n              // would raise an error if trying to access an undefined key.\n              key in obj ? obj[key] : undefined, context, _addPath(obj, key, path));\n          },\n          set: _proxySetHandlerReadOnly,\n      });\n  };\n  proxyAsAssigner.ensureValue = (_obj, spec, context, _path, _recursionPath) => {\n      if ('Index' in spec) {\n          return (_obj || spec.indexConstructor(context, _ensurePath(_path)));\n      }\n      else if ('Interface' in spec) {\n          const obj = (_obj || {});\n          Object.entries(spec.Interface).forEach(([key, nextSpec]) => {\n              obj[key] = proxyAsAssigner.ensureValue(obj[key], nextSpec, context, _addPath(obj, key, _path), _addPath(obj, key, _recursionPath));\n          });\n          return obj;\n      }\n      else if ('Literal' in spec) {\n          return (_obj || spec.Literal(context, _ensurePath(_path)));\n      }\n      else if ('LiteralDefaultNull' in spec) {\n          if (!_recursionPath) {\n              return (_obj ||\n                  spec.LiteralDefaultNull(context, _ensurePath(_path)));\n          }\n          else {\n              return (_obj || null);\n          }\n      }\n      else {\n          throw new Error('Invalid Assigner');\n      }\n  };\n  proxyAsAssigner.Interface = (a) => ({ Interface: a });\n  proxyAsAssigner.Index = (f, indexConstructor) => ({\n      Index: f,\n      indexConstructor: indexConstructor || (() => ({})),\n  });\n  proxyAsAssigner.Literal = (f) => ({\n      Literal: f,\n  });\n  proxyAsAssigner.LiteralDefaultNull = (f) => ({ LiteralDefaultNull: f });\n  // ---------------------------- proxyAsProtectedIndex ---------------------------- //\n  /**\n   * Helper to declare namespace objects enforcing stricter access rules.\n   * Specifically, it forbids :\n   * - reading an unknown property.\n   * - trying to overwrite an existing property.\n   */\n  const proxyAsProtectedIndex = (namespace, path) => {\n      return new Proxy(namespace, {\n          get: (target, k) => {\n              const key = String(k);\n              if (_proxyGetHandlerThrowIfKeyUnknown(target, key, path)) {\n                  return undefined;\n              }\n              return target[key];\n          },\n          set: (target, k, newValue) => {\n              const key = _trimDollarKey(String(k));\n              if (target.hasOwnProperty(key)) {\n                  throw new Error(`Key \"${String(key)}\" is protected and cannot be overwritten.`);\n              }\n              else {\n                  target[key] = newValue;\n              }\n              return newValue;\n          },\n      });\n  };\n  const _trimDollarKey = (key) => {\n      const match = /\\$(.*)/.exec(key);\n      if (!match) {\n          return key;\n      }\n      else {\n          return match[1];\n      }\n  };\n\n  /*\n   * Copyright (c) 2022-2023 Sébastien Piquemal <sebpiq@protonmail.com>, Chris McCormick.\n   *\n   * This file is part of WebPd\n   * (see https://github.com/sebpiq/WebPd).\n   *\n   * This program is free software: you can redistribute it and/or modify\n   * it under the terms of the GNU Lesser General Public License as published by\n   * the Free Software Foundation, either version 3 of the License, or\n   * (at your option) any later version.\n   *\n   * This program is distributed in the hope that it will be useful,\n   * but WITHOUT ANY WARRANTY; without even the implied warranty of\n   * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the\n   * GNU Lesser General Public License for more details.\n   *\n   * You should have received a copy of the GNU Lesser General Public License\n   * along with this program. If not, see <http://www.gnu.org/licenses/>.\n   */\n  // ---------------------------- VariableNamesIndex ---------------------------- //\n  const NS = {\n      GLOBALS: 'G',\n      NODES: 'N',\n      NODE_TYPES: 'NT',\n      IO: 'IO',\n      COLD: 'COLD',\n  };\n  proxyAsAssigner.Interface({\n      nodes: proxyAsAssigner.Index((nodeId) => proxyAsAssigner.Interface({\n          signalOuts: proxyAsAssigner.Index((portletId) => proxyAsAssigner.Literal(() => _name(NS.NODES, nodeId, 'outs', portletId))),\n          messageSenders: proxyAsAssigner.Index((portletId) => proxyAsAssigner.Literal(() => _name(NS.NODES, nodeId, 'snds', portletId))),\n          messageReceivers: proxyAsAssigner.Index((portletId) => proxyAsAssigner.Literal(() => _name(NS.NODES, nodeId, 'rcvs', portletId))),\n          state: proxyAsAssigner.LiteralDefaultNull(() => _name(NS.NODES, nodeId, 'state')),\n      })),\n      nodeImplementations: proxyAsAssigner.Index((nodeType, { nodeImplementations }) => {\n          const nodeImplementation = getNodeImplementation(nodeImplementations, nodeType);\n          const nodeTypePrefix = (nodeImplementation.flags\n              ? nodeImplementation.flags.alphaName\n              : null) || nodeType;\n          return proxyAsAssigner.Index((name) => proxyAsAssigner.Literal(() => _name(NS.NODE_TYPES, nodeTypePrefix, name)));\n      }),\n      globals: proxyAsAssigner.Index((ns) => proxyAsAssigner.Index((name) => {\n          if (['fs'].includes(ns)) {\n              return proxyAsAssigner.Literal(() => _name(NS.GLOBALS, ns, name));\n              // We don't prefix stdlib core module, because these are super\n              // basic functions that are always included in the global scope.\n          }\n          else if (ns === 'core') {\n              return proxyAsAssigner.Literal(() => name);\n          }\n          else {\n              return proxyAsAssigner.Literal(() => _name(NS.GLOBALS, ns, name));\n          }\n      })),\n      io: proxyAsAssigner.Interface({\n          messageReceivers: proxyAsAssigner.Index((nodeId) => proxyAsAssigner.Index((inletId) => proxyAsAssigner.Literal(() => _name(NS.IO, 'rcv', nodeId, inletId)))),\n          messageSenders: proxyAsAssigner.Index((nodeId) => proxyAsAssigner.Index((outletId) => proxyAsAssigner.Literal(() => _name(NS.IO, 'snd', nodeId, outletId)))),\n      }),\n      coldDspGroups: proxyAsAssigner.Index((groupId) => proxyAsAssigner.Literal(() => _name(NS.COLD, groupId))),\n  });\n  // ---------------------------- PrecompiledCode ---------------------------- //\n  proxyAsAssigner.Interface({\n      graph: proxyAsAssigner.Literal((_, path) => ({\n          fullTraversal: [],\n          hotDspGroup: {\n              traversal: [],\n              outNodesIds: [],\n          },\n          coldDspGroups: proxyAsProtectedIndex({}, path),\n      })),\n      nodeImplementations: proxyAsAssigner.Index((nodeType, { nodeImplementations }) => proxyAsAssigner.Literal(() => ({\n          nodeImplementation: getNodeImplementation(nodeImplementations, nodeType),\n          stateClass: null,\n          core: null,\n      })), (_, path) => proxyAsProtectedIndex({}, path)),\n      nodes: proxyAsAssigner.Index((nodeId, { graph }) => proxyAsAssigner.Literal(() => ({\n          nodeType: getNode(graph, nodeId).type,\n          messageReceivers: {},\n          messageSenders: {},\n          signalOuts: {},\n          signalIns: {},\n          initialization: ast ``,\n          dsp: {\n              loop: ast ``,\n              inlets: {},\n          },\n          state: null,\n      })), (_, path) => proxyAsProtectedIndex({}, path)),\n      dependencies: proxyAsAssigner.Literal(() => ({\n          imports: [],\n          exports: [],\n          ast: Sequence([]),\n      })),\n      io: proxyAsAssigner.Interface({\n          messageReceivers: proxyAsAssigner.Index((_) => proxyAsAssigner.Literal((_, path) => proxyAsProtectedIndex({}, path)), (_, path) => proxyAsProtectedIndex({}, path)),\n          messageSenders: proxyAsAssigner.Index((_) => proxyAsAssigner.Literal((_, path) => proxyAsProtectedIndex({}, path)), (_, path) => proxyAsProtectedIndex({}, path)),\n      }),\n  });\n  // ---------------------------- MISC ---------------------------- //\n  const _name = (...parts) => parts.map(assertValidNamePart).join('_');\n  const assertValidNamePart = (namePart) => {\n      const isInvalid = !VALID_NAME_PART_REGEXP.exec(namePart);\n      if (isInvalid) {\n          throw new Error(`Invalid variable name for code generation \"${namePart}\"`);\n      }\n      return namePart;\n  };\n  const VALID_NAME_PART_REGEXP = /^[a-zA-Z0-9_]+$/;\n\n  /*\n   * Copyright (c) 2022-2023 Sébastien Piquemal <sebpiq@protonmail.com>, Chris McCormick.\n   *\n   * This file is part of WebPd\n   * (see https://github.com/sebpiq/WebPd).\n   *\n   * This program is free software: you can redistribute it and/or modify\n   * it under the terms of the GNU Lesser General Public License as published by\n   * the Free Software Foundation, either version 3 of the License, or\n   * (at your option) any later version.\n   *\n   * This program is distributed in the hope that it will be useful,\n   * but WITHOUT ANY WARRANTY; without even the implied warranty of\n   * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the\n   * GNU Lesser General Public License for more details.\n   *\n   * You should have received a copy of the GNU Lesser General Public License\n   * along with this program. If not, see <http://www.gnu.org/licenses/>.\n   */\n  // NOTE : not necessarily the most logical place to put this function, but we need it here\n  // cause it's imported by the bindings.\n  const getFloatArrayType = (bitDepth) => bitDepth === 64 ? Float64Array : Float32Array;\n  const proxyAsModuleWithBindings = (rawModule, bindings) => \n  // Use empty object on proxy cause proxy cannot redefine access of member of its target,\n  // which causes issues for example for WebAssembly exports.\n  // See : https://stackoverflow.com/questions/75148897/get-on-proxy-property-items-is-a-read-only-and-non-configurable-data-proper\n  new Proxy({}, {\n      get: (_, k) => {\n          if (bindings.hasOwnProperty(k)) {\n              const key = String(k);\n              const bindingSpec = bindings[key];\n              switch (bindingSpec.type) {\n                  case 'raw':\n                      // Cannot use hasOwnProperty here cause not defined in wasm exports object\n                      if (k in rawModule) {\n                          return rawModule[key];\n                      }\n                      else {\n                          throw new Error(`Key ${String(key)} doesn't exist in raw module`);\n                      }\n                  case 'proxy':\n                  case 'callback':\n                      return bindingSpec.value;\n              }\n              // We need to return undefined here for compatibility with various APIs\n              // which inspect object's attributes.\n          }\n          else {\n              return undefined;\n          }\n      },\n      has: function (_, k) {\n          return k in bindings;\n      },\n      set: (_, k, newValue) => {\n          if (bindings.hasOwnProperty(String(k))) {\n              const key = String(k);\n              const bindingSpec = bindings[key];\n              if (bindingSpec.type === 'callback') {\n                  bindingSpec.value = newValue;\n              }\n              else {\n                  throw new Error(`Binding key ${String(key)} is read-only`);\n              }\n          }\n          else {\n              throw new Error(`Key ${String(k)} is not defined in bindings`);\n          }\n          return true;\n      },\n  });\n  /**\n   * Reverse-maps exported variable names from `rawModule` according to the mapping defined\n   * in `variableNamesIndex`.\n   *\n   * For example with :\n   *\n   * ```\n   * const variableNamesIndex = {\n   *     globals: {\n   *         // ...\n   *         fs: {\n   *             // ...\n   *             readFile: 'g_fs_readFile'\n   *         },\n   *     }\n   * }\n   * ```\n   *\n   * The function `g_fs_readFile` (if it is exported properly by the raw module), will then\n   * be available on the returned object at path `.globals.fs.readFile`.\n   */\n  const proxyWithEngineNameMapping = (rawModule, variableNamesIndex) => proxyWithNameMapping(rawModule, {\n      globals: variableNamesIndex.globals,\n      io: variableNamesIndex.io,\n  });\n  const proxyWithNameMapping = (rawModule, variableNamesIndex) => {\n      if (typeof variableNamesIndex === 'string') {\n          return rawModule[variableNamesIndex];\n      }\n      else if (typeof variableNamesIndex === 'object') {\n          return new Proxy(rawModule, {\n              get: (_, k) => {\n                  const key = String(k);\n                  if (key in rawModule) {\n                      return Reflect.get(rawModule, key);\n                  }\n                  else if (key in variableNamesIndex) {\n                      const nextVariableNames = variableNamesIndex[key];\n                      return proxyWithNameMapping(rawModule, nextVariableNames);\n                  }\n                  else if (_proxyGetHandlerThrowIfKeyUnknown(rawModule, key)) {\n                      return undefined;\n                  }\n              },\n              has: function (_, k) {\n                  return k in rawModule || k in variableNamesIndex;\n              },\n              set: (_, k, value) => {\n                  const key = String(k);\n                  if (key in variableNamesIndex) {\n                      const variableName = variableNamesIndex[key];\n                      if (typeof variableName !== 'string') {\n                          throw new Error(`Failed to set value for key ${String(k)}: variable name is not a string`);\n                      }\n                      return Reflect.set(rawModule, variableName, value);\n                  }\n                  else {\n                      throw new Error(`Key ${String(k)} is not defined in raw module`);\n                  }\n              },\n          });\n      }\n      else {\n          throw new Error(`Invalid name mapping`);\n      }\n  };\n\n  /*\n   * Copyright (c) 2022-2023 Sébastien Piquemal <sebpiq@protonmail.com>, Chris McCormick.\n   *\n   * This file is part of WebPd\n   * (see https://github.com/sebpiq/WebPd).\n   *\n   * This program is free software: you can redistribute it and/or modify\n   * it under the terms of the GNU Lesser General Public License as published by\n   * the Free Software Foundation, either version 3 of the License, or\n   * (at your option) any later version.\n   *\n   * This program is distributed in the hope that it will be useful,\n   * but WITHOUT ANY WARRANTY; without even the implied warranty of\n   * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the\n   * GNU Lesser General Public License for more details.\n   *\n   * You should have received a copy of the GNU Lesser General Public License\n   * along with this program. If not, see <http://www.gnu.org/licenses/>.\n   */\n  /** @copyright Assemblyscript ESM bindings */\n  const liftString = (rawModule, pointer) => {\n      if (!pointer) {\n          throw new Error('Cannot lift a null pointer');\n      }\n      pointer = pointer >>> 0;\n      const end = (pointer +\n          new Uint32Array(rawModule.memory.buffer)[(pointer - 4) >>> 2]) >>>\n          1;\n      const memoryU16 = new Uint16Array(rawModule.memory.buffer);\n      let start = pointer >>> 1;\n      let string = '';\n      while (end - start > 1024) {\n          string += String.fromCharCode(...memoryU16.subarray(start, (start += 1024)));\n      }\n      return string + String.fromCharCode(...memoryU16.subarray(start, end));\n  };\n\n  /*\n   * Copyright (c) 2022-2023 Sébastien Piquemal <sebpiq@protonmail.com>, Chris McCormick.\n   *\n   * This file is part of WebPd\n   * (see https://github.com/sebpiq/WebPd).\n   *\n   * This program is free software: you can redistribute it and/or modify\n   * it under the terms of the GNU Lesser General Public License as published by\n   * the Free Software Foundation, either version 3 of the License, or\n   * (at your option) any later version.\n   *\n   * This program is distributed in the hope that it will be useful,\n   * but WITHOUT ANY WARRANTY; without even the implied warranty of\n   * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the\n   * GNU Lesser General Public License for more details.\n   *\n   * You should have received a copy of the GNU Lesser General Public License\n   * along with this program. If not, see <http://www.gnu.org/licenses/>.\n   */\n  // REF : Assemblyscript ESM bindings\n  const instantiateWasmModule = async (wasmBuffer, wasmImports = {}) => {\n      const instanceAndModule = await WebAssembly.instantiate(wasmBuffer, {\n          env: {\n              abort: (messagePointer, \n              // filename, not useful because we compile everything to a single string\n              _, lineNumber, columnNumber) => {\n                  const message = liftString(wasmExports, messagePointer);\n                  lineNumber = lineNumber;\n                  columnNumber = columnNumber;\n                  (() => {\n                      // @external.js\n                      throw Error(`${message} at ${lineNumber}:${columnNumber}`);\n                  })();\n              },\n              seed: () => {\n                  return (() => {\n                      return Date.now() * Math.random();\n                  })();\n              },\n              'console.log': (textPointer) => {\n                  console.log(liftString(wasmExports, textPointer));\n              },\n          },\n          ...wasmImports,\n      });\n      const wasmExports = instanceAndModule.instance\n          .exports;\n      return instanceAndModule.instance;\n  };\n\n  const readMetadata$2 = async (wasmBuffer) => {\n      // In order to read metadata, we need to introspect the module to get the imports\n      const inputImports = {};\n      const wasmModule = WebAssembly.Module.imports(new WebAssembly.Module(wasmBuffer));\n      // Then we generate dummy functions to be able to instantiate the module\n      wasmModule\n          .filter((imprt) => imprt.module === 'input' && imprt.kind === 'function')\n          .forEach((imprt) => (inputImports[imprt.name] = () => undefined));\n      const wasmInstance = await instantiateWasmModule(wasmBuffer, {\n          input: inputImports,\n      });\n      // Finally, once the module instantiated, we read the metadata\n      const rawModule = wasmInstance.exports;\n      const stringPointer = rawModule.metadata.valueOf();\n      const metadataJSON = liftString(rawModule, stringPointer);\n      return JSON.parse(metadataJSON);\n  };\n\n  const createFsModule = (rawModule) => {\n      const fsExportedNames = rawModule.metadata.compilation.variableNamesIndex.globals.fs;\n      const fs = proxyAsModuleWithBindings(rawModule, {\n          onReadSoundFile: { type: 'callback', value: () => undefined },\n          onWriteSoundFile: { type: 'callback', value: () => undefined },\n          onOpenSoundReadStream: { type: 'callback', value: () => undefined },\n          onOpenSoundWriteStream: { type: 'callback', value: () => undefined },\n          onSoundStreamData: { type: 'callback', value: () => undefined },\n          onCloseSoundStream: { type: 'callback', value: () => undefined },\n          sendReadSoundFileResponse: {\n              type: 'proxy',\n              value: 'x_onReadSoundFileResponse' in fsExportedNames\n                  ? rawModule.globals.fs.x_onReadSoundFileResponse\n                  : undefined,\n          },\n          sendWriteSoundFileResponse: {\n              type: 'proxy',\n              value: 'x_onWriteSoundFileResponse' in fsExportedNames\n                  ? rawModule.globals.fs.x_onWriteSoundFileResponse\n                  : undefined,\n          },\n          // should register the operation success { bitDepth: 32, target: 'javascript' }\n          sendSoundStreamData: {\n              type: 'proxy',\n              value: 'x_onSoundStreamData' in fsExportedNames\n                  ? rawModule.globals.fs.x_onSoundStreamData\n                  : undefined,\n          },\n          closeSoundStream: {\n              type: 'proxy',\n              value: 'x_onCloseSoundStream' in fsExportedNames\n                  ? rawModule.globals.fs.x_onCloseSoundStream\n                  : undefined,\n          },\n      });\n      if ('i_openSoundWriteStream' in fsExportedNames) {\n          rawModule.globals.fs.i_openSoundWriteStream = (...args) => fs.onOpenSoundWriteStream(...args);\n      }\n      if ('i_sendSoundStreamData' in fsExportedNames) {\n          rawModule.globals.fs.i_sendSoundStreamData = (...args) => fs.onSoundStreamData(...args);\n      }\n      if ('i_openSoundReadStream' in fsExportedNames) {\n          rawModule.globals.fs.i_openSoundReadStream = (...args) => fs.onOpenSoundReadStream(...args);\n      }\n      if ('i_closeSoundStream' in fsExportedNames) {\n          rawModule.globals.fs.i_closeSoundStream = (...args) => fs.onCloseSoundStream(...args);\n      }\n      if ('i_writeSoundFile' in fsExportedNames) {\n          rawModule.globals.fs.i_writeSoundFile = (...args) => fs.onWriteSoundFile(...args);\n      }\n      if ('i_readSoundFile' in fsExportedNames) {\n          rawModule.globals.fs.i_readSoundFile = (...args) => fs.onReadSoundFile(...args);\n      }\n      return fs;\n  };\n\n  const createCommonsModule = (rawModule, metadata) => {\n      const floatArrayType = getFloatArrayType(metadata.settings.audio.bitDepth);\n      return proxyAsModuleWithBindings(rawModule, {\n          getArray: {\n              type: 'proxy',\n              value: (arrayName) => rawModule.globals.commons.getArray(arrayName),\n          },\n          setArray: {\n              type: 'proxy',\n              value: (arrayName, array) => rawModule.globals.commons.setArray(arrayName, new floatArrayType(array)),\n          },\n      });\n  };\n\n  /*\n   * Copyright (c) 2022-2023 Sébastien Piquemal <sebpiq@protonmail.com>, Chris McCormick.\n   *\n   * This file is part of WebPd\n   * (see https://github.com/sebpiq/WebPd).\n   *\n   * This program is free software: you can redistribute it and/or modify\n   * it under the terms of the GNU Lesser General Public License as published by\n   * the Free Software Foundation, either version 3 of the License, or\n   * (at your option) any later version.\n   *\n   * This program is distributed in the hope that it will be useful,\n   * but WITHOUT ANY WARRANTY; without even the implied warranty of\n   * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the\n   * GNU Lesser General Public License for more details.\n   *\n   * You should have received a copy of the GNU Lesser General Public License\n   * along with this program. If not, see <http://www.gnu.org/licenses/>.\n   */\n  /**\n   * These bindings enable easier interaction with modules generated with our JavaScript compilation.\n   * For example : instantiation, passing data back and forth, etc ...\n   *\n   * **Warning** : These bindings are compiled with rollup as a standalone JS module for inclusion in other libraries.\n   * In consequence, they are meant to be kept lightweight, and should avoid importing dependencies.\n   *\n   * @module\n   */\n  const compileRawModule = (code) => new Function(`\n        ${code}\n        return exports\n    `)();\n  const createEngineBindings = (rawModule) => {\n      const exportedNames = rawModule.metadata.compilation.variableNamesIndex.globals;\n      const globalsBindings = {\n          commons: {\n              type: 'proxy',\n              value: createCommonsModule(rawModule, rawModule.metadata),\n          },\n      };\n      if ('fs' in exportedNames) {\n          globalsBindings.fs = { type: 'proxy', value: createFsModule(rawModule) };\n      }\n      return {\n          metadata: { type: 'raw' },\n          initialize: { type: 'raw' },\n          dspLoop: { type: 'raw' },\n          io: { type: 'raw' },\n          globals: {\n              type: 'proxy',\n              value: proxyAsModuleWithBindings(rawModule, globalsBindings),\n          },\n      };\n  };\n  const createEngine = (code, additionalBindings) => {\n      const rawModule = compileRawModule(code);\n      const rawModuleWithNameMapping = proxyWithEngineNameMapping(rawModule, rawModule.metadata.compilation.variableNamesIndex);\n      return proxyAsModuleWithBindings(rawModule, {\n          ...createEngineBindings(rawModuleWithNameMapping),\n          ...(additionalBindings || {}),\n      });\n  };\n\n  const readMetadata$1 = async (target, compiled) => {\n      switch (target) {\n          case 'assemblyscript':\n              return readMetadata$2(compiled);\n          case 'javascript':\n              return createEngine(compiled).metadata;\n      }\n  };\n\n  const defaultSettingsForRun = (patchUrl) => {\n      const rootUrl = urlDirName(patchUrl);\n      return {\n          messageHandler: (node, message) => index(node, message, { rootUrl }),\n      };\n  };\n  const readMetadata = (compiledPatch) => {\n      if (typeof compiledPatch === 'string') {\n          return readMetadata$1('javascript', compiledPatch);\n      }\n      else {\n          return readMetadata$1('assemblyscript', compiledPatch);\n      }\n  };\n\n  var run = async (audioContext, compiledPatch, settings) => {\n      const { messageHandler } = settings;\n      const webpdNode = new WebPdWorkletNode(audioContext);\n      webpdNode.port.onmessage = (msg) => messageHandler(webpdNode, msg);\n      if (typeof compiledPatch === 'string') {\n          webpdNode.port.postMessage({\n              type: 'code:JS',\n              payload: {\n                  jsCode: compiledPatch,\n              },\n          });\n      }\n      else {\n          webpdNode.port.postMessage({\n              type: 'code:WASM',\n              payload: {\n                  wasmBuffer: compiledPatch,\n              },\n          });\n      }\n      return webpdNode;\n  };\n\n  exports.defaultSettingsForRun = defaultSettingsForRun;\n  exports.initialize = initialize;\n  exports.readMetadata = readMetadata;\n  exports.run = run;\n\n  return exports;\n\n})({});\n";
-
-const WEBPD_RUNTIME_FILENAME = 'webpd-runtime.js';
-var buildApp = (artefacts) => {
-    if (!artefacts.javascript && !artefacts.wasm) {
-        throw new Error(`Needs at least javascript or wasm to run`);
+/*
+ * Copyright (c) 2022-2023 Sébastien Piquemal <sebpiq@protonmail.com>, Chris McCormick.
+ *
+ * This file is part of WebPd
+ * (see https://github.com/sebpiq/WebPd).
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with this program. If not, see <http://www.gnu.org/licenses/>.
+ */
+// NOTE : not necessarily the most logical place to put this function, but we need it here
+// cause it's imported by the bindings.
+const getFloatArrayType = (bitDepth) => bitDepth === 64 ? Float64Array : Float32Array;
+const proxyAsModuleWithBindings = (rawModule, bindings) => 
+// Use empty object on proxy cause proxy cannot redefine access of member of its target,
+// which causes issues for example for WebAssembly exports.
+// See : https://stackoverflow.com/questions/75148897/get-on-proxy-property-items-is-a-read-only-and-non-configurable-data-proper
+new Proxy({}, {
+    get: (_, k) => {
+        if (bindings.hasOwnProperty(k)) {
+            const key = String(k);
+            const bindingSpec = bindings[key];
+            switch (bindingSpec.type) {
+                case 'raw':
+                    // Cannot use hasOwnProperty here cause not defined in wasm exports object
+                    if (k in rawModule) {
+                        return rawModule[key];
+                    }
+                    else {
+                        throw new Error(`Key ${String(key)} doesn't exist in raw module`);
+                    }
+                case 'proxy':
+                case 'callback':
+                    return bindingSpec.value;
+            }
+            // We need to return undefined here for compatibility with various APIs
+            // which inspect object's attributes.
+        }
+        else {
+            return undefined;
+        }
+    },
+    has: function (_, k) {
+        return k in bindings;
+    },
+    set: (_, k, newValue) => {
+        if (bindings.hasOwnProperty(String(k))) {
+            const key = String(k);
+            const bindingSpec = bindings[key];
+            if (bindingSpec.type === 'callback') {
+                bindingSpec.value = newValue;
+            }
+            else {
+                throw new Error(`Binding key ${String(key)} is read-only`);
+            }
+        }
+        else {
+            throw new Error(`Key ${String(k)} is not defined in bindings`);
+        }
+        return true;
+    },
+});
+/**
+ * Reverse-maps exported variable names from `rawModule` according to the mapping defined
+ * in `variableNamesIndex`.
+ *
+ * For example with :
+ *
+ * ```
+ * const variableNamesIndex = {
+ *     globals: {
+ *         // ...
+ *         fs: {
+ *             // ...
+ *             readFile: 'g_fs_readFile'
+ *         },
+ *     }
+ * }
+ * ```
+ *
+ * The function `g_fs_readFile` (if it is exported properly by the raw module), will then
+ * be available on the returned object at path `.globals.fs.readFile`.
+ */
+const proxyWithEngineNameMapping = (rawModule, variableNamesIndex) => proxyWithNameMapping(rawModule, {
+    globals: variableNamesIndex.globals,
+    io: variableNamesIndex.io,
+});
+const proxyWithNameMapping = (rawModule, variableNamesIndex) => {
+    if (typeof variableNamesIndex === 'string') {
+        return rawModule[variableNamesIndex];
     }
-    const compiledPatchFilename = artefacts.javascript
-        ? 'patch.js'
-        : 'patch.wasm';
-    const generatedApp = {
-        [WEBPD_RUNTIME_FILENAME]: WEBPD_RUNTIME_CODE,
-        [compiledPatchFilename]: artefacts.javascript
-            ? artefacts.javascript
-            : artefacts.wasm,
-        // prettier-ignore
-        'index.html': `
-<!DOCTYPE html>
-<html lang="en">
-    <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <meta http-equiv="X-UA-Compatible" content="ie=edge">
-        <title>WebPd boilerplate</title>
-        <style>
-            #start {
-                display: none;
-                position: fixed;
-                top: 50%;
-                left: 50%;
-                transform: translate(-50%, -50%);
-            }
-            #loading {
-                width: 100%;
-                height: 100%;
-                position: fixed;
-                top: 50%;
-                transform: translateY(-50%);
-                display: flex;
-                justify-content: center;
-                align-items: center;
-            }
-        </style>
-    </head>
-    <body>
-        <h1>My Web Page</h1>
-        <div>For more info about usage (how to interact with the patch), you can open this HTML file in a code editor.</div>
-        <button id="start"> Start </button>
-        <div id="loading"> Loading ... </div>
-        <script src="${WEBPD_RUNTIME_FILENAME}"></script>
-        <script>
-            // SUMMARY
-            // 1. WEB PAGE INITIALIZATION
-            // 2. SENDING MESSAGES FROM JAVASCRIPT TO THE PATCH
-            // 3. SENDING MESSAGES FROM THE PATCH TO JAVASCRIPT (coming soon ...)
-
-
-            // ------------- 1. WEB PAGE INITIALIZATION
-            const loadingDiv = document.querySelector('#loading')
-            const startButton = document.querySelector('#start')
-            const audioContext = new AudioContext()
-
-            let patch = null
-            let stream = null
-            let webpdNode = null
-
-            const initApp = async () => {
-                // Register the worklet
-                await WebPdRuntime.initialize(audioContext)
-
-                // Fetch the patch code
-                response = await fetch('${compiledPatchFilename}')
-                patch = await ${artefacts.javascript ?
-            'response.text()' : 'response.arrayBuffer()'}
-
-                // Comment this if you don't need audio input
-                stream = await navigator.mediaDevices.getUserMedia({ audio: true })
-
-                // Hide loading and show start button
-                loadingDiv.style.display = 'none'
-                startButton.style.display = 'block'
-            }
-
-            const startApp = async () => {
-                // AudioContext needs to be resumed on click to protects users 
-                // from being spammed with autoplay.
-                // See : https://github.com/WebAudio/web-audio-api/issues/345
-                if (audioContext.state === 'suspended') {
-                    audioContext.resume()
+    else if (typeof variableNamesIndex === 'object') {
+        return new Proxy(rawModule, {
+            get: (_, k) => {
+                const key = String(k);
+                if (key in rawModule) {
+                    return Reflect.get(rawModule, key);
                 }
-
-                // Setup web audio graph
-                webpdNode = await WebPdRuntime.run(
-                    audioContext, 
-                    patch, 
-                    WebPdRuntime.defaultSettingsForRun('./${compiledPatchFilename}'),
-                )
-                webpdNode.connect(audioContext.destination)
-
-                // Comment this if you don't need audio input
-                const sourceNode = audioContext.createMediaStreamSource(stream)
-                sourceNode.connect(webpdNode)
-
-                // Hide the start button
-                startButton.style.display = 'none'
-            }
-
-            startButton.onclick = startApp
-
-            initApp().
-                then(() => {
-                    console.log('App initialized')
-                })
-
-            
-            // ------------- 2. SENDING MESSAGES FROM JAVASCRIPT TO THE PATCH
-            // Use the function sendMsgToWebPd to send a message from JavaScript to an object inside your patch.
-            // 
-            // Parameters : 
-            // - nodeId: the ID of the object you want to send a message to. 
-            //          This ID is a string that has been assigned by WebPd at compilation.
-            //          You can find below the list of available IDs with hints to help you 
-            //          identify the object you want to interact with.
-            // - portletId : the ID of the object portlet to which the message should be sent. 
-            // - message : the message to send. This must be a list of strings and / or numbers.
-            // 
-            // Examples :
-            // - sending a message to a bang node of ID 'n_0_1' :
-            //          sendMsgToWebPd('n_0_1', '0', ['bang'])
-            // - sending a message to a number object of ID 'n_0_2' :
-            //          sendMsgToWebPd('n_0_2', '0', [123])
-            // 
-            const sendMsgToWebPd = (nodeId, portletId, message) => {
-                webpdNode.port.postMessage({
-                    type: 'io:messageReceiver',
-                    payload: {
-                        nodeId,
-                        portletId,
-                        message,
-                    },
-                })
-            }
-            
-            // Here is an index of objects IDs to which you can send messages, with hints so you can find the right ID.
-            // Note that by default only GUI objects (bangs, sliders, etc ...) are available.${artefacts.dspGraph
-            && artefacts.dspGraph.io
-            && Object.keys(artefacts.dspGraph.io.messageReceivers).length ?
-            Object.entries(artefacts.dspGraph.io.messageReceivers)
-                .map(([nodeId, { portletIds, metadata: _metadata }]) => portletIds.map(portletId => {
-                const metadata = _metadata;
-                if (!metadata) {
-                    return '';
+                else if (key in variableNamesIndex) {
+                    const nextVariableNames = variableNamesIndex[key];
+                    return proxyWithNameMapping(rawModule, nextVariableNames);
                 }
-                else if (metadata.group === 'control' || metadata.group === 'control:float') {
-                    return `
-            //  - nodeId "${nodeId}" portletId "${portletId}"
-            //      * type "${metadata.type}"
-            //      * position ${JSON.stringify(metadata.position)}${metadata.label ? `
-            //      * label "${metadata.label}"` : ''}
-            `;
+                else if (_proxyGetHandlerThrowIfKeyUnknown$1(rawModule, key)) {
+                    return undefined;
                 }
-                else if (metadata.group === 'send') {
-                    return `
-            //  - nodeId "${nodeId}" portletId "${portletId}"
-            //      * type "send"
-            //      * send "${metadata.name}"
-            `;
+            },
+            has: function (_, k) {
+                return k in rawModule || k in variableNamesIndex;
+            },
+            set: (_, k, value) => {
+                const key = String(k);
+                if (key in variableNamesIndex) {
+                    const variableName = variableNamesIndex[key];
+                    if (typeof variableName !== 'string') {
+                        throw new Error(`Failed to set value for key ${String(k)}: variable name is not a string`);
+                    }
+                    return Reflect.set(rawModule, variableName, value);
                 }
                 else {
-                    return '';
+                    throw new Error(`Key ${String(k)} is not defined in raw module`);
                 }
-            })).join('')
-            : `
-            // EMPTY (did you place a GUI object in your patch ?)
-`}
-
-
-            // ------------- 3. SENDING MESSAGES FROM THE PATCH TO JAVASCRIPT
-            // Coming soon ... 
-
-        </script>
-    </body>
-</html>`,
-    };
-    return generatedApp;
+            },
+        });
+    }
+    else {
+        throw new Error(`Invalid name mapping`);
+    }
 };
 
 /*
@@ -4310,171 +4292,286 @@ var buildApp = (artefacts) => {
  * You should have received a copy of the GNU Lesser General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
-const discoverGuiControls = (pdJson) => {
-    const rootPatch = pdJson.patches[pdJson.rootPatchId];
-    return {
-        controls: _discoverGuiControlsRecursive(pdJson, rootPatch),
-        comments: Object.values(pdJson.patches[pdJson.rootPatchId].nodes)
-            .filter((node) => node.type === 'text')
-            .map((node) => {
-            const comment = {
-                type: 'comment',
-                patch: rootPatch,
-                node,
-                text: node.args[0].toString(),
-            };
-            return comment;
-        }),
-    };
-};
-const _discoverGuiControlsRecursive = (pdJson, patch, viewport = null) => {
-    if (viewport === null) {
-        viewport = {
-            topLeft: { x: -Infinity, y: -Infinity },
-            bottomRight: { x: Infinity, y: Infinity },
-        };
+/** @copyright Assemblyscript ESM bindings */
+const liftString = (rawModule, pointer) => {
+    if (!pointer) {
+        throw new Error('Cannot lift a null pointer');
     }
-    const controls = [];
-    Object.values(patch.nodes).forEach((node) => {
-        if (node.type === 'pd' && node.nodeClass === 'subpatch') {
-            const subpatch = pdJson.patches[node.patchId];
-            const nodeLayout = _assertNodeLayout(node.layout);
-            if (!subpatch.layout.graphOnParent) {
-                return;
-            }
-            const subpatchLayout = _assertPatchLayout(subpatch.layout);
-            // 1. we convert all coordinates to the subpatch coords system
-            const toSubpatchCoords = _makeTranslationTransform({ x: nodeLayout.x, y: nodeLayout.y }, { x: subpatchLayout.viewportX, y: subpatchLayout.viewportY });
-            const parentViewport = {
-                topLeft: toSubpatchCoords(viewport.topLeft),
-                bottomRight: toSubpatchCoords(viewport.bottomRight),
-            };
-            const topLeft = {
-                x: subpatchLayout.viewportX,
-                y: subpatchLayout.viewportY,
-            };
-            const subpatchViewport = {
-                topLeft,
-                bottomRight: _sumPoints(topLeft, {
-                    x: subpatchLayout.viewportWidth,
-                    y: subpatchLayout.viewportHeight,
-                }),
-            };
-            // 2. we compute the visible intersection in the subpatch coords system
-            // and call the function for the subpatch
-            const visibleSubpatchViewport = _computeRectanglesIntersection(parentViewport, subpatchViewport);
-            if (visibleSubpatchViewport === null) {
-                return;
-            }
-            const children = _discoverGuiControlsRecursive(pdJson, subpatch, visibleSubpatchViewport);
-            const control = {
-                type: 'container',
-                patch,
-                node,
-                children,
-            };
-            controls.push(control);
-            // 3. When we get ab actual control node, we see if it is inside the
-            // visible viewport (which was previously transformed to local coords).
-        }
-        else if (node.type in CONTROL_TYPE && node.nodeClass === 'control') {
-            const nodeLayout = _assertNodeLayout(node.layout);
-            if (!_isPointInsideRectangle({
-                x: nodeLayout.x,
-                y: nodeLayout.y,
-            }, viewport)) {
-                return;
-            }
-            const control = {
-                type: 'control',
-                patch,
-                node,
-            };
-            controls.push(control);
-        }
+    pointer = pointer >>> 0;
+    const end = (pointer +
+        new Uint32Array(rawModule.memory.buffer)[(pointer - 4) >>> 2]) >>>
+        1;
+    const memoryU16 = new Uint16Array(rawModule.memory.buffer);
+    let start = pointer >>> 1;
+    let string = '';
+    while (end - start > 1024) {
+        string += String.fromCharCode(...memoryU16.subarray(start, (start += 1024)));
+    }
+    return string + String.fromCharCode(...memoryU16.subarray(start, end));
+};
+/** @copyright Assemblyscript ESM bindings */
+const lowerString = (rawModule, value) => {
+    if (value == null) {
+        throw new Error('Cannot lower a null string');
+    }
+    const length = value.length, pointer = rawModule.__new(length << 1, 1) >>> 0, memoryU16 = new Uint16Array(rawModule.memory.buffer);
+    for (let i = 0; i < length; ++i)
+        memoryU16[(pointer >>> 1) + i] = value.charCodeAt(i);
+    return pointer;
+};
+/**
+ * @returns A typed array which shares buffer with the wasm module,
+ * thus allowing direct read / write between the module and the host environment.
+ *
+ * @copyright Assemblyscript ESM bindings `liftTypedArray`
+ */
+const readTypedArray = (rawModule, constructor, pointer) => {
+    if (!pointer) {
+        throw new Error('Cannot lift a null pointer');
+    }
+    const memoryU32 = new Uint32Array(rawModule.memory.buffer);
+    return new constructor(rawModule.memory.buffer, memoryU32[(pointer + 4) >>> 2], memoryU32[(pointer + 8) >>> 2] / constructor.BYTES_PER_ELEMENT);
+};
+/** @param bitDepth : Must be the same value as what was used to compile the engine. */
+const lowerFloatArray = (rawModule, bitDepth, data) => {
+    const arrayType = getFloatArrayType(bitDepth);
+    const arrayPointer = rawModule.globals.core.createFloatArray(data.length);
+    const array = readTypedArray(rawModule, arrayType, arrayPointer);
+    array.set(data);
+    return { array, arrayPointer };
+};
+/** @param bitDepth : Must be the same value as what was used to compile the engine. */
+const lowerListOfFloatArrays = (rawModule, bitDepth, data) => {
+    const arraysPointer = rawModule.globals.core.x_createListOfArrays();
+    data.forEach((array) => {
+        const { arrayPointer } = lowerFloatArray(rawModule, bitDepth, array);
+        rawModule.globals.core.x_pushToListOfArrays(arraysPointer, arrayPointer);
     });
-    return controls;
+    return arraysPointer;
 };
-const traverseGuiControls = (controls, func) => {
-    controls.forEach((control) => {
-        if (control.type === 'container') {
-            traverseGuiControls(control.children, func);
-        }
-        else if (control.type === 'control') {
-            func(control);
-        }
+/** @param bitDepth : Must be the same value as what was used to compile the engine. */
+const readListOfFloatArrays = (rawModule, bitDepth, listOfArraysPointer) => {
+    const listLength = rawModule.globals.core.x_getListOfArraysLength(listOfArraysPointer);
+    const arrays = [];
+    const arrayType = getFloatArrayType(bitDepth);
+    for (let i = 0; i < listLength; i++) {
+        const arrayPointer = rawModule.globals.core.x_getListOfArraysElem(listOfArraysPointer, i);
+        arrays.push(readTypedArray(rawModule, arrayType, arrayPointer));
+    }
+    return arrays;
+};
+
+/*
+ * Copyright (c) 2022-2023 Sébastien Piquemal <sebpiq@protonmail.com>, Chris McCormick.
+ *
+ * This file is part of WebPd
+ * (see https://github.com/sebpiq/WebPd).
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with this program. If not, see <http://www.gnu.org/licenses/>.
+ */
+// REF : Assemblyscript ESM bindings
+const instantiateWasmModule = async (wasmBuffer, wasmImports = {}) => {
+    const instanceAndModule = await WebAssembly.instantiate(wasmBuffer, {
+        env: {
+            abort: (messagePointer, 
+            // filename, not useful because we compile everything to a single string
+            _, lineNumber, columnNumber) => {
+                const message = liftString(wasmExports, messagePointer);
+                lineNumber = lineNumber;
+                columnNumber = columnNumber;
+                (() => {
+                    // @external.js
+                    throw Error(`${message} at ${lineNumber}:${columnNumber}`);
+                })();
+            },
+            seed: () => {
+                return (() => {
+                    return Date.now() * Math.random();
+                })();
+            },
+            'console.log': (textPointer) => {
+                console.log(liftString(wasmExports, textPointer));
+            },
+        },
+        ...wasmImports,
+    });
+    const wasmExports = instanceAndModule.instance
+        .exports;
+    return instanceAndModule.instance;
+};
+
+const readMetadata$1 = async (wasmBuffer) => {
+    // In order to read metadata, we need to introspect the module to get the imports
+    const inputImports = {};
+    const wasmModule = WebAssembly.Module.imports(new WebAssembly.Module(wasmBuffer));
+    // Then we generate dummy functions to be able to instantiate the module
+    wasmModule
+        .filter((imprt) => imprt.module === 'input' && imprt.kind === 'function')
+        .forEach((imprt) => (inputImports[imprt.name] = () => undefined));
+    const wasmInstance = await instantiateWasmModule(wasmBuffer, {
+        input: inputImports,
+    });
+    // Finally, once the module instantiated, we read the metadata
+    const rawModule = wasmInstance.exports;
+    const stringPointer = rawModule.metadata.valueOf();
+    const metadataJSON = liftString(rawModule, stringPointer);
+    return JSON.parse(metadataJSON);
+};
+
+const createFsModule = (rawModule) => {
+    const fsExportedNames = rawModule.metadata.compilation.variableNamesIndex.globals.fs;
+    const fs = proxyAsModuleWithBindings(rawModule, {
+        onReadSoundFile: { type: 'callback', value: () => undefined },
+        onWriteSoundFile: { type: 'callback', value: () => undefined },
+        onOpenSoundReadStream: { type: 'callback', value: () => undefined },
+        onOpenSoundWriteStream: { type: 'callback', value: () => undefined },
+        onSoundStreamData: { type: 'callback', value: () => undefined },
+        onCloseSoundStream: { type: 'callback', value: () => undefined },
+        sendReadSoundFileResponse: {
+            type: 'proxy',
+            value: 'x_onReadSoundFileResponse' in fsExportedNames
+                ? rawModule.globals.fs.x_onReadSoundFileResponse
+                : undefined,
+        },
+        sendWriteSoundFileResponse: {
+            type: 'proxy',
+            value: 'x_onWriteSoundFileResponse' in fsExportedNames
+                ? rawModule.globals.fs.x_onWriteSoundFileResponse
+                : undefined,
+        },
+        // should register the operation success { bitDepth: 32, target: 'javascript' }
+        sendSoundStreamData: {
+            type: 'proxy',
+            value: 'x_onSoundStreamData' in fsExportedNames
+                ? rawModule.globals.fs.x_onSoundStreamData
+                : undefined,
+        },
+        closeSoundStream: {
+            type: 'proxy',
+            value: 'x_onCloseSoundStream' in fsExportedNames
+                ? rawModule.globals.fs.x_onCloseSoundStream
+                : undefined,
+        },
+    });
+    if ('i_openSoundWriteStream' in fsExportedNames) {
+        rawModule.globals.fs.i_openSoundWriteStream = (...args) => fs.onOpenSoundWriteStream(...args);
+    }
+    if ('i_sendSoundStreamData' in fsExportedNames) {
+        rawModule.globals.fs.i_sendSoundStreamData = (...args) => fs.onSoundStreamData(...args);
+    }
+    if ('i_openSoundReadStream' in fsExportedNames) {
+        rawModule.globals.fs.i_openSoundReadStream = (...args) => fs.onOpenSoundReadStream(...args);
+    }
+    if ('i_closeSoundStream' in fsExportedNames) {
+        rawModule.globals.fs.i_closeSoundStream = (...args) => fs.onCloseSoundStream(...args);
+    }
+    if ('i_writeSoundFile' in fsExportedNames) {
+        rawModule.globals.fs.i_writeSoundFile = (...args) => fs.onWriteSoundFile(...args);
+    }
+    if ('i_readSoundFile' in fsExportedNames) {
+        rawModule.globals.fs.i_readSoundFile = (...args) => fs.onReadSoundFile(...args);
+    }
+    return fs;
+};
+
+const createCommonsModule = (rawModule, metadata) => {
+    const floatArrayType = getFloatArrayType(metadata.settings.audio.bitDepth);
+    return proxyAsModuleWithBindings(rawModule, {
+        getArray: {
+            type: 'proxy',
+            value: (arrayName) => rawModule.globals.commons.getArray(arrayName),
+        },
+        setArray: {
+            type: 'proxy',
+            value: (arrayName, array) => rawModule.globals.commons.setArray(arrayName, new floatArrayType(array)),
+        },
     });
 };
-const _makeTranslationTransform = (fromPoint, toPoint) => {
-    const xOffset = toPoint.x - fromPoint.x;
-    const yOffset = toPoint.y - fromPoint.y;
-    return (fromPoint) => {
-        return {
-            x: fromPoint.x + xOffset,
-            y: fromPoint.y + yOffset,
-        };
+
+/*
+ * Copyright (c) 2022-2023 Sébastien Piquemal <sebpiq@protonmail.com>, Chris McCormick.
+ *
+ * This file is part of WebPd
+ * (see https://github.com/sebpiq/WebPd).
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with this program. If not, see <http://www.gnu.org/licenses/>.
+ */
+/**
+ * These bindings enable easier interaction with modules generated with our JavaScript compilation.
+ * For example : instantiation, passing data back and forth, etc ...
+ *
+ * **Warning** : These bindings are compiled with rollup as a standalone JS module for inclusion in other libraries.
+ * In consequence, they are meant to be kept lightweight, and should avoid importing dependencies.
+ *
+ * @module
+ */
+const compileRawModule = (code) => new Function(`
+        ${code}
+        return exports
+    `)();
+const createEngineBindings$1 = (rawModule) => {
+    const exportedNames = rawModule.metadata.compilation.variableNamesIndex.globals;
+    const globalsBindings = {
+        commons: {
+            type: 'proxy',
+            value: createCommonsModule(rawModule, rawModule.metadata),
+        },
     };
-};
-const _sumPoints = (p1, p2) => ({
-    x: p1.x + p2.x,
-    y: p1.y + p2.y,
-});
-const _computeRectanglesIntersection = (r1, r2) => {
-    const topLeft = {
-        x: Math.max(r1.topLeft.x, r2.topLeft.x),
-        y: Math.max(r1.topLeft.y, r2.topLeft.y),
-    };
-    const bottomRight = {
-        x: Math.min(r1.bottomRight.x, r2.bottomRight.x),
-        y: Math.min(r1.bottomRight.y, r2.bottomRight.y),
-    };
-    if (bottomRight.x <= topLeft.x || bottomRight.y <= topLeft.y) {
-        return null;
-    }
-    else {
-        return { topLeft, bottomRight };
-    }
-};
-const _isPointInsideRectangle = (p, r) => r.topLeft.x <= p.x &&
-    p.x <= r.bottomRight.x &&
-    r.topLeft.y <= p.y &&
-    p.y <= r.bottomRight.y;
-const _assertNodeLayout = (layout) => {
-    if (!layout) {
-        throw new Error(`Missing node layout`);
-    }
-    const x = layout.x;
-    const y = layout.y;
-    if (typeof x !== 'number' || typeof y !== 'number') {
-        throw new Error(`Missing node layout attributes`);
+    if ('fs' in exportedNames) {
+        globalsBindings.fs = { type: 'proxy', value: createFsModule(rawModule) };
     }
     return {
-        x,
-        y,
+        metadata: { type: 'raw' },
+        initialize: { type: 'raw' },
+        dspLoop: { type: 'raw' },
+        io: { type: 'raw' },
+        globals: {
+            type: 'proxy',
+            value: proxyAsModuleWithBindings(rawModule, globalsBindings),
+        },
     };
 };
-const _assertPatchLayout = (layout) => {
-    if (!layout) {
-        throw new Error(`Missing patch layout`);
-    }
-    const viewportX = layout.viewportX;
-    const viewportY = layout.viewportY;
-    const viewportWidth = layout.viewportWidth;
-    const viewportHeight = layout.viewportHeight;
-    if (typeof viewportX !== 'number' ||
-        typeof viewportY !== 'number' ||
-        typeof viewportWidth !== 'number' ||
-        typeof viewportHeight !== 'number') {
-        debugger;
-        throw new Error(`Missing patch layout attributes`);
-    }
-    return {
-        viewportX,
-        viewportY,
-        viewportWidth,
-        viewportHeight,
-    };
+const createEngine$2 = (code, additionalBindings) => {
+    const rawModule = compileRawModule(code);
+    const rawModuleWithNameMapping = proxyWithEngineNameMapping(rawModule, rawModule.metadata.compilation.variableNamesIndex);
+    return proxyAsModuleWithBindings(rawModule, {
+        ...createEngineBindings$1(rawModuleWithNameMapping),
+        ...(additionalBindings || {}),
+    });
 };
+
+const readMetadata = async (target, compiled) => {
+    switch (target) {
+        case 'assemblyscript':
+            return readMetadata$1(compiled);
+        case 'javascript':
+            return createEngine$2(compiled).metadata;
+    }
+};
+
+var WEBPD_RUNTIME_CODE = "var WebPdRuntime = (function (exports) {\n  'use strict';\n\n  var WEB_PD_WORKLET_PROCESSOR_CODE = \"/*\\n * Copyright (c) 2022-2023 Sébastien Piquemal <sebpiq@protonmail.com>, Chris McCormick.\\n *\\n * This file is part of WebPd\\n * (see https://github.com/sebpiq/WebPd).\\n *\\n * This program is free software: you can redistribute it and/or modify\\n * it under the terms of the GNU Lesser General Public License as published by\\n * the Free Software Foundation, either version 3 of the License, or\\n * (at your option) any later version.\\n *\\n * This program is distributed in the hope that it will be useful,\\n * but WITHOUT ANY WARRANTY; without even the implied warranty of\\n * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the\\n * GNU Lesser General Public License for more details.\\n *\\n * You should have received a copy of the GNU Lesser General Public License\\n * along with this program. If not, see <http://www.gnu.org/licenses/>.\\n */\\nconst FS_CALLBACK_NAMES = [\\n    'onReadSoundFile',\\n    'onOpenSoundReadStream',\\n    'onWriteSoundFile',\\n    'onOpenSoundWriteStream',\\n    'onSoundStreamData',\\n    'onCloseSoundStream',\\n];\\nclass WasmWorkletProcessor extends AudioWorkletProcessor {\\n    constructor() {\\n        super();\\n        this.port.onmessage = this.onMessage.bind(this);\\n        this.settings = {\\n            blockSize: null,\\n            sampleRate,\\n        };\\n        this.dspConfigured = false;\\n        this.engine = null;\\n    }\\n    process(inputs, outputs) {\\n        const output = outputs[0];\\n        const input = inputs[0];\\n        if (!this.dspConfigured) {\\n            if (!this.engine) {\\n                return true;\\n            }\\n            this.settings.blockSize = output[0].length;\\n            this.engine.initialize(this.settings.sampleRate, this.settings.blockSize);\\n            this.dspConfigured = true;\\n        }\\n        this.engine.dspLoop(input, output);\\n        return true;\\n    }\\n    onMessage(messageEvent) {\\n        const message = messageEvent.data;\\n        switch (message.type) {\\n            case 'code:WASM':\\n                this.setWasm(message.payload.wasmBuffer);\\n                break;\\n            case 'code:JS':\\n                this.setJsCode(message.payload.jsCode);\\n                break;\\n            case 'io:messageReceiver':\\n                this.engine.io.messageReceivers[message.payload.nodeId][message.payload.portletId](message.payload.message);\\n                break;\\n            case 'fs':\\n                const returned = this.engine.globals.fs[message.payload.functionName].apply(null, message.payload.arguments);\\n                this.port.postMessage({\\n                    type: 'fs',\\n                    payload: {\\n                        functionName: message.payload.functionName + '_return',\\n                        operationId: message.payload.arguments[0],\\n                        returned,\\n                    },\\n                });\\n                break;\\n            case 'destroy':\\n                this.destroy();\\n                break;\\n            default:\\n                new Error(`unknown message type ${message.type}`);\\n        }\\n    }\\n    // TODO : control for channelCount of wasmModule\\n    setWasm(wasmBuffer) {\\n        return AssemblyScriptWasmBindings.createEngine(wasmBuffer).then((engine) => this.setEngine(engine));\\n    }\\n    setJsCode(code) {\\n        const engine = JavaScriptBindings.createEngine(code);\\n        this.setEngine(engine);\\n    }\\n    setEngine(engine) {\\n        if (engine.globals.fs) {\\n            FS_CALLBACK_NAMES.forEach((functionName) => {\\n                engine.globals.fs[functionName] = (...args) => {\\n                    // We don't use transferables, because that would imply reallocating each time new array in the engine.\\n                    this.port.postMessage({\\n                        type: 'fs',\\n                        payload: {\\n                            functionName,\\n                            arguments: args,\\n                        },\\n                    });\\n                };\\n            });\\n        }\\n        Object.entries(engine.metadata.settings.io.messageSenders).forEach(([nodeId, portletIds]) => {\\n            portletIds.forEach((portletId) => {\\n                engine.io.messageSenders[nodeId][portletId] = (message) => {\\n                    this.port.postMessage({\\n                        type: 'io:messageSender',\\n                        payload: {\\n                            nodeId,\\n                            portletId,\\n                            message,\\n                        },\\n                    });\\n                };\\n            });\\n        });\\n        this.engine = engine;\\n        this.dspConfigured = false;\\n    }\\n    destroy() {\\n        this.process = () => false;\\n    }\\n}\\nregisterProcessor('webpd-node', WasmWorkletProcessor);\\n\";\n\n  var ASSEMBLY_SCRIPT_WASM_BINDINGS_CODE = \"var AssemblyScriptWasmBindings = (function (exports) {\\n    'use strict';\\n\\n    const _proxyGetHandlerThrowIfKeyUnknown = (target, key, path) => {\\n        if (!(key in target)) {\\n            if ([\\n                'toJSON',\\n                'Symbol(Symbol.toStringTag)',\\n                'constructor',\\n                '$typeof',\\n                '$$typeof',\\n                '@@__IMMUTABLE_ITERABLE__@@',\\n                '@@__IMMUTABLE_RECORD__@@',\\n                'then',\\n            ].includes(key)) {\\n                return true;\\n            }\\n            throw new Error(`namespace${path ? ` <${path.keys.join('.')}>` : ''} doesn't know key \\\"${String(key)}\\\"`);\\n        }\\n        return false;\\n    };\\n\\n    const getFloatArrayType = (bitDepth) => bitDepth === 64 ? Float64Array : Float32Array;\\n    const proxyAsModuleWithBindings = (rawModule, bindings) => new Proxy({}, {\\n        get: (_, k) => {\\n            if (bindings.hasOwnProperty(k)) {\\n                const key = String(k);\\n                const bindingSpec = bindings[key];\\n                switch (bindingSpec.type) {\\n                    case 'raw':\\n                        if (k in rawModule) {\\n                            return rawModule[key];\\n                        }\\n                        else {\\n                            throw new Error(`Key ${String(key)} doesn't exist in raw module`);\\n                        }\\n                    case 'proxy':\\n                    case 'callback':\\n                        return bindingSpec.value;\\n                }\\n            }\\n            else {\\n                return undefined;\\n            }\\n        },\\n        has: function (_, k) {\\n            return k in bindings;\\n        },\\n        set: (_, k, newValue) => {\\n            if (bindings.hasOwnProperty(String(k))) {\\n                const key = String(k);\\n                const bindingSpec = bindings[key];\\n                if (bindingSpec.type === 'callback') {\\n                    bindingSpec.value = newValue;\\n                }\\n                else {\\n                    throw new Error(`Binding key ${String(key)} is read-only`);\\n                }\\n            }\\n            else {\\n                throw new Error(`Key ${String(k)} is not defined in bindings`);\\n            }\\n            return true;\\n        },\\n    });\\n    const proxyWithEngineNameMapping = (rawModule, variableNamesIndex) => proxyWithNameMapping(rawModule, {\\n        globals: variableNamesIndex.globals,\\n        io: variableNamesIndex.io,\\n    });\\n    const proxyWithNameMapping = (rawModule, variableNamesIndex) => {\\n        if (typeof variableNamesIndex === 'string') {\\n            return rawModule[variableNamesIndex];\\n        }\\n        else if (typeof variableNamesIndex === 'object') {\\n            return new Proxy(rawModule, {\\n                get: (_, k) => {\\n                    const key = String(k);\\n                    if (key in rawModule) {\\n                        return Reflect.get(rawModule, key);\\n                    }\\n                    else if (key in variableNamesIndex) {\\n                        const nextVariableNames = variableNamesIndex[key];\\n                        return proxyWithNameMapping(rawModule, nextVariableNames);\\n                    }\\n                    else if (_proxyGetHandlerThrowIfKeyUnknown(rawModule, key)) {\\n                        return undefined;\\n                    }\\n                },\\n                has: function (_, k) {\\n                    return k in rawModule || k in variableNamesIndex;\\n                },\\n                set: (_, k, value) => {\\n                    const key = String(k);\\n                    if (key in variableNamesIndex) {\\n                        const variableName = variableNamesIndex[key];\\n                        if (typeof variableName !== 'string') {\\n                            throw new Error(`Failed to set value for key ${String(k)}: variable name is not a string`);\\n                        }\\n                        return Reflect.set(rawModule, variableName, value);\\n                    }\\n                    else {\\n                        throw new Error(`Key ${String(k)} is not defined in raw module`);\\n                    }\\n                },\\n            });\\n        }\\n        else {\\n            throw new Error(`Invalid name mapping`);\\n        }\\n    };\\n\\n    const liftString = (rawModule, pointer) => {\\n        if (!pointer) {\\n            throw new Error('Cannot lift a null pointer');\\n        }\\n        pointer = pointer >>> 0;\\n        const end = (pointer +\\n            new Uint32Array(rawModule.memory.buffer)[(pointer - 4) >>> 2]) >>>\\n            1;\\n        const memoryU16 = new Uint16Array(rawModule.memory.buffer);\\n        let start = pointer >>> 1;\\n        let string = '';\\n        while (end - start > 1024) {\\n            string += String.fromCharCode(...memoryU16.subarray(start, (start += 1024)));\\n        }\\n        return string + String.fromCharCode(...memoryU16.subarray(start, end));\\n    };\\n    const lowerString = (rawModule, value) => {\\n        if (value == null) {\\n            throw new Error('Cannot lower a null string');\\n        }\\n        const length = value.length, pointer = rawModule.__new(length << 1, 1) >>> 0, memoryU16 = new Uint16Array(rawModule.memory.buffer);\\n        for (let i = 0; i < length; ++i)\\n            memoryU16[(pointer >>> 1) + i] = value.charCodeAt(i);\\n        return pointer;\\n    };\\n    const readTypedArray = (rawModule, constructor, pointer) => {\\n        if (!pointer) {\\n            throw new Error('Cannot lift a null pointer');\\n        }\\n        const memoryU32 = new Uint32Array(rawModule.memory.buffer);\\n        return new constructor(rawModule.memory.buffer, memoryU32[(pointer + 4) >>> 2], memoryU32[(pointer + 8) >>> 2] / constructor.BYTES_PER_ELEMENT);\\n    };\\n    const lowerFloatArray = (rawModule, bitDepth, data) => {\\n        const arrayType = getFloatArrayType(bitDepth);\\n        const arrayPointer = rawModule.globals.core.createFloatArray(data.length);\\n        const array = readTypedArray(rawModule, arrayType, arrayPointer);\\n        array.set(data);\\n        return { array, arrayPointer };\\n    };\\n    const lowerListOfFloatArrays = (rawModule, bitDepth, data) => {\\n        const arraysPointer = rawModule.globals.core.x_createListOfArrays();\\n        data.forEach((array) => {\\n            const { arrayPointer } = lowerFloatArray(rawModule, bitDepth, array);\\n            rawModule.globals.core.x_pushToListOfArrays(arraysPointer, arrayPointer);\\n        });\\n        return arraysPointer;\\n    };\\n    const readListOfFloatArrays = (rawModule, bitDepth, listOfArraysPointer) => {\\n        const listLength = rawModule.globals.core.x_getListOfArraysLength(listOfArraysPointer);\\n        const arrays = [];\\n        const arrayType = getFloatArrayType(bitDepth);\\n        for (let i = 0; i < listLength; i++) {\\n            const arrayPointer = rawModule.globals.core.x_getListOfArraysElem(listOfArraysPointer, i);\\n            arrays.push(readTypedArray(rawModule, arrayType, arrayPointer));\\n        }\\n        return arrays;\\n    };\\n\\n    const instantiateWasmModule = async (wasmBuffer, wasmImports = {}) => {\\n        const instanceAndModule = await WebAssembly.instantiate(wasmBuffer, {\\n            env: {\\n                abort: (messagePointer, _, lineNumber, columnNumber) => {\\n                    const message = liftString(wasmExports, messagePointer);\\n                    lineNumber = lineNumber;\\n                    columnNumber = columnNumber;\\n                    (() => {\\n                        throw Error(`${message} at ${lineNumber}:${columnNumber}`);\\n                    })();\\n                },\\n                seed: () => {\\n                    return (() => {\\n                        return Date.now() * Math.random();\\n                    })();\\n                },\\n                'console.log': (textPointer) => {\\n                    console.log(liftString(wasmExports, textPointer));\\n                },\\n            },\\n            ...wasmImports,\\n        });\\n        const wasmExports = instanceAndModule.instance\\n            .exports;\\n        return instanceAndModule.instance;\\n    };\\n\\n    const updateWasmInOuts = ({ refs, cache, }) => {\\n        cache.wasmOutput = readTypedArray(refs.rawModule, cache.arrayType, refs.rawModule.globals.core.x_getOutput());\\n        cache.wasmInput = readTypedArray(refs.rawModule, cache.arrayType, refs.rawModule.globals.core.x_getInput());\\n    };\\n    const createEngineLifecycleBindings = (engineContext) => {\\n        const { refs, cache, metadata } = engineContext;\\n        return {\\n            initialize: {\\n                type: 'proxy',\\n                value: (sampleRate, blockSize) => {\\n                    metadata.settings.audio.blockSize = blockSize;\\n                    metadata.settings.audio.sampleRate = sampleRate;\\n                    cache.blockSize = blockSize;\\n                    refs.rawModule.initialize(sampleRate, blockSize);\\n                    updateWasmInOuts(engineContext);\\n                },\\n            },\\n            dspLoop: {\\n                type: 'proxy',\\n                value: (input, output) => {\\n                    for (let channel = 0; channel < input.length; channel++) {\\n                        cache.wasmInput.set(input[channel], channel * cache.blockSize);\\n                    }\\n                    updateWasmInOuts(engineContext);\\n                    refs.rawModule.dspLoop();\\n                    updateWasmInOuts(engineContext);\\n                    for (let channel = 0; channel < output.length; channel++) {\\n                        output[channel].set(cache.wasmOutput.subarray(cache.blockSize * channel, cache.blockSize * (channel + 1)));\\n                    }\\n                },\\n            },\\n        };\\n    };\\n\\n    const createCommonsBindings = (engineContext) => {\\n        const { refs, cache } = engineContext;\\n        return {\\n            getArray: {\\n                type: 'proxy',\\n                value: (arrayName) => {\\n                    const arrayNamePointer = lowerString(refs.rawModule, arrayName);\\n                    const arrayPointer = refs.rawModule.globals.commons.getArray(arrayNamePointer);\\n                    return readTypedArray(refs.rawModule, cache.arrayType, arrayPointer);\\n                },\\n            },\\n            setArray: {\\n                type: 'proxy',\\n                value: (arrayName, array) => {\\n                    const stringPointer = lowerString(refs.rawModule, arrayName);\\n                    const { arrayPointer } = lowerFloatArray(refs.rawModule, cache.bitDepth, array);\\n                    refs.rawModule.globals.commons.setArray(stringPointer, arrayPointer);\\n                    updateWasmInOuts(engineContext);\\n                },\\n            },\\n        };\\n    };\\n\\n    const readMetadata = async (wasmBuffer) => {\\n        const inputImports = {};\\n        const wasmModule = WebAssembly.Module.imports(new WebAssembly.Module(wasmBuffer));\\n        wasmModule\\n            .filter((imprt) => imprt.module === 'input' && imprt.kind === 'function')\\n            .forEach((imprt) => (inputImports[imprt.name] = () => undefined));\\n        const wasmInstance = await instantiateWasmModule(wasmBuffer, {\\n            input: inputImports,\\n        });\\n        const rawModule = wasmInstance.exports;\\n        const stringPointer = rawModule.metadata.valueOf();\\n        const metadataJSON = liftString(rawModule, stringPointer);\\n        return JSON.parse(metadataJSON);\\n    };\\n\\n    const mapArray = (src, func) => {\\n        const dest = {};\\n        src.forEach((srcValue, i) => {\\n            const [key, destValue] = func(srcValue, i);\\n            dest[key] = destValue;\\n        });\\n        return dest;\\n    };\\n\\n    const liftMessage = (rawModule, messagePointer) => {\\n        const messageTokenTypesPointer = rawModule.globals.msg.x_getTokenTypes(messagePointer);\\n        const messageTokenTypes = readTypedArray(rawModule, Int32Array, messageTokenTypesPointer);\\n        const message = [];\\n        messageTokenTypes.forEach((tokenType, tokenIndex) => {\\n            if (tokenType === rawModule.globals.msg.FLOAT_TOKEN.valueOf()) {\\n                message.push(rawModule.globals.msg.readFloatToken(messagePointer, tokenIndex));\\n            }\\n            else if (tokenType === rawModule.globals.msg.STRING_TOKEN.valueOf()) {\\n                const stringPointer = rawModule.globals.msg.readStringToken(messagePointer, tokenIndex);\\n                message.push(liftString(rawModule, stringPointer));\\n            }\\n        });\\n        return message;\\n    };\\n    const lowerMessage = (rawModule, message) => {\\n        const template = message.reduce((template, value) => {\\n            if (typeof value === 'number') {\\n                template.push(rawModule.globals.msg.FLOAT_TOKEN.valueOf());\\n            }\\n            else if (typeof value === 'string') {\\n                template.push(rawModule.globals.msg.STRING_TOKEN.valueOf());\\n                template.push(value.length);\\n            }\\n            else {\\n                throw new Error(`invalid message value ${value}`);\\n            }\\n            return template;\\n        }, []);\\n        const templateArrayPointer = rawModule.globals.msg.x_createTemplate(template.length);\\n        const loweredTemplateArray = readTypedArray(rawModule, Int32Array, templateArrayPointer);\\n        loweredTemplateArray.set(template);\\n        const messagePointer = rawModule.globals.msg.x_create(templateArrayPointer);\\n        message.forEach((value, index) => {\\n            if (typeof value === 'number') {\\n                rawModule.globals.msg.writeFloatToken(messagePointer, index, value);\\n            }\\n            else if (typeof value === 'string') {\\n                const stringPointer = lowerString(rawModule, value);\\n                rawModule.globals.msg.writeStringToken(messagePointer, index, stringPointer);\\n            }\\n        });\\n        return messagePointer;\\n    };\\n\\n    const createIoMessageReceiversBindings = ({ metadata, refs, }) => Object.entries(metadata.settings.io.messageReceivers).reduce((bindings, [nodeId, spec]) => ({\\n        ...bindings,\\n        [nodeId]: {\\n            type: 'proxy',\\n            value: mapArray(spec, (inletId) => [\\n                inletId,\\n                (message) => {\\n                    const messagePointer = lowerMessage(refs.rawModule, message);\\n                    refs.rawModule.io.messageReceivers[nodeId][inletId](messagePointer);\\n                },\\n            ]),\\n        },\\n    }), {});\\n    const createIoMessageSendersBindings = ({ metadata, }) => Object.entries(metadata.settings.io.messageSenders).reduce((bindings, [nodeId, spec]) => ({\\n        ...bindings,\\n        [nodeId]: {\\n            type: 'proxy',\\n            value: mapArray(spec, (outletId) => [\\n                outletId,\\n                (_) => undefined,\\n            ]),\\n        },\\n    }), {});\\n    const ioMsgSendersImports = ({ metadata, refs, }) => {\\n        const wasmImports = {};\\n        const { variableNamesIndex } = metadata.compilation;\\n        Object.entries(metadata.settings.io.messageSenders).forEach(([nodeId, spec]) => {\\n            spec.forEach((outletId) => {\\n                const listenerName = variableNamesIndex.io.messageSenders[nodeId][outletId];\\n                wasmImports[listenerName] = (messagePointer) => {\\n                    const message = liftMessage(refs.rawModule, messagePointer);\\n                    refs.engine.io.messageSenders[nodeId][outletId](message);\\n                };\\n            });\\n        });\\n        return wasmImports;\\n    };\\n\\n    const createFsBindings = (engineContext) => {\\n        const { refs, cache, metadata } = engineContext;\\n        const fsExportedNames = metadata.compilation.variableNamesIndex.globals.fs;\\n        return {\\n            sendReadSoundFileResponse: {\\n                type: 'proxy',\\n                value: 'x_onReadSoundFileResponse' in fsExportedNames\\n                    ? (operationId, status, sound) => {\\n                        let soundPointer = 0;\\n                        if (sound) {\\n                            soundPointer = lowerListOfFloatArrays(refs.rawModule, cache.bitDepth, sound);\\n                        }\\n                        refs.rawModule.globals.fs.x_onReadSoundFileResponse(operationId, status, soundPointer);\\n                        updateWasmInOuts(engineContext);\\n                    }\\n                    : undefined,\\n            },\\n            sendWriteSoundFileResponse: {\\n                type: 'proxy',\\n                value: 'x_onWriteSoundFileResponse' in fsExportedNames\\n                    ? refs.rawModule.globals.fs.x_onWriteSoundFileResponse\\n                    : undefined,\\n            },\\n            sendSoundStreamData: {\\n                type: 'proxy',\\n                value: 'x_onSoundStreamData' in fsExportedNames\\n                    ? (operationId, sound) => {\\n                        const soundPointer = lowerListOfFloatArrays(refs.rawModule, cache.bitDepth, sound);\\n                        const writtenFrameCount = refs.rawModule.globals.fs.x_onSoundStreamData(operationId, soundPointer);\\n                        updateWasmInOuts(engineContext);\\n                        return writtenFrameCount;\\n                    }\\n                    : undefined,\\n            },\\n            closeSoundStream: {\\n                type: 'proxy',\\n                value: 'x_onCloseSoundStream' in fsExportedNames\\n                    ? refs.rawModule.globals.fs.x_onCloseSoundStream\\n                    : undefined,\\n            },\\n            onReadSoundFile: { type: 'callback', value: () => undefined },\\n            onWriteSoundFile: { type: 'callback', value: () => undefined },\\n            onOpenSoundReadStream: { type: 'callback', value: () => undefined },\\n            onOpenSoundWriteStream: { type: 'callback', value: () => undefined },\\n            onSoundStreamData: { type: 'callback', value: () => undefined },\\n            onCloseSoundStream: { type: 'callback', value: () => undefined },\\n        };\\n    };\\n    const createFsImports = (engineContext) => {\\n        const wasmImports = {};\\n        const { cache, metadata, refs } = engineContext;\\n        const exportedNames = metadata.compilation.variableNamesIndex.globals;\\n        if ('fs' in exportedNames) {\\n            const nameMapping = proxyWithNameMapping(wasmImports, exportedNames.fs);\\n            if ('i_readSoundFile' in exportedNames.fs) {\\n                nameMapping.i_readSoundFile = (operationId, urlPointer, infoPointer) => {\\n                    const url = liftString(refs.rawModule, urlPointer);\\n                    const info = liftMessage(refs.rawModule, infoPointer);\\n                    refs.engine.globals.fs.onReadSoundFile(operationId, url, info);\\n                };\\n            }\\n            if ('i_writeSoundFile' in exportedNames.fs) {\\n                nameMapping.i_writeSoundFile = (operationId, soundPointer, urlPointer, infoPointer) => {\\n                    const sound = readListOfFloatArrays(refs.rawModule, cache.bitDepth, soundPointer);\\n                    const url = liftString(refs.rawModule, urlPointer);\\n                    const info = liftMessage(refs.rawModule, infoPointer);\\n                    refs.engine.globals.fs.onWriteSoundFile(operationId, sound, url, info);\\n                };\\n            }\\n            if ('i_openSoundReadStream' in exportedNames.fs) {\\n                nameMapping.i_openSoundReadStream = (operationId, urlPointer, infoPointer) => {\\n                    const url = liftString(refs.rawModule, urlPointer);\\n                    const info = liftMessage(refs.rawModule, infoPointer);\\n                    updateWasmInOuts(engineContext);\\n                    refs.engine.globals.fs.onOpenSoundReadStream(operationId, url, info);\\n                };\\n            }\\n            if ('i_openSoundWriteStream' in exportedNames.fs) {\\n                nameMapping.i_openSoundWriteStream = (operationId, urlPointer, infoPointer) => {\\n                    const url = liftString(refs.rawModule, urlPointer);\\n                    const info = liftMessage(refs.rawModule, infoPointer);\\n                    refs.engine.globals.fs.onOpenSoundWriteStream(operationId, url, info);\\n                };\\n            }\\n            if ('i_sendSoundStreamData' in exportedNames.fs) {\\n                nameMapping.i_sendSoundStreamData = (operationId, blockPointer) => {\\n                    const block = readListOfFloatArrays(refs.rawModule, cache.bitDepth, blockPointer);\\n                    refs.engine.globals.fs.onSoundStreamData(operationId, block);\\n                };\\n            }\\n            if ('i_closeSoundStream' in exportedNames.fs) {\\n                nameMapping.i_closeSoundStream = (...args) => refs.engine.globals.fs.onCloseSoundStream(...args);\\n            }\\n        }\\n        return wasmImports;\\n    };\\n\\n    const createEngine = async (wasmBuffer, additionalBindings) => {\\n        const metadata = await readMetadata(wasmBuffer);\\n        const bitDepth = metadata.settings.audio.bitDepth;\\n        const arrayType = getFloatArrayType(bitDepth);\\n        const engineContext = {\\n            refs: {},\\n            metadata: metadata,\\n            cache: {\\n                wasmOutput: new arrayType(0),\\n                wasmInput: new arrayType(0),\\n                arrayType,\\n                bitDepth,\\n                blockSize: 0,\\n            },\\n        };\\n        const wasmImports = {\\n            ...createFsImports(engineContext),\\n            ...ioMsgSendersImports(engineContext),\\n        };\\n        const wasmInstance = await instantiateWasmModule(wasmBuffer, {\\n            input: wasmImports,\\n        });\\n        engineContext.refs.rawModule = proxyWithEngineNameMapping(wasmInstance.exports, metadata.compilation.variableNamesIndex);\\n        const engineBindings = createEngineBindings(engineContext);\\n        const engine = proxyAsModuleWithBindings(engineContext.refs.rawModule, {\\n            ...engineBindings,\\n            ...(additionalBindings || {}),\\n        });\\n        engineContext.refs.engine = engine;\\n        return engine;\\n    };\\n    const createEngineBindings = (engineContext) => {\\n        const { metadata, refs } = engineContext;\\n        const exportedNames = metadata.compilation.variableNamesIndex.globals;\\n        const io = {\\n            messageReceivers: proxyAsModuleWithBindings(refs.rawModule, createIoMessageReceiversBindings(engineContext)),\\n            messageSenders: proxyAsModuleWithBindings(refs.rawModule, createIoMessageSendersBindings(engineContext)),\\n        };\\n        const globalsBindings = {\\n            commons: {\\n                type: 'proxy',\\n                value: proxyAsModuleWithBindings(refs.rawModule, createCommonsBindings(engineContext)),\\n            },\\n        };\\n        if ('fs' in exportedNames) {\\n            const fs = proxyAsModuleWithBindings(refs.rawModule, createFsBindings(engineContext));\\n            globalsBindings.fs = { type: 'proxy', value: fs };\\n        }\\n        return {\\n            ...createEngineLifecycleBindings(engineContext),\\n            metadata: { type: 'proxy', value: metadata },\\n            globals: {\\n                type: 'proxy',\\n                value: proxyAsModuleWithBindings(refs.rawModule, globalsBindings),\\n            },\\n            io: { type: 'proxy', value: io },\\n        };\\n    };\\n\\n    exports.createEngine = createEngine;\\n    exports.createEngineBindings = createEngineBindings;\\n\\n    return exports;\\n\\n})({});\\n\";\n\n  var JAVA_SCRIPT_BINDINGS_CODE = \"var JavaScriptBindings = (function (exports) {\\n    'use strict';\\n\\n    const _proxyGetHandlerThrowIfKeyUnknown = (target, key, path) => {\\n        if (!(key in target)) {\\n            if ([\\n                'toJSON',\\n                'Symbol(Symbol.toStringTag)',\\n                'constructor',\\n                '$typeof',\\n                '$$typeof',\\n                '@@__IMMUTABLE_ITERABLE__@@',\\n                '@@__IMMUTABLE_RECORD__@@',\\n                'then',\\n            ].includes(key)) {\\n                return true;\\n            }\\n            throw new Error(`namespace${path ? ` <${path.keys.join('.')}>` : ''} doesn't know key \\\"${String(key)}\\\"`);\\n        }\\n        return false;\\n    };\\n\\n    const getFloatArrayType = (bitDepth) => bitDepth === 64 ? Float64Array : Float32Array;\\n    const proxyAsModuleWithBindings = (rawModule, bindings) => new Proxy({}, {\\n        get: (_, k) => {\\n            if (bindings.hasOwnProperty(k)) {\\n                const key = String(k);\\n                const bindingSpec = bindings[key];\\n                switch (bindingSpec.type) {\\n                    case 'raw':\\n                        if (k in rawModule) {\\n                            return rawModule[key];\\n                        }\\n                        else {\\n                            throw new Error(`Key ${String(key)} doesn't exist in raw module`);\\n                        }\\n                    case 'proxy':\\n                    case 'callback':\\n                        return bindingSpec.value;\\n                }\\n            }\\n            else {\\n                return undefined;\\n            }\\n        },\\n        has: function (_, k) {\\n            return k in bindings;\\n        },\\n        set: (_, k, newValue) => {\\n            if (bindings.hasOwnProperty(String(k))) {\\n                const key = String(k);\\n                const bindingSpec = bindings[key];\\n                if (bindingSpec.type === 'callback') {\\n                    bindingSpec.value = newValue;\\n                }\\n                else {\\n                    throw new Error(`Binding key ${String(key)} is read-only`);\\n                }\\n            }\\n            else {\\n                throw new Error(`Key ${String(k)} is not defined in bindings`);\\n            }\\n            return true;\\n        },\\n    });\\n    const proxyWithEngineNameMapping = (rawModule, variableNamesIndex) => proxyWithNameMapping(rawModule, {\\n        globals: variableNamesIndex.globals,\\n        io: variableNamesIndex.io,\\n    });\\n    const proxyWithNameMapping = (rawModule, variableNamesIndex) => {\\n        if (typeof variableNamesIndex === 'string') {\\n            return rawModule[variableNamesIndex];\\n        }\\n        else if (typeof variableNamesIndex === 'object') {\\n            return new Proxy(rawModule, {\\n                get: (_, k) => {\\n                    const key = String(k);\\n                    if (key in rawModule) {\\n                        return Reflect.get(rawModule, key);\\n                    }\\n                    else if (key in variableNamesIndex) {\\n                        const nextVariableNames = variableNamesIndex[key];\\n                        return proxyWithNameMapping(rawModule, nextVariableNames);\\n                    }\\n                    else if (_proxyGetHandlerThrowIfKeyUnknown(rawModule, key)) {\\n                        return undefined;\\n                    }\\n                },\\n                has: function (_, k) {\\n                    return k in rawModule || k in variableNamesIndex;\\n                },\\n                set: (_, k, value) => {\\n                    const key = String(k);\\n                    if (key in variableNamesIndex) {\\n                        const variableName = variableNamesIndex[key];\\n                        if (typeof variableName !== 'string') {\\n                            throw new Error(`Failed to set value for key ${String(k)}: variable name is not a string`);\\n                        }\\n                        return Reflect.set(rawModule, variableName, value);\\n                    }\\n                    else {\\n                        throw new Error(`Key ${String(k)} is not defined in raw module`);\\n                    }\\n                },\\n            });\\n        }\\n        else {\\n            throw new Error(`Invalid name mapping`);\\n        }\\n    };\\n\\n    const createFsModule = (rawModule) => {\\n        const fsExportedNames = rawModule.metadata.compilation.variableNamesIndex.globals.fs;\\n        const fs = proxyAsModuleWithBindings(rawModule, {\\n            onReadSoundFile: { type: 'callback', value: () => undefined },\\n            onWriteSoundFile: { type: 'callback', value: () => undefined },\\n            onOpenSoundReadStream: { type: 'callback', value: () => undefined },\\n            onOpenSoundWriteStream: { type: 'callback', value: () => undefined },\\n            onSoundStreamData: { type: 'callback', value: () => undefined },\\n            onCloseSoundStream: { type: 'callback', value: () => undefined },\\n            sendReadSoundFileResponse: {\\n                type: 'proxy',\\n                value: 'x_onReadSoundFileResponse' in fsExportedNames\\n                    ? rawModule.globals.fs.x_onReadSoundFileResponse\\n                    : undefined,\\n            },\\n            sendWriteSoundFileResponse: {\\n                type: 'proxy',\\n                value: 'x_onWriteSoundFileResponse' in fsExportedNames\\n                    ? rawModule.globals.fs.x_onWriteSoundFileResponse\\n                    : undefined,\\n            },\\n            sendSoundStreamData: {\\n                type: 'proxy',\\n                value: 'x_onSoundStreamData' in fsExportedNames\\n                    ? rawModule.globals.fs.x_onSoundStreamData\\n                    : undefined,\\n            },\\n            closeSoundStream: {\\n                type: 'proxy',\\n                value: 'x_onCloseSoundStream' in fsExportedNames\\n                    ? rawModule.globals.fs.x_onCloseSoundStream\\n                    : undefined,\\n            },\\n        });\\n        if ('i_openSoundWriteStream' in fsExportedNames) {\\n            rawModule.globals.fs.i_openSoundWriteStream = (...args) => fs.onOpenSoundWriteStream(...args);\\n        }\\n        if ('i_sendSoundStreamData' in fsExportedNames) {\\n            rawModule.globals.fs.i_sendSoundStreamData = (...args) => fs.onSoundStreamData(...args);\\n        }\\n        if ('i_openSoundReadStream' in fsExportedNames) {\\n            rawModule.globals.fs.i_openSoundReadStream = (...args) => fs.onOpenSoundReadStream(...args);\\n        }\\n        if ('i_closeSoundStream' in fsExportedNames) {\\n            rawModule.globals.fs.i_closeSoundStream = (...args) => fs.onCloseSoundStream(...args);\\n        }\\n        if ('i_writeSoundFile' in fsExportedNames) {\\n            rawModule.globals.fs.i_writeSoundFile = (...args) => fs.onWriteSoundFile(...args);\\n        }\\n        if ('i_readSoundFile' in fsExportedNames) {\\n            rawModule.globals.fs.i_readSoundFile = (...args) => fs.onReadSoundFile(...args);\\n        }\\n        return fs;\\n    };\\n\\n    const createCommonsModule = (rawModule, metadata) => {\\n        const floatArrayType = getFloatArrayType(metadata.settings.audio.bitDepth);\\n        return proxyAsModuleWithBindings(rawModule, {\\n            getArray: {\\n                type: 'proxy',\\n                value: (arrayName) => rawModule.globals.commons.getArray(arrayName),\\n            },\\n            setArray: {\\n                type: 'proxy',\\n                value: (arrayName, array) => rawModule.globals.commons.setArray(arrayName, new floatArrayType(array)),\\n            },\\n        });\\n    };\\n\\n    const compileRawModule = (code) => new Function(`\\n        ${code}\\n        return exports\\n    `)();\\n    const createEngineBindings = (rawModule) => {\\n        const exportedNames = rawModule.metadata.compilation.variableNamesIndex.globals;\\n        const globalsBindings = {\\n            commons: {\\n                type: 'proxy',\\n                value: createCommonsModule(rawModule, rawModule.metadata),\\n            },\\n        };\\n        if ('fs' in exportedNames) {\\n            globalsBindings.fs = { type: 'proxy', value: createFsModule(rawModule) };\\n        }\\n        return {\\n            metadata: { type: 'raw' },\\n            initialize: { type: 'raw' },\\n            dspLoop: { type: 'raw' },\\n            io: { type: 'raw' },\\n            globals: {\\n                type: 'proxy',\\n                value: proxyAsModuleWithBindings(rawModule, globalsBindings),\\n            },\\n        };\\n    };\\n    const createEngine = (code, additionalBindings) => {\\n        const rawModule = compileRawModule(code);\\n        const rawModuleWithNameMapping = proxyWithEngineNameMapping(rawModule, rawModule.metadata.compilation.variableNamesIndex);\\n        return proxyAsModuleWithBindings(rawModule, {\\n            ...createEngineBindings(rawModuleWithNameMapping),\\n            ...(additionalBindings || {}),\\n        });\\n    };\\n\\n    exports.compileRawModule = compileRawModule;\\n    exports.createEngine = createEngine;\\n    exports.createEngineBindings = createEngineBindings;\\n\\n    return exports;\\n\\n})({});\\n\";\n\n  var fetchRetry$1 = function (fetch, defaults) {\n    defaults = defaults || {};\n    if (typeof fetch !== 'function') {\n      throw new ArgumentError('fetch must be a function');\n    }\n\n    if (typeof defaults !== 'object') {\n      throw new ArgumentError('defaults must be an object');\n    }\n\n    if (defaults.retries !== undefined && !isPositiveInteger(defaults.retries)) {\n      throw new ArgumentError('retries must be a positive integer');\n    }\n\n    if (defaults.retryDelay !== undefined && !isPositiveInteger(defaults.retryDelay) && typeof defaults.retryDelay !== 'function') {\n      throw new ArgumentError('retryDelay must be a positive integer or a function returning a positive integer');\n    }\n\n    if (defaults.retryOn !== undefined && !Array.isArray(defaults.retryOn) && typeof defaults.retryOn !== 'function') {\n      throw new ArgumentError('retryOn property expects an array or function');\n    }\n\n    var baseDefaults = {\n      retries: 3,\n      retryDelay: 1000,\n      retryOn: [],\n    };\n\n    defaults = Object.assign(baseDefaults, defaults);\n\n    return function fetchRetry(input, init) {\n      var retries = defaults.retries;\n      var retryDelay = defaults.retryDelay;\n      var retryOn = defaults.retryOn;\n\n      if (init && init.retries !== undefined) {\n        if (isPositiveInteger(init.retries)) {\n          retries = init.retries;\n        } else {\n          throw new ArgumentError('retries must be a positive integer');\n        }\n      }\n\n      if (init && init.retryDelay !== undefined) {\n        if (isPositiveInteger(init.retryDelay) || (typeof init.retryDelay === 'function')) {\n          retryDelay = init.retryDelay;\n        } else {\n          throw new ArgumentError('retryDelay must be a positive integer or a function returning a positive integer');\n        }\n      }\n\n      if (init && init.retryOn) {\n        if (Array.isArray(init.retryOn) || (typeof init.retryOn === 'function')) {\n          retryOn = init.retryOn;\n        } else {\n          throw new ArgumentError('retryOn property expects an array or function');\n        }\n      }\n\n      // eslint-disable-next-line no-undef\n      return new Promise(function (resolve, reject) {\n        var wrappedFetch = function (attempt) {\n          // As of node 18, this is no longer needed since node comes with native support for fetch:\n          /* istanbul ignore next */\n          var _input =\n            typeof Request !== 'undefined' && input instanceof Request\n              ? input.clone()\n              : input;\n          fetch(_input, init)\n            .then(function (response) {\n              if (Array.isArray(retryOn) && retryOn.indexOf(response.status) === -1) {\n                resolve(response);\n              } else if (typeof retryOn === 'function') {\n                try {\n                  // eslint-disable-next-line no-undef\n                  return Promise.resolve(retryOn(attempt, null, response))\n                    .then(function (retryOnResponse) {\n                      if(retryOnResponse) {\n                        retry(attempt, null, response);\n                      } else {\n                        resolve(response);\n                      }\n                    }).catch(reject);\n                } catch (error) {\n                  reject(error);\n                }\n              } else {\n                if (attempt < retries) {\n                  retry(attempt, null, response);\n                } else {\n                  resolve(response);\n                }\n              }\n            })\n            .catch(function (error) {\n              if (typeof retryOn === 'function') {\n                try {\n                  // eslint-disable-next-line no-undef\n                  Promise.resolve(retryOn(attempt, error, null))\n                    .then(function (retryOnResponse) {\n                      if(retryOnResponse) {\n                        retry(attempt, error, null);\n                      } else {\n                        reject(error);\n                      }\n                    })\n                    .catch(function(error) {\n                      reject(error);\n                    });\n                } catch(error) {\n                  reject(error);\n                }\n              } else if (attempt < retries) {\n                retry(attempt, error, null);\n              } else {\n                reject(error);\n              }\n            });\n        };\n\n        function retry(attempt, error, response) {\n          var delay = (typeof retryDelay === 'function') ?\n            retryDelay(attempt, error, response) : retryDelay;\n          setTimeout(function () {\n            wrappedFetch(++attempt);\n          }, delay);\n        }\n\n        wrappedFetch(0);\n      });\n    };\n  };\n\n  function isPositiveInteger(value) {\n    return Number.isInteger(value) && value >= 0;\n  }\n\n  function ArgumentError(message) {\n    this.name = 'ArgumentError';\n    this.message = message;\n  }\n\n  /*\n   * Copyright (c) 2022-2023 Sébastien Piquemal <sebpiq@protonmail.com>, Chris McCormick.\n   *\n   * This file is part of WebPd\n   * (see https://github.com/sebpiq/WebPd).\n   *\n   * This program is free software: you can redistribute it and/or modify\n   * it under the terms of the GNU Lesser General Public License as published by\n   * the Free Software Foundation, either version 3 of the License, or\n   * (at your option) any later version.\n   *\n   * This program is distributed in the hope that it will be useful,\n   * but WITHOUT ANY WARRANTY; without even the implied warranty of\n   * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the\n   * GNU Lesser General Public License for more details.\n   *\n   * You should have received a copy of the GNU Lesser General Public License\n   * along with this program. If not, see <http://www.gnu.org/licenses/>.\n   */\n  const fetchRetry = fetchRetry$1(fetch);\n  /**\n   * Note : the audio worklet feature is available only in secure context.\n   * This function will fail when used in insecure context (non-https, etc ...)\n   * @see https://developer.mozilla.org/en-US/docs/Web/API/AudioWorklet\n   */\n  const addModule = async (context, processorCode) => {\n      const blob = new Blob([processorCode], { type: 'text/javascript' });\n      const workletProcessorUrl = URL.createObjectURL(blob);\n      return context.audioWorklet.addModule(workletProcessorUrl);\n  };\n  // TODO : testing\n  const fetchFile = async (url) => {\n      let response;\n      try {\n          response = await fetchRetry(url, { retries: 3 });\n      }\n      catch (err) {\n          throw new FileError(response.status, err.toString());\n      }\n      if (!response.ok) {\n          const responseText = await response.text();\n          throw new FileError(response.status, responseText);\n      }\n      return response.arrayBuffer();\n  };\n  const audioBufferToArray = (audioBuffer) => {\n      const sound = [];\n      for (let channel = 0; channel < audioBuffer.numberOfChannels; channel++) {\n          sound.push(audioBuffer.getChannelData(channel));\n      }\n      return sound;\n  };\n  // TODO : testing\n  const fixSoundChannelCount = (sound, targetChannelCount) => {\n      if (sound.length === 0) {\n          throw new Error(`Received empty sound`);\n      }\n      const floatArrayType = sound[0].constructor;\n      const frameCount = sound[0].length;\n      const fixedSound = sound.slice(0, targetChannelCount);\n      while (sound.length < targetChannelCount) {\n          fixedSound.push(new floatArrayType(frameCount));\n      }\n      return fixedSound;\n  };\n  const resolveRelativeUrl = (rootUrl, relativeUrl) => {\n      return new URL(relativeUrl, rootUrl).href;\n  };\n  class FileError extends Error {\n      constructor(status, msg) {\n          super(`Error ${status} : ${msg}`);\n      }\n  }\n\n  /*\n   * Copyright (c) 2022-2023 Sébastien Piquemal <sebpiq@protonmail.com>, Chris McCormick.\n   *\n   * This file is part of WebPd\n   * (see https://github.com/sebpiq/WebPd).\n   *\n   * This program is free software: you can redistribute it and/or modify\n   * it under the terms of the GNU Lesser General Public License as published by\n   * the Free Software Foundation, either version 3 of the License, or\n   * (at your option) any later version.\n   *\n   * This program is distributed in the hope that it will be useful,\n   * but WITHOUT ANY WARRANTY; without even the implied warranty of\n   * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the\n   * GNU Lesser General Public License for more details.\n   *\n   * You should have received a copy of the GNU Lesser General Public License\n   * along with this program. If not, see <http://www.gnu.org/licenses/>.\n   */\n  // TODO : manage transferables\n  class WebPdWorkletNode extends AudioWorkletNode {\n      constructor(context) {\n          super(context, 'webpd-node', {\n              numberOfOutputs: 1,\n              outputChannelCount: [2],\n          });\n      }\n      destroy() {\n          this.port.postMessage({\n              type: 'destroy',\n              payload: {},\n          });\n      }\n  }\n  // Concatenate WorkletProcessor code with the Wasm bindings it needs\n  const WEBPD_WORKLET_PROCESSOR_CODE = ASSEMBLY_SCRIPT_WASM_BINDINGS_CODE +\n      ';\\n' +\n      JAVA_SCRIPT_BINDINGS_CODE +\n      ';\\n' +\n      WEB_PD_WORKLET_PROCESSOR_CODE;\n  const registerWebPdWorkletNode = (context) => {\n      return addModule(context, WEBPD_WORKLET_PROCESSOR_CODE);\n  };\n\n  /*\n   * Copyright (c) 2022-2023 Sébastien Piquemal <sebpiq@protonmail.com>, Chris McCormick.\n   *\n   * This file is part of WebPd\n   * (see https://github.com/sebpiq/WebPd).\n   *\n   * This program is free software: you can redistribute it and/or modify\n   * it under the terms of the GNU Lesser General Public License as published by\n   * the Free Software Foundation, either version 3 of the License, or\n   * (at your option) any later version.\n   *\n   * This program is distributed in the hope that it will be useful,\n   * but WITHOUT ANY WARRANTY; without even the implied warranty of\n   * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the\n   * GNU Lesser General Public License for more details.\n   *\n   * You should have received a copy of the GNU Lesser General Public License\n   * along with this program. If not, see <http://www.gnu.org/licenses/>.\n   */\n  const FILES = {};\n  const STREAMS = {};\n  class FakeStream {\n      constructor(url, sound) {\n          this.url = url;\n          this.sound = sound;\n          this.frameCount = sound[0].length;\n          this.readPosition = 0;\n      }\n  }\n  const read = async (url) => {\n      if (FILES[url]) {\n          return FILES[url];\n      }\n      const arrayBuffer = await fetchFile(url);\n      return {\n          type: 'binary',\n          data: arrayBuffer,\n      };\n  };\n  // TODO : testing\n  const readSound = async (url, context) => {\n      let fakeFile = FILES[url] || (await read(url));\n      switch (fakeFile.type) {\n          case 'binary':\n              const audioBuffer = await context.decodeAudioData(fakeFile.data);\n              return audioBufferToArray(audioBuffer);\n          case 'sound':\n              // We copy the data here o it can be manipulated freely by the host.\n              // e.g. if the buffer is sent as transferrable to the node we don't want the original to be transferred.\n              return fakeFile.data.map((array) => array.slice());\n      }\n  };\n  const writeSound = async (sound, url) => {\n      FILES[url] = {\n          type: 'sound',\n          data: sound,\n      };\n  };\n  const readStreamSound = async (operationId, url, channelCount, context) => {\n      const sound = await readSound(url, context);\n      STREAMS[operationId] = new FakeStream(url, fixSoundChannelCount(sound, channelCount));\n      return STREAMS[operationId];\n  };\n  const writeStreamSound = async (operationId, url, channelCount) => {\n      const emptySound = [];\n      for (let channel = 0; channel < channelCount; channel++) {\n          emptySound.push(new Float32Array(0));\n      }\n      STREAMS[operationId] = new FakeStream(url, emptySound);\n      FILES[url] = {\n          type: 'sound',\n          data: emptySound,\n      };\n      return STREAMS[operationId];\n  };\n  const getStream = (operationId) => {\n      return STREAMS[operationId];\n  };\n  const killStream = (operationId) => {\n      console.log('KILL STREAM', operationId);\n      delete STREAMS[operationId];\n  };\n  const pullBlock = (stream, frameCount) => {\n      const block = stream.sound.map((array) => array.slice(stream.readPosition, stream.readPosition + frameCount));\n      stream.readPosition += frameCount;\n      return block;\n  };\n  const pushBlock = (stream, block) => {\n      stream.sound = stream.sound.map((channelData, channel) => {\n          const concatenated = new Float32Array(channelData.length + block[channel].length);\n          concatenated.set(channelData);\n          concatenated.set(block[channel], channelData.length);\n          return concatenated;\n      });\n      stream.frameCount = stream.sound[0].length;\n      FILES[stream.url].data = stream.sound;\n  };\n  var fakeFs = {\n      writeSound,\n      readSound,\n      readStreamSound,\n      writeStreamSound,\n      pullBlock,\n      pushBlock,\n  };\n\n  var closeSoundStream = async (_, payload, __) => {\n      if (payload.functionName === 'onCloseSoundStream') {\n          killStream(payload.arguments[0]);\n      }\n  };\n\n  const _addPath$1 = (parent, key, _path) => {\n      const path = _ensurePath$1(_path);\n      return {\n          keys: [...path.keys, key],\n          parents: [...path.parents, parent],\n      };\n  };\n  const _ensurePath$1 = (path) => path || {\n      keys: [],\n      parents: [],\n  };\n  const _proxySetHandlerReadOnly$1 = () => {\n      throw new Error('This Proxy is read-only.');\n  };\n  const _proxyGetHandlerThrowIfKeyUnknown$1 = (target, key, path) => {\n      if (!(key in target)) {\n          // Whitelist some fields that are undefined but accessed at\n          // some point or another by our code.\n          // TODO : find a better way to do this.\n          if ([\n              'toJSON',\n              'Symbol(Symbol.toStringTag)',\n              'constructor',\n              '$typeof',\n              '$$typeof',\n              '@@__IMMUTABLE_ITERABLE__@@',\n              '@@__IMMUTABLE_RECORD__@@',\n              'then',\n          ].includes(key)) {\n              return true;\n          }\n          throw new Error(`namespace${path ? ` <${path.keys.join('.')}>` : ''} doesn't know key \"${String(key)}\"`);\n      }\n      return false;\n  };\n  const proxyAsAssigner$1 = (spec, _obj, context, _path) => {\n      const path = _path || { keys: [], parents: [] };\n      const obj = proxyAsAssigner$1.ensureValue(_obj, spec, context, path);\n      // If `_path` is provided, assign the new value to the parent object.\n      if (_path) {\n          const parent = _path.parents[_path.parents.length - 1];\n          const key = _path.keys[_path.keys.length - 1];\n          // The only case where we want to overwrite the existing value\n          // is when it was a `null` assigned by `LiteralDefaultNull`, and\n          // we want to set the real value instead.\n          if (!(key in parent) || 'LiteralDefaultNull' in spec) {\n              parent[key] = obj;\n          }\n      }\n      // If the object is a Literal, end of the recursion.\n      if ('Literal' in spec || 'LiteralDefaultNull' in spec) {\n          return obj;\n      }\n      return new Proxy(obj, {\n          get: (_, k) => {\n              const key = String(k);\n              let nextSpec;\n              if ('Index' in spec) {\n                  nextSpec = spec.Index(key, context, path);\n              }\n              else if ('Interface' in spec) {\n                  if (!(key in spec.Interface)) {\n                      throw new Error(`Interface has no entry \"${String(key)}\"`);\n                  }\n                  nextSpec = spec.Interface[key];\n              }\n              else {\n                  throw new Error('no builder');\n              }\n              return proxyAsAssigner$1(nextSpec, \n              // We use this form here instead of `obj[key]` specifically\n              // to allow Assign to play well with `ProtectedIndex`, which\n              // would raise an error if trying to access an undefined key.\n              key in obj ? obj[key] : undefined, context, _addPath$1(obj, key, path));\n          },\n          set: _proxySetHandlerReadOnly$1,\n      });\n  };\n  proxyAsAssigner$1.ensureValue = (_obj, spec, context, _path, _recursionPath) => {\n      if ('Index' in spec) {\n          return (_obj || spec.indexConstructor(context, _ensurePath$1(_path)));\n      }\n      else if ('Interface' in spec) {\n          const obj = (_obj || {});\n          Object.entries(spec.Interface).forEach(([key, nextSpec]) => {\n              obj[key] = proxyAsAssigner$1.ensureValue(obj[key], nextSpec, context, _addPath$1(obj, key, _path), _addPath$1(obj, key, _recursionPath));\n          });\n          return obj;\n      }\n      else if ('Literal' in spec) {\n          return (_obj || spec.Literal(context, _ensurePath$1(_path)));\n      }\n      else if ('LiteralDefaultNull' in spec) {\n          if (!_recursionPath) {\n              return (_obj ||\n                  spec.LiteralDefaultNull(context, _ensurePath$1(_path)));\n          }\n          else {\n              return (_obj || null);\n          }\n      }\n      else {\n          throw new Error('Invalid Assigner');\n      }\n  };\n  proxyAsAssigner$1.Interface = (a) => ({ Interface: a });\n  proxyAsAssigner$1.Index = (f, indexConstructor) => ({\n      Index: f,\n      indexConstructor: indexConstructor || (() => ({})),\n  });\n  proxyAsAssigner$1.Literal = (f) => ({\n      Literal: f,\n  });\n  proxyAsAssigner$1.LiteralDefaultNull = (f) => ({ LiteralDefaultNull: f });\n  // ---------------------------- proxyAsProtectedIndex ---------------------------- //\n  /**\n   * Helper to declare namespace objects enforcing stricter access rules.\n   * Specifically, it forbids :\n   * - reading an unknown property.\n   * - trying to overwrite an existing property.\n   */\n  const proxyAsProtectedIndex$1 = (namespace, path) => {\n      return new Proxy(namespace, {\n          get: (target, k) => {\n              const key = String(k);\n              if (_proxyGetHandlerThrowIfKeyUnknown$1(target, key, path)) {\n                  return undefined;\n              }\n              return target[key];\n          },\n          set: (target, k, newValue) => {\n              const key = _trimDollarKey$1(String(k));\n              if (target.hasOwnProperty(key)) {\n                  throw new Error(`Key \"${String(key)}\" is protected and cannot be overwritten.`);\n              }\n              else {\n                  target[key] = newValue;\n              }\n              return newValue;\n          },\n      });\n  };\n  const _trimDollarKey$1 = (key) => {\n      const match = /\\$(.*)/.exec(key);\n      if (!match) {\n          return key;\n      }\n      else {\n          return match[1];\n      }\n  };\n\n  /*\n   * Copyright (c) 2022-2023 Sébastien Piquemal <sebpiq@protonmail.com>, Chris McCormick.\n   *\n   * This file is part of WebPd\n   * (see https://github.com/sebpiq/WebPd).\n   *\n   * This program is free software: you can redistribute it and/or modify\n   * it under the terms of the GNU Lesser General Public License as published by\n   * the Free Software Foundation, either version 3 of the License, or\n   * (at your option) any later version.\n   *\n   * This program is distributed in the hope that it will be useful,\n   * but WITHOUT ANY WARRANTY; without even the implied warranty of\n   * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the\n   * GNU Lesser General Public License for more details.\n   *\n   * You should have received a copy of the GNU Lesser General Public License\n   * along with this program. If not, see <http://www.gnu.org/licenses/>.\n   */\n  const getNode$1 = (graph, nodeId) => {\n      const node = graph[nodeId];\n      if (node) {\n          return node;\n      }\n      throw new Error(`Node \"${nodeId}\" not found in graph`);\n  };\n\n  /** Helper to get node implementation or throw an error if not implemented. */\n  const getNodeImplementation$1 = (nodeImplementations, nodeType) => {\n      const nodeImplementation = nodeImplementations[nodeType];\n      if (!nodeImplementation) {\n          throw new Error(`node [${nodeType}] is not implemented`);\n      }\n      return {\n          dependencies: [],\n          ...nodeImplementation,\n      };\n  };\n\n  /*\n   * Copyright (c) 2022-2023 Sébastien Piquemal <sebpiq@protonmail.com>, Chris McCormick.\n   *\n   * This file is part of WebPd\n   * (see https://github.com/sebpiq/WebPd).\n   *\n   * This program is free software: you can redistribute it and/or modify\n   * it under the terms of the GNU Lesser General Public License as published by\n   * the Free Software Foundation, either version 3 of the License, or\n   * (at your option) any later version.\n   *\n   * This program is distributed in the hope that it will be useful,\n   * but WITHOUT ANY WARRANTY; without even the implied warranty of\n   * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the\n   * GNU Lesser General Public License for more details.\n   *\n   * You should have received a copy of the GNU Lesser General Public License\n   * along with this program. If not, see <http://www.gnu.org/licenses/>.\n   */\n  /** Generate an integer series from 0 to `count` (non-inclusive). */\n  const countTo$1 = (count) => {\n      const results = [];\n      for (let i = 0; i < count; i++) {\n          results.push(i);\n      }\n      return results;\n  };\n\n  const Sequence$1 = (content) => ({\n      astType: 'Sequence',\n      content: _processRawContent$1(_intersperse$1(content, countTo$1(content.length - 1).map(() => '\\n'))),\n  });\n  const ast$1 = (strings, ...content) => _preventToString$1({\n      astType: 'Sequence',\n      content: _processRawContent$1(_intersperse$1(strings, content)),\n  });\n  const _processRawContent$1 = (content) => {\n      // 1. Flatten arrays and AstSequence, filter out nulls, and convert numbers to strings\n      // Basically converts input to an Array<AstContent>.\n      const flattenedAndFiltered = content.flatMap((element) => {\n          if (typeof element === 'string') {\n              return [element];\n          }\n          else if (typeof element === 'number') {\n              return [element.toString()];\n          }\n          else {\n              if (element === null) {\n                  return [];\n              }\n              else if (Array.isArray(element)) {\n                  return _processRawContent$1(_intersperse$1(element, countTo$1(element.length - 1).map(() => '\\n')));\n              }\n              else if (typeof element === 'object' &&\n                  element.astType === 'Sequence') {\n                  return element.content;\n              }\n              else {\n                  return [element];\n              }\n          }\n      });\n      // 2. Combine adjacent strings\n      const [combinedContent, remainingString] = flattenedAndFiltered.reduce(([combinedContent, currentString], element) => {\n          if (typeof element === 'string') {\n              return [combinedContent, currentString + element];\n          }\n          else {\n              if (currentString.length) {\n                  return [[...combinedContent, currentString, element], ''];\n              }\n              else {\n                  return [[...combinedContent, element], ''];\n              }\n          }\n      }, [[], '']);\n      if (remainingString.length) {\n          combinedContent.push(remainingString);\n      }\n      return combinedContent;\n  };\n  /**\n   * Intersperse content from array1 with content from array2.\n   * `array1.length` must be equal to `array2.length + 1`.\n   */\n  const _intersperse$1 = (array1, array2) => {\n      if (array1.length === 0) {\n          return [];\n      }\n      return array1.slice(1).reduce((combinedContent, element, i) => {\n          return combinedContent.concat([array2[i], element]);\n      }, [array1[0]]);\n  };\n  /**\n   * Prevents AST elements from being rendered as a string, as this is\n   * most likely an error due to unproper use of `ast`.\n   * Deacivated. Activate for debugging by uncommenting the line below.\n   */\n  const _preventToString$1 = (element) => ({\n      ...element,\n      // Uncomment this to activate\n      // toString: () => { throw new Error(`Rendering element ${elemennt.astType} as string is probably an error`) }\n  });\n\n  /*\n   * Copyright (c) 2022-2023 Sébastien Piquemal <sebpiq@protonmail.com>, Chris McCormick.\n   *\n   * This file is part of WebPd\n   * (see https://github.com/sebpiq/WebPd).\n   *\n   * This program is free software: you can redistribute it and/or modify\n   * it under the terms of the GNU Lesser General Public License as published by\n   * the Free Software Foundation, either version 3 of the License, or\n   * (at your option) any later version.\n   *\n   * This program is distributed in the hope that it will be useful,\n   * but WITHOUT ANY WARRANTY; without even the implied warranty of\n   * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the\n   * GNU Lesser General Public License for more details.\n   *\n   * You should have received a copy of the GNU Lesser General Public License\n   * along with this program. If not, see <http://www.gnu.org/licenses/>.\n   */\n  // ---------------------------- VariableNamesIndex ---------------------------- //\n  const NS$1 = {\n      GLOBALS: 'G',\n      NODES: 'N',\n      NODE_TYPES: 'NT',\n      IO: 'IO',\n      COLD: 'COLD',\n  };\n  proxyAsAssigner$1.Interface({\n      nodes: proxyAsAssigner$1.Index((nodeId) => proxyAsAssigner$1.Interface({\n          signalOuts: proxyAsAssigner$1.Index((portletId) => proxyAsAssigner$1.Literal(() => _name$1(NS$1.NODES, nodeId, 'outs', portletId))),\n          messageSenders: proxyAsAssigner$1.Index((portletId) => proxyAsAssigner$1.Literal(() => _name$1(NS$1.NODES, nodeId, 'snds', portletId))),\n          messageReceivers: proxyAsAssigner$1.Index((portletId) => proxyAsAssigner$1.Literal(() => _name$1(NS$1.NODES, nodeId, 'rcvs', portletId))),\n          state: proxyAsAssigner$1.LiteralDefaultNull(() => _name$1(NS$1.NODES, nodeId, 'state')),\n      })),\n      nodeImplementations: proxyAsAssigner$1.Index((nodeType, { nodeImplementations }) => {\n          const nodeImplementation = getNodeImplementation$1(nodeImplementations, nodeType);\n          const nodeTypePrefix = (nodeImplementation.flags\n              ? nodeImplementation.flags.alphaName\n              : null) || nodeType;\n          return proxyAsAssigner$1.Index((name) => proxyAsAssigner$1.Literal(() => _name$1(NS$1.NODE_TYPES, nodeTypePrefix, name)));\n      }),\n      globals: proxyAsAssigner$1.Index((ns) => proxyAsAssigner$1.Index((name) => {\n          if (['fs'].includes(ns)) {\n              return proxyAsAssigner$1.Literal(() => _name$1(NS$1.GLOBALS, ns, name));\n              // We don't prefix stdlib core module, because these are super\n              // basic functions that are always included in the global scope.\n          }\n          else if (ns === 'core') {\n              return proxyAsAssigner$1.Literal(() => name);\n          }\n          else {\n              return proxyAsAssigner$1.Literal(() => _name$1(NS$1.GLOBALS, ns, name));\n          }\n      })),\n      io: proxyAsAssigner$1.Interface({\n          messageReceivers: proxyAsAssigner$1.Index((nodeId) => proxyAsAssigner$1.Index((inletId) => proxyAsAssigner$1.Literal(() => _name$1(NS$1.IO, 'rcv', nodeId, inletId)))),\n          messageSenders: proxyAsAssigner$1.Index((nodeId) => proxyAsAssigner$1.Index((outletId) => proxyAsAssigner$1.Literal(() => _name$1(NS$1.IO, 'snd', nodeId, outletId)))),\n      }),\n      coldDspGroups: proxyAsAssigner$1.Index((groupId) => proxyAsAssigner$1.Literal(() => _name$1(NS$1.COLD, groupId))),\n  });\n  // ---------------------------- PrecompiledCode ---------------------------- //\n  proxyAsAssigner$1.Interface({\n      graph: proxyAsAssigner$1.Literal((_, path) => ({\n          fullTraversal: [],\n          hotDspGroup: {\n              traversal: [],\n              outNodesIds: [],\n          },\n          coldDspGroups: proxyAsProtectedIndex$1({}, path),\n      })),\n      nodeImplementations: proxyAsAssigner$1.Index((nodeType, { nodeImplementations }) => proxyAsAssigner$1.Literal(() => ({\n          nodeImplementation: getNodeImplementation$1(nodeImplementations, nodeType),\n          stateClass: null,\n          core: null,\n      })), (_, path) => proxyAsProtectedIndex$1({}, path)),\n      nodes: proxyAsAssigner$1.Index((nodeId, { graph }) => proxyAsAssigner$1.Literal(() => ({\n          nodeType: getNode$1(graph, nodeId).type,\n          messageReceivers: {},\n          messageSenders: {},\n          signalOuts: {},\n          signalIns: {},\n          initialization: ast$1 ``,\n          dsp: {\n              loop: ast$1 ``,\n              inlets: {},\n          },\n          state: null,\n      })), (_, path) => proxyAsProtectedIndex$1({}, path)),\n      dependencies: proxyAsAssigner$1.Literal(() => ({\n          imports: [],\n          exports: [],\n          ast: Sequence$1([]),\n      })),\n      io: proxyAsAssigner$1.Interface({\n          messageReceivers: proxyAsAssigner$1.Index((_) => proxyAsAssigner$1.Literal((_, path) => proxyAsProtectedIndex$1({}, path)), (_, path) => proxyAsProtectedIndex$1({}, path)),\n          messageSenders: proxyAsAssigner$1.Index((_) => proxyAsAssigner$1.Literal((_, path) => proxyAsProtectedIndex$1({}, path)), (_, path) => proxyAsProtectedIndex$1({}, path)),\n      }),\n  });\n  // ---------------------------- MISC ---------------------------- //\n  const _name$1 = (...parts) => parts.map(assertValidNamePart$1).join('_');\n  const assertValidNamePart$1 = (namePart) => {\n      const isInvalid = !VALID_NAME_PART_REGEXP$1.exec(namePart);\n      if (isInvalid) {\n          throw new Error(`Invalid variable name for code generation \"${namePart}\"`);\n      }\n      return namePart;\n  };\n  const VALID_NAME_PART_REGEXP$1 = /^[a-zA-Z0-9_]+$/;\n\n  /*\n   * Copyright (c) 2022-2023 Sébastien Piquemal <sebpiq@protonmail.com>, Chris McCormick.\n   *\n   * This file is part of WebPd\n   * (see https://github.com/sebpiq/WebPd).\n   *\n   * This program is free software: you can redistribute it and/or modify\n   * it under the terms of the GNU Lesser General Public License as published by\n   * the Free Software Foundation, either version 3 of the License, or\n   * (at your option) any later version.\n   *\n   * This program is distributed in the hope that it will be useful,\n   * but WITHOUT ANY WARRANTY; without even the implied warranty of\n   * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the\n   * GNU Lesser General Public License for more details.\n   *\n   * You should have received a copy of the GNU Lesser General Public License\n   * along with this program. If not, see <http://www.gnu.org/licenses/>.\n   */\n  const FS_OPERATION_SUCCESS = 0;\n  const FS_OPERATION_FAILURE = 1;\n\n  /*\n   * Copyright (c) 2022-2023 Sébastien Piquemal <sebpiq@protonmail.com>, Chris McCormick.\n   *\n   * This file is part of WebPd\n   * (see https://github.com/sebpiq/WebPd).\n   *\n   * This program is free software: you can redistribute it and/or modify\n   * it under the terms of the GNU Lesser General Public License as published by\n   * the Free Software Foundation, either version 3 of the License, or\n   * (at your option) any later version.\n   *\n   * This program is distributed in the hope that it will be useful,\n   * but WITHOUT ANY WARRANTY; without even the implied warranty of\n   * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the\n   * GNU Lesser General Public License for more details.\n   *\n   * You should have received a copy of the GNU Lesser General Public License\n   * along with this program. If not, see <http://www.gnu.org/licenses/>.\n   */\n  var readSoundFile = async (node, payload, settings) => {\n      if (payload.functionName === 'onReadSoundFile') {\n          const [operationId, url, [channelCount]] = payload.arguments;\n          const absoluteUrl = resolveRelativeUrl(settings.rootUrl, url);\n          let operationStatus = FS_OPERATION_SUCCESS;\n          let sound = null;\n          try {\n              sound = await fakeFs.readSound(absoluteUrl, node.context);\n          }\n          catch (err) {\n              operationStatus = FS_OPERATION_FAILURE;\n              console.error(err);\n          }\n          if (sound) {\n              sound = fixSoundChannelCount(sound, channelCount);\n          }\n          node.port.postMessage({\n              type: 'fs',\n              payload: {\n                  functionName: 'sendReadSoundFileResponse',\n                  arguments: [operationId, operationStatus, sound],\n              },\n          }, \n          // Add as transferables to avoid copies between threads\n          sound.map((array) => array.buffer));\n      }\n      else if (payload.functionName === 'sendReadSoundFileResponse_return') ;\n  };\n\n  /*\n   * Copyright (c) 2022-2023 Sébastien Piquemal <sebpiq@protonmail.com>, Chris McCormick.\n   *\n   * This file is part of WebPd\n   * (see https://github.com/sebpiq/WebPd).\n   *\n   * This program is free software: you can redistribute it and/or modify\n   * it under the terms of the GNU Lesser General Public License as published by\n   * the Free Software Foundation, either version 3 of the License, or\n   * (at your option) any later version.\n   *\n   * This program is distributed in the hope that it will be useful,\n   * but WITHOUT ANY WARRANTY; without even the implied warranty of\n   * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the\n   * GNU Lesser General Public License for more details.\n   *\n   * You should have received a copy of the GNU Lesser General Public License\n   * along with this program. If not, see <http://www.gnu.org/licenses/>.\n   */\n  const BUFFER_HIGH = 10 * 44100;\n  const BUFFER_LOW = BUFFER_HIGH / 2;\n  var readSoundStream = async (node, payload, settings) => {\n      if (payload.functionName === 'onOpenSoundReadStream') {\n          const [operationId, url, [channelCount]] = payload.arguments;\n          try {\n              const absoluteUrl = resolveRelativeUrl(settings.rootUrl, url);\n              await fakeFs.readStreamSound(operationId, absoluteUrl, channelCount, node.context);\n          }\n          catch (err) {\n              console.error(err);\n              node.port.postMessage({\n                  type: 'fs',\n                  payload: {\n                      functionName: 'closeSoundStream',\n                      arguments: [operationId, FS_OPERATION_FAILURE],\n                  },\n              });\n              return;\n          }\n          streamLoop(node, operationId, 0);\n      }\n      else if (payload.functionName === 'sendSoundStreamData_return') {\n          const stream = getStream(payload.operationId);\n          if (!stream) {\n              throw new Error(`unknown stream ${payload.operationId}`);\n          }\n          streamLoop(node, payload.operationId, payload.returned);\n      }\n      else if (payload.functionName === 'closeSoundStream_return') {\n          const stream = getStream(payload.operationId);\n          if (stream) {\n              killStream(payload.operationId);\n          }\n      }\n  };\n  const streamLoop = (node, operationId, framesAvailableInEngine) => {\n      const sampleRate = node.context.sampleRate;\n      const secondsToThreshold = Math.max(framesAvailableInEngine - BUFFER_LOW, 10) / sampleRate;\n      const framesToSend = BUFFER_HIGH -\n          (framesAvailableInEngine - secondsToThreshold * sampleRate);\n      setTimeout(() => {\n          const stream = getStream(operationId);\n          if (!stream) {\n              console.log(`stream ${operationId} was maybe closed`);\n              return;\n          }\n          if (stream.readPosition < stream.frameCount) {\n              const block = pullBlock(stream, framesToSend);\n              node.port.postMessage({\n                  type: 'fs',\n                  payload: {\n                      functionName: 'sendSoundStreamData',\n                      arguments: [operationId, block],\n                  },\n              }, \n              // Add as transferables to avoid copies between threads\n              block.map((array) => array.buffer));\n          }\n          else {\n              node.port.postMessage({\n                  type: 'fs',\n                  payload: {\n                      functionName: 'closeSoundStream',\n                      arguments: [operationId, FS_OPERATION_SUCCESS],\n                  },\n              });\n          }\n      }, secondsToThreshold * 1000);\n  };\n\n  /*\n   * Copyright (c) 2022-2023 Sébastien Piquemal <sebpiq@protonmail.com>, Chris McCormick.\n   *\n   * This file is part of WebPd\n   * (see https://github.com/sebpiq/WebPd).\n   *\n   * This program is free software: you can redistribute it and/or modify\n   * it under the terms of the GNU Lesser General Public License as published by\n   * the Free Software Foundation, either version 3 of the License, or\n   * (at your option) any later version.\n   *\n   * This program is distributed in the hope that it will be useful,\n   * but WITHOUT ANY WARRANTY; without even the implied warranty of\n   * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the\n   * GNU Lesser General Public License for more details.\n   *\n   * You should have received a copy of the GNU Lesser General Public License\n   * along with this program. If not, see <http://www.gnu.org/licenses/>.\n   */\n  var writeSoundFile = async (node, payload, settings) => {\n      if (payload.functionName === 'onWriteSoundFile') {\n          const [operationId, sound, url, [channelCount]] = payload.arguments;\n          const fixedSound = fixSoundChannelCount(sound, channelCount);\n          const absoluteUrl = resolveRelativeUrl(settings.rootUrl, url);\n          await fakeFs.writeSound(fixedSound, absoluteUrl);\n          let operationStatus = FS_OPERATION_SUCCESS;\n          node.port.postMessage({\n              type: 'fs',\n              payload: {\n                  functionName: 'sendWriteSoundFileResponse',\n                  arguments: [operationId, operationStatus],\n              },\n          });\n      }\n      else if (payload.functionName === 'sendWriteSoundFileResponse_return') ;\n  };\n\n  /*\n   * Copyright (c) 2022-2023 Sébastien Piquemal <sebpiq@protonmail.com>, Chris McCormick.\n   *\n   * This file is part of WebPd\n   * (see https://github.com/sebpiq/WebPd).\n   *\n   * This program is free software: you can redistribute it and/or modify\n   * it under the terms of the GNU Lesser General Public License as published by\n   * the Free Software Foundation, either version 3 of the License, or\n   * (at your option) any later version.\n   *\n   * This program is distributed in the hope that it will be useful,\n   * but WITHOUT ANY WARRANTY; without even the implied warranty of\n   * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the\n   * GNU Lesser General Public License for more details.\n   *\n   * You should have received a copy of the GNU Lesser General Public License\n   * along with this program. If not, see <http://www.gnu.org/licenses/>.\n   */\n  var writeSoundStream = async (_, payload, settings) => {\n      if (payload.functionName === 'onOpenSoundWriteStream') {\n          const [operationId, url, [channelCount]] = payload.arguments;\n          const absoluteUrl = resolveRelativeUrl(settings.rootUrl, url);\n          await fakeFs.writeStreamSound(operationId, absoluteUrl, channelCount);\n      }\n      else if (payload.functionName === 'onSoundStreamData') {\n          const [operationId, sound] = payload.arguments;\n          const stream = getStream(operationId);\n          if (!stream) {\n              throw new Error(`unknown stream ${operationId}`);\n          }\n          pushBlock(stream, sound);\n      }\n      else if (payload.functionName === 'closeSoundStream_return') {\n          const stream = getStream(payload.operationId);\n          if (stream) {\n              killStream(payload.operationId);\n          }\n      }\n  };\n\n  var index = async (node, messageEvent, settings) => {\n      const message = messageEvent.data;\n      if (message.type !== 'fs') {\n          throw new Error(`Unknown message type from node ${message.type}`);\n      }\n      const { payload } = message;\n      if (payload.functionName === 'onReadSoundFile' ||\n          payload.functionName === 'sendReadSoundFileResponse_return') {\n          readSoundFile(node, payload, settings);\n      }\n      else if (payload.functionName === 'onOpenSoundReadStream' ||\n          payload.functionName === 'sendSoundStreamData_return') {\n          readSoundStream(node, payload, settings);\n      }\n      else if (payload.functionName === 'onWriteSoundFile' ||\n          payload.functionName === 'sendWriteSoundFileResponse_return') {\n          writeSoundFile(node, payload, settings);\n      }\n      else if (payload.functionName === 'onOpenSoundWriteStream' ||\n          payload.functionName === 'onSoundStreamData') {\n          writeSoundStream(node, payload, settings);\n      }\n      else if (payload.functionName === 'closeSoundStream_return') {\n          writeSoundStream(node, payload, settings);\n          readSoundStream(node, payload, settings);\n      }\n      else if (payload.functionName === 'onCloseSoundStream') {\n          closeSoundStream(node, payload);\n      }\n      else {\n          throw new Error(`Unknown callback ${payload.functionName}`);\n      }\n  };\n\n  var initialize = (...args) => {\n      return registerWebPdWorkletNode(...args);\n  };\n\n  const urlDirName = (url) => {\n      if (isExternalUrl(url)) {\n          return new URL('.', url).href;\n      }\n      else {\n          return new URL('.', new URL(url, document.URL).href).href;\n      }\n  };\n  const isExternalUrl = (urlString) => {\n      try {\n          const url = new URL(urlString);\n          if (url.origin !== new URL(document.URL, document.baseURI).origin) {\n              return true;\n          }\n      }\n      catch (_e) {\n          new URL(urlString, document.baseURI);\n      }\n      return false;\n  };\n\n  /*\n   * Copyright (c) 2022-2023 Sébastien Piquemal <sebpiq@protonmail.com>, Chris McCormick.\n   *\n   * This file is part of WebPd\n   * (see https://github.com/sebpiq/WebPd).\n   *\n   * This program is free software: you can redistribute it and/or modify\n   * it under the terms of the GNU Lesser General Public License as published by\n   * the Free Software Foundation, either version 3 of the License, or\n   * (at your option) any later version.\n   *\n   * This program is distributed in the hope that it will be useful,\n   * but WITHOUT ANY WARRANTY; without even the implied warranty of\n   * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the\n   * GNU Lesser General Public License for more details.\n   *\n   * You should have received a copy of the GNU Lesser General Public License\n   * along with this program. If not, see <http://www.gnu.org/licenses/>.\n   */\n  /** Generate an integer series from 0 to `count` (non-inclusive). */\n  const countTo = (count) => {\n      const results = [];\n      for (let i = 0; i < count; i++) {\n          results.push(i);\n      }\n      return results;\n  };\n\n  const Sequence = (content) => ({\n      astType: 'Sequence',\n      content: _processRawContent(_intersperse(content, countTo(content.length - 1).map(() => '\\n'))),\n  });\n  const ast = (strings, ...content) => _preventToString({\n      astType: 'Sequence',\n      content: _processRawContent(_intersperse(strings, content)),\n  });\n  const _processRawContent = (content) => {\n      // 1. Flatten arrays and AstSequence, filter out nulls, and convert numbers to strings\n      // Basically converts input to an Array<AstContent>.\n      const flattenedAndFiltered = content.flatMap((element) => {\n          if (typeof element === 'string') {\n              return [element];\n          }\n          else if (typeof element === 'number') {\n              return [element.toString()];\n          }\n          else {\n              if (element === null) {\n                  return [];\n              }\n              else if (Array.isArray(element)) {\n                  return _processRawContent(_intersperse(element, countTo(element.length - 1).map(() => '\\n')));\n              }\n              else if (typeof element === 'object' &&\n                  element.astType === 'Sequence') {\n                  return element.content;\n              }\n              else {\n                  return [element];\n              }\n          }\n      });\n      // 2. Combine adjacent strings\n      const [combinedContent, remainingString] = flattenedAndFiltered.reduce(([combinedContent, currentString], element) => {\n          if (typeof element === 'string') {\n              return [combinedContent, currentString + element];\n          }\n          else {\n              if (currentString.length) {\n                  return [[...combinedContent, currentString, element], ''];\n              }\n              else {\n                  return [[...combinedContent, element], ''];\n              }\n          }\n      }, [[], '']);\n      if (remainingString.length) {\n          combinedContent.push(remainingString);\n      }\n      return combinedContent;\n  };\n  /**\n   * Intersperse content from array1 with content from array2.\n   * `array1.length` must be equal to `array2.length + 1`.\n   */\n  const _intersperse = (array1, array2) => {\n      if (array1.length === 0) {\n          return [];\n      }\n      return array1.slice(1).reduce((combinedContent, element, i) => {\n          return combinedContent.concat([array2[i], element]);\n      }, [array1[0]]);\n  };\n  /**\n   * Prevents AST elements from being rendered as a string, as this is\n   * most likely an error due to unproper use of `ast`.\n   * Deacivated. Activate for debugging by uncommenting the line below.\n   */\n  const _preventToString = (element) => ({\n      ...element,\n      // Uncomment this to activate\n      // toString: () => { throw new Error(`Rendering element ${elemennt.astType} as string is probably an error`) }\n  });\n\n  /*\n   * Copyright (c) 2022-2023 Sébastien Piquemal <sebpiq@protonmail.com>, Chris McCormick.\n   *\n   * This file is part of WebPd\n   * (see https://github.com/sebpiq/WebPd).\n   *\n   * This program is free software: you can redistribute it and/or modify\n   * it under the terms of the GNU Lesser General Public License as published by\n   * the Free Software Foundation, either version 3 of the License, or\n   * (at your option) any later version.\n   *\n   * This program is distributed in the hope that it will be useful,\n   * but WITHOUT ANY WARRANTY; without even the implied warranty of\n   * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the\n   * GNU Lesser General Public License for more details.\n   *\n   * You should have received a copy of the GNU Lesser General Public License\n   * along with this program. If not, see <http://www.gnu.org/licenses/>.\n   */\n  const getNode = (graph, nodeId) => {\n      const node = graph[nodeId];\n      if (node) {\n          return node;\n      }\n      throw new Error(`Node \"${nodeId}\" not found in graph`);\n  };\n\n  /** Helper to get node implementation or throw an error if not implemented. */\n  const getNodeImplementation = (nodeImplementations, nodeType) => {\n      const nodeImplementation = nodeImplementations[nodeType];\n      if (!nodeImplementation) {\n          throw new Error(`node [${nodeType}] is not implemented`);\n      }\n      return {\n          dependencies: [],\n          ...nodeImplementation,\n      };\n  };\n\n  const _addPath = (parent, key, _path) => {\n      const path = _ensurePath(_path);\n      return {\n          keys: [...path.keys, key],\n          parents: [...path.parents, parent],\n      };\n  };\n  const _ensurePath = (path) => path || {\n      keys: [],\n      parents: [],\n  };\n  const _proxySetHandlerReadOnly = () => {\n      throw new Error('This Proxy is read-only.');\n  };\n  const _proxyGetHandlerThrowIfKeyUnknown = (target, key, path) => {\n      if (!(key in target)) {\n          // Whitelist some fields that are undefined but accessed at\n          // some point or another by our code.\n          // TODO : find a better way to do this.\n          if ([\n              'toJSON',\n              'Symbol(Symbol.toStringTag)',\n              'constructor',\n              '$typeof',\n              '$$typeof',\n              '@@__IMMUTABLE_ITERABLE__@@',\n              '@@__IMMUTABLE_RECORD__@@',\n              'then',\n          ].includes(key)) {\n              return true;\n          }\n          throw new Error(`namespace${path ? ` <${path.keys.join('.')}>` : ''} doesn't know key \"${String(key)}\"`);\n      }\n      return false;\n  };\n  const proxyAsAssigner = (spec, _obj, context, _path) => {\n      const path = _path || { keys: [], parents: [] };\n      const obj = proxyAsAssigner.ensureValue(_obj, spec, context, path);\n      // If `_path` is provided, assign the new value to the parent object.\n      if (_path) {\n          const parent = _path.parents[_path.parents.length - 1];\n          const key = _path.keys[_path.keys.length - 1];\n          // The only case where we want to overwrite the existing value\n          // is when it was a `null` assigned by `LiteralDefaultNull`, and\n          // we want to set the real value instead.\n          if (!(key in parent) || 'LiteralDefaultNull' in spec) {\n              parent[key] = obj;\n          }\n      }\n      // If the object is a Literal, end of the recursion.\n      if ('Literal' in spec || 'LiteralDefaultNull' in spec) {\n          return obj;\n      }\n      return new Proxy(obj, {\n          get: (_, k) => {\n              const key = String(k);\n              let nextSpec;\n              if ('Index' in spec) {\n                  nextSpec = spec.Index(key, context, path);\n              }\n              else if ('Interface' in spec) {\n                  if (!(key in spec.Interface)) {\n                      throw new Error(`Interface has no entry \"${String(key)}\"`);\n                  }\n                  nextSpec = spec.Interface[key];\n              }\n              else {\n                  throw new Error('no builder');\n              }\n              return proxyAsAssigner(nextSpec, \n              // We use this form here instead of `obj[key]` specifically\n              // to allow Assign to play well with `ProtectedIndex`, which\n              // would raise an error if trying to access an undefined key.\n              key in obj ? obj[key] : undefined, context, _addPath(obj, key, path));\n          },\n          set: _proxySetHandlerReadOnly,\n      });\n  };\n  proxyAsAssigner.ensureValue = (_obj, spec, context, _path, _recursionPath) => {\n      if ('Index' in spec) {\n          return (_obj || spec.indexConstructor(context, _ensurePath(_path)));\n      }\n      else if ('Interface' in spec) {\n          const obj = (_obj || {});\n          Object.entries(spec.Interface).forEach(([key, nextSpec]) => {\n              obj[key] = proxyAsAssigner.ensureValue(obj[key], nextSpec, context, _addPath(obj, key, _path), _addPath(obj, key, _recursionPath));\n          });\n          return obj;\n      }\n      else if ('Literal' in spec) {\n          return (_obj || spec.Literal(context, _ensurePath(_path)));\n      }\n      else if ('LiteralDefaultNull' in spec) {\n          if (!_recursionPath) {\n              return (_obj ||\n                  spec.LiteralDefaultNull(context, _ensurePath(_path)));\n          }\n          else {\n              return (_obj || null);\n          }\n      }\n      else {\n          throw new Error('Invalid Assigner');\n      }\n  };\n  proxyAsAssigner.Interface = (a) => ({ Interface: a });\n  proxyAsAssigner.Index = (f, indexConstructor) => ({\n      Index: f,\n      indexConstructor: indexConstructor || (() => ({})),\n  });\n  proxyAsAssigner.Literal = (f) => ({\n      Literal: f,\n  });\n  proxyAsAssigner.LiteralDefaultNull = (f) => ({ LiteralDefaultNull: f });\n  // ---------------------------- proxyAsProtectedIndex ---------------------------- //\n  /**\n   * Helper to declare namespace objects enforcing stricter access rules.\n   * Specifically, it forbids :\n   * - reading an unknown property.\n   * - trying to overwrite an existing property.\n   */\n  const proxyAsProtectedIndex = (namespace, path) => {\n      return new Proxy(namespace, {\n          get: (target, k) => {\n              const key = String(k);\n              if (_proxyGetHandlerThrowIfKeyUnknown(target, key, path)) {\n                  return undefined;\n              }\n              return target[key];\n          },\n          set: (target, k, newValue) => {\n              const key = _trimDollarKey(String(k));\n              if (target.hasOwnProperty(key)) {\n                  throw new Error(`Key \"${String(key)}\" is protected and cannot be overwritten.`);\n              }\n              else {\n                  target[key] = newValue;\n              }\n              return newValue;\n          },\n      });\n  };\n  const _trimDollarKey = (key) => {\n      const match = /\\$(.*)/.exec(key);\n      if (!match) {\n          return key;\n      }\n      else {\n          return match[1];\n      }\n  };\n\n  /*\n   * Copyright (c) 2022-2023 Sébastien Piquemal <sebpiq@protonmail.com>, Chris McCormick.\n   *\n   * This file is part of WebPd\n   * (see https://github.com/sebpiq/WebPd).\n   *\n   * This program is free software: you can redistribute it and/or modify\n   * it under the terms of the GNU Lesser General Public License as published by\n   * the Free Software Foundation, either version 3 of the License, or\n   * (at your option) any later version.\n   *\n   * This program is distributed in the hope that it will be useful,\n   * but WITHOUT ANY WARRANTY; without even the implied warranty of\n   * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the\n   * GNU Lesser General Public License for more details.\n   *\n   * You should have received a copy of the GNU Lesser General Public License\n   * along with this program. If not, see <http://www.gnu.org/licenses/>.\n   */\n  // ---------------------------- VariableNamesIndex ---------------------------- //\n  const NS = {\n      GLOBALS: 'G',\n      NODES: 'N',\n      NODE_TYPES: 'NT',\n      IO: 'IO',\n      COLD: 'COLD',\n  };\n  proxyAsAssigner.Interface({\n      nodes: proxyAsAssigner.Index((nodeId) => proxyAsAssigner.Interface({\n          signalOuts: proxyAsAssigner.Index((portletId) => proxyAsAssigner.Literal(() => _name(NS.NODES, nodeId, 'outs', portletId))),\n          messageSenders: proxyAsAssigner.Index((portletId) => proxyAsAssigner.Literal(() => _name(NS.NODES, nodeId, 'snds', portletId))),\n          messageReceivers: proxyAsAssigner.Index((portletId) => proxyAsAssigner.Literal(() => _name(NS.NODES, nodeId, 'rcvs', portletId))),\n          state: proxyAsAssigner.LiteralDefaultNull(() => _name(NS.NODES, nodeId, 'state')),\n      })),\n      nodeImplementations: proxyAsAssigner.Index((nodeType, { nodeImplementations }) => {\n          const nodeImplementation = getNodeImplementation(nodeImplementations, nodeType);\n          const nodeTypePrefix = (nodeImplementation.flags\n              ? nodeImplementation.flags.alphaName\n              : null) || nodeType;\n          return proxyAsAssigner.Index((name) => proxyAsAssigner.Literal(() => _name(NS.NODE_TYPES, nodeTypePrefix, name)));\n      }),\n      globals: proxyAsAssigner.Index((ns) => proxyAsAssigner.Index((name) => {\n          if (['fs'].includes(ns)) {\n              return proxyAsAssigner.Literal(() => _name(NS.GLOBALS, ns, name));\n              // We don't prefix stdlib core module, because these are super\n              // basic functions that are always included in the global scope.\n          }\n          else if (ns === 'core') {\n              return proxyAsAssigner.Literal(() => name);\n          }\n          else {\n              return proxyAsAssigner.Literal(() => _name(NS.GLOBALS, ns, name));\n          }\n      })),\n      io: proxyAsAssigner.Interface({\n          messageReceivers: proxyAsAssigner.Index((nodeId) => proxyAsAssigner.Index((inletId) => proxyAsAssigner.Literal(() => _name(NS.IO, 'rcv', nodeId, inletId)))),\n          messageSenders: proxyAsAssigner.Index((nodeId) => proxyAsAssigner.Index((outletId) => proxyAsAssigner.Literal(() => _name(NS.IO, 'snd', nodeId, outletId)))),\n      }),\n      coldDspGroups: proxyAsAssigner.Index((groupId) => proxyAsAssigner.Literal(() => _name(NS.COLD, groupId))),\n  });\n  // ---------------------------- PrecompiledCode ---------------------------- //\n  proxyAsAssigner.Interface({\n      graph: proxyAsAssigner.Literal((_, path) => ({\n          fullTraversal: [],\n          hotDspGroup: {\n              traversal: [],\n              outNodesIds: [],\n          },\n          coldDspGroups: proxyAsProtectedIndex({}, path),\n      })),\n      nodeImplementations: proxyAsAssigner.Index((nodeType, { nodeImplementations }) => proxyAsAssigner.Literal(() => ({\n          nodeImplementation: getNodeImplementation(nodeImplementations, nodeType),\n          stateClass: null,\n          core: null,\n      })), (_, path) => proxyAsProtectedIndex({}, path)),\n      nodes: proxyAsAssigner.Index((nodeId, { graph }) => proxyAsAssigner.Literal(() => ({\n          nodeType: getNode(graph, nodeId).type,\n          messageReceivers: {},\n          messageSenders: {},\n          signalOuts: {},\n          signalIns: {},\n          initialization: ast ``,\n          dsp: {\n              loop: ast ``,\n              inlets: {},\n          },\n          state: null,\n      })), (_, path) => proxyAsProtectedIndex({}, path)),\n      dependencies: proxyAsAssigner.Literal(() => ({\n          imports: [],\n          exports: [],\n          ast: Sequence([]),\n      })),\n      io: proxyAsAssigner.Interface({\n          messageReceivers: proxyAsAssigner.Index((_) => proxyAsAssigner.Literal((_, path) => proxyAsProtectedIndex({}, path)), (_, path) => proxyAsProtectedIndex({}, path)),\n          messageSenders: proxyAsAssigner.Index((_) => proxyAsAssigner.Literal((_, path) => proxyAsProtectedIndex({}, path)), (_, path) => proxyAsProtectedIndex({}, path)),\n      }),\n  });\n  // ---------------------------- MISC ---------------------------- //\n  const _name = (...parts) => parts.map(assertValidNamePart).join('_');\n  const assertValidNamePart = (namePart) => {\n      const isInvalid = !VALID_NAME_PART_REGEXP.exec(namePart);\n      if (isInvalid) {\n          throw new Error(`Invalid variable name for code generation \"${namePart}\"`);\n      }\n      return namePart;\n  };\n  const VALID_NAME_PART_REGEXP = /^[a-zA-Z0-9_]+$/;\n\n  /*\n   * Copyright (c) 2022-2023 Sébastien Piquemal <sebpiq@protonmail.com>, Chris McCormick.\n   *\n   * This file is part of WebPd\n   * (see https://github.com/sebpiq/WebPd).\n   *\n   * This program is free software: you can redistribute it and/or modify\n   * it under the terms of the GNU Lesser General Public License as published by\n   * the Free Software Foundation, either version 3 of the License, or\n   * (at your option) any later version.\n   *\n   * This program is distributed in the hope that it will be useful,\n   * but WITHOUT ANY WARRANTY; without even the implied warranty of\n   * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the\n   * GNU Lesser General Public License for more details.\n   *\n   * You should have received a copy of the GNU Lesser General Public License\n   * along with this program. If not, see <http://www.gnu.org/licenses/>.\n   */\n  // NOTE : not necessarily the most logical place to put this function, but we need it here\n  // cause it's imported by the bindings.\n  const getFloatArrayType = (bitDepth) => bitDepth === 64 ? Float64Array : Float32Array;\n  const proxyAsModuleWithBindings = (rawModule, bindings) => \n  // Use empty object on proxy cause proxy cannot redefine access of member of its target,\n  // which causes issues for example for WebAssembly exports.\n  // See : https://stackoverflow.com/questions/75148897/get-on-proxy-property-items-is-a-read-only-and-non-configurable-data-proper\n  new Proxy({}, {\n      get: (_, k) => {\n          if (bindings.hasOwnProperty(k)) {\n              const key = String(k);\n              const bindingSpec = bindings[key];\n              switch (bindingSpec.type) {\n                  case 'raw':\n                      // Cannot use hasOwnProperty here cause not defined in wasm exports object\n                      if (k in rawModule) {\n                          return rawModule[key];\n                      }\n                      else {\n                          throw new Error(`Key ${String(key)} doesn't exist in raw module`);\n                      }\n                  case 'proxy':\n                  case 'callback':\n                      return bindingSpec.value;\n              }\n              // We need to return undefined here for compatibility with various APIs\n              // which inspect object's attributes.\n          }\n          else {\n              return undefined;\n          }\n      },\n      has: function (_, k) {\n          return k in bindings;\n      },\n      set: (_, k, newValue) => {\n          if (bindings.hasOwnProperty(String(k))) {\n              const key = String(k);\n              const bindingSpec = bindings[key];\n              if (bindingSpec.type === 'callback') {\n                  bindingSpec.value = newValue;\n              }\n              else {\n                  throw new Error(`Binding key ${String(key)} is read-only`);\n              }\n          }\n          else {\n              throw new Error(`Key ${String(k)} is not defined in bindings`);\n          }\n          return true;\n      },\n  });\n  /**\n   * Reverse-maps exported variable names from `rawModule` according to the mapping defined\n   * in `variableNamesIndex`.\n   *\n   * For example with :\n   *\n   * ```\n   * const variableNamesIndex = {\n   *     globals: {\n   *         // ...\n   *         fs: {\n   *             // ...\n   *             readFile: 'g_fs_readFile'\n   *         },\n   *     }\n   * }\n   * ```\n   *\n   * The function `g_fs_readFile` (if it is exported properly by the raw module), will then\n   * be available on the returned object at path `.globals.fs.readFile`.\n   */\n  const proxyWithEngineNameMapping = (rawModule, variableNamesIndex) => proxyWithNameMapping(rawModule, {\n      globals: variableNamesIndex.globals,\n      io: variableNamesIndex.io,\n  });\n  const proxyWithNameMapping = (rawModule, variableNamesIndex) => {\n      if (typeof variableNamesIndex === 'string') {\n          return rawModule[variableNamesIndex];\n      }\n      else if (typeof variableNamesIndex === 'object') {\n          return new Proxy(rawModule, {\n              get: (_, k) => {\n                  const key = String(k);\n                  if (key in rawModule) {\n                      return Reflect.get(rawModule, key);\n                  }\n                  else if (key in variableNamesIndex) {\n                      const nextVariableNames = variableNamesIndex[key];\n                      return proxyWithNameMapping(rawModule, nextVariableNames);\n                  }\n                  else if (_proxyGetHandlerThrowIfKeyUnknown(rawModule, key)) {\n                      return undefined;\n                  }\n              },\n              has: function (_, k) {\n                  return k in rawModule || k in variableNamesIndex;\n              },\n              set: (_, k, value) => {\n                  const key = String(k);\n                  if (key in variableNamesIndex) {\n                      const variableName = variableNamesIndex[key];\n                      if (typeof variableName !== 'string') {\n                          throw new Error(`Failed to set value for key ${String(k)}: variable name is not a string`);\n                      }\n                      return Reflect.set(rawModule, variableName, value);\n                  }\n                  else {\n                      throw new Error(`Key ${String(k)} is not defined in raw module`);\n                  }\n              },\n          });\n      }\n      else {\n          throw new Error(`Invalid name mapping`);\n      }\n  };\n\n  /*\n   * Copyright (c) 2022-2023 Sébastien Piquemal <sebpiq@protonmail.com>, Chris McCormick.\n   *\n   * This file is part of WebPd\n   * (see https://github.com/sebpiq/WebPd).\n   *\n   * This program is free software: you can redistribute it and/or modify\n   * it under the terms of the GNU Lesser General Public License as published by\n   * the Free Software Foundation, either version 3 of the License, or\n   * (at your option) any later version.\n   *\n   * This program is distributed in the hope that it will be useful,\n   * but WITHOUT ANY WARRANTY; without even the implied warranty of\n   * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the\n   * GNU Lesser General Public License for more details.\n   *\n   * You should have received a copy of the GNU Lesser General Public License\n   * along with this program. If not, see <http://www.gnu.org/licenses/>.\n   */\n  /** @copyright Assemblyscript ESM bindings */\n  const liftString = (rawModule, pointer) => {\n      if (!pointer) {\n          throw new Error('Cannot lift a null pointer');\n      }\n      pointer = pointer >>> 0;\n      const end = (pointer +\n          new Uint32Array(rawModule.memory.buffer)[(pointer - 4) >>> 2]) >>>\n          1;\n      const memoryU16 = new Uint16Array(rawModule.memory.buffer);\n      let start = pointer >>> 1;\n      let string = '';\n      while (end - start > 1024) {\n          string += String.fromCharCode(...memoryU16.subarray(start, (start += 1024)));\n      }\n      return string + String.fromCharCode(...memoryU16.subarray(start, end));\n  };\n\n  /*\n   * Copyright (c) 2022-2023 Sébastien Piquemal <sebpiq@protonmail.com>, Chris McCormick.\n   *\n   * This file is part of WebPd\n   * (see https://github.com/sebpiq/WebPd).\n   *\n   * This program is free software: you can redistribute it and/or modify\n   * it under the terms of the GNU Lesser General Public License as published by\n   * the Free Software Foundation, either version 3 of the License, or\n   * (at your option) any later version.\n   *\n   * This program is distributed in the hope that it will be useful,\n   * but WITHOUT ANY WARRANTY; without even the implied warranty of\n   * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the\n   * GNU Lesser General Public License for more details.\n   *\n   * You should have received a copy of the GNU Lesser General Public License\n   * along with this program. If not, see <http://www.gnu.org/licenses/>.\n   */\n  // REF : Assemblyscript ESM bindings\n  const instantiateWasmModule = async (wasmBuffer, wasmImports = {}) => {\n      const instanceAndModule = await WebAssembly.instantiate(wasmBuffer, {\n          env: {\n              abort: (messagePointer, \n              // filename, not useful because we compile everything to a single string\n              _, lineNumber, columnNumber) => {\n                  const message = liftString(wasmExports, messagePointer);\n                  lineNumber = lineNumber;\n                  columnNumber = columnNumber;\n                  (() => {\n                      // @external.js\n                      throw Error(`${message} at ${lineNumber}:${columnNumber}`);\n                  })();\n              },\n              seed: () => {\n                  return (() => {\n                      return Date.now() * Math.random();\n                  })();\n              },\n              'console.log': (textPointer) => {\n                  console.log(liftString(wasmExports, textPointer));\n              },\n          },\n          ...wasmImports,\n      });\n      const wasmExports = instanceAndModule.instance\n          .exports;\n      return instanceAndModule.instance;\n  };\n\n  const readMetadata$2 = async (wasmBuffer) => {\n      // In order to read metadata, we need to introspect the module to get the imports\n      const inputImports = {};\n      const wasmModule = WebAssembly.Module.imports(new WebAssembly.Module(wasmBuffer));\n      // Then we generate dummy functions to be able to instantiate the module\n      wasmModule\n          .filter((imprt) => imprt.module === 'input' && imprt.kind === 'function')\n          .forEach((imprt) => (inputImports[imprt.name] = () => undefined));\n      const wasmInstance = await instantiateWasmModule(wasmBuffer, {\n          input: inputImports,\n      });\n      // Finally, once the module instantiated, we read the metadata\n      const rawModule = wasmInstance.exports;\n      const stringPointer = rawModule.metadata.valueOf();\n      const metadataJSON = liftString(rawModule, stringPointer);\n      return JSON.parse(metadataJSON);\n  };\n\n  const createFsModule = (rawModule) => {\n      const fsExportedNames = rawModule.metadata.compilation.variableNamesIndex.globals.fs;\n      const fs = proxyAsModuleWithBindings(rawModule, {\n          onReadSoundFile: { type: 'callback', value: () => undefined },\n          onWriteSoundFile: { type: 'callback', value: () => undefined },\n          onOpenSoundReadStream: { type: 'callback', value: () => undefined },\n          onOpenSoundWriteStream: { type: 'callback', value: () => undefined },\n          onSoundStreamData: { type: 'callback', value: () => undefined },\n          onCloseSoundStream: { type: 'callback', value: () => undefined },\n          sendReadSoundFileResponse: {\n              type: 'proxy',\n              value: 'x_onReadSoundFileResponse' in fsExportedNames\n                  ? rawModule.globals.fs.x_onReadSoundFileResponse\n                  : undefined,\n          },\n          sendWriteSoundFileResponse: {\n              type: 'proxy',\n              value: 'x_onWriteSoundFileResponse' in fsExportedNames\n                  ? rawModule.globals.fs.x_onWriteSoundFileResponse\n                  : undefined,\n          },\n          // should register the operation success { bitDepth: 32, target: 'javascript' }\n          sendSoundStreamData: {\n              type: 'proxy',\n              value: 'x_onSoundStreamData' in fsExportedNames\n                  ? rawModule.globals.fs.x_onSoundStreamData\n                  : undefined,\n          },\n          closeSoundStream: {\n              type: 'proxy',\n              value: 'x_onCloseSoundStream' in fsExportedNames\n                  ? rawModule.globals.fs.x_onCloseSoundStream\n                  : undefined,\n          },\n      });\n      if ('i_openSoundWriteStream' in fsExportedNames) {\n          rawModule.globals.fs.i_openSoundWriteStream = (...args) => fs.onOpenSoundWriteStream(...args);\n      }\n      if ('i_sendSoundStreamData' in fsExportedNames) {\n          rawModule.globals.fs.i_sendSoundStreamData = (...args) => fs.onSoundStreamData(...args);\n      }\n      if ('i_openSoundReadStream' in fsExportedNames) {\n          rawModule.globals.fs.i_openSoundReadStream = (...args) => fs.onOpenSoundReadStream(...args);\n      }\n      if ('i_closeSoundStream' in fsExportedNames) {\n          rawModule.globals.fs.i_closeSoundStream = (...args) => fs.onCloseSoundStream(...args);\n      }\n      if ('i_writeSoundFile' in fsExportedNames) {\n          rawModule.globals.fs.i_writeSoundFile = (...args) => fs.onWriteSoundFile(...args);\n      }\n      if ('i_readSoundFile' in fsExportedNames) {\n          rawModule.globals.fs.i_readSoundFile = (...args) => fs.onReadSoundFile(...args);\n      }\n      return fs;\n  };\n\n  const createCommonsModule = (rawModule, metadata) => {\n      const floatArrayType = getFloatArrayType(metadata.settings.audio.bitDepth);\n      return proxyAsModuleWithBindings(rawModule, {\n          getArray: {\n              type: 'proxy',\n              value: (arrayName) => rawModule.globals.commons.getArray(arrayName),\n          },\n          setArray: {\n              type: 'proxy',\n              value: (arrayName, array) => rawModule.globals.commons.setArray(arrayName, new floatArrayType(array)),\n          },\n      });\n  };\n\n  /*\n   * Copyright (c) 2022-2023 Sébastien Piquemal <sebpiq@protonmail.com>, Chris McCormick.\n   *\n   * This file is part of WebPd\n   * (see https://github.com/sebpiq/WebPd).\n   *\n   * This program is free software: you can redistribute it and/or modify\n   * it under the terms of the GNU Lesser General Public License as published by\n   * the Free Software Foundation, either version 3 of the License, or\n   * (at your option) any later version.\n   *\n   * This program is distributed in the hope that it will be useful,\n   * but WITHOUT ANY WARRANTY; without even the implied warranty of\n   * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the\n   * GNU Lesser General Public License for more details.\n   *\n   * You should have received a copy of the GNU Lesser General Public License\n   * along with this program. If not, see <http://www.gnu.org/licenses/>.\n   */\n  /**\n   * These bindings enable easier interaction with modules generated with our JavaScript compilation.\n   * For example : instantiation, passing data back and forth, etc ...\n   *\n   * **Warning** : These bindings are compiled with rollup as a standalone JS module for inclusion in other libraries.\n   * In consequence, they are meant to be kept lightweight, and should avoid importing dependencies.\n   *\n   * @module\n   */\n  const compileRawModule = (code) => new Function(`\n        ${code}\n        return exports\n    `)();\n  const createEngineBindings = (rawModule) => {\n      const exportedNames = rawModule.metadata.compilation.variableNamesIndex.globals;\n      const globalsBindings = {\n          commons: {\n              type: 'proxy',\n              value: createCommonsModule(rawModule, rawModule.metadata),\n          },\n      };\n      if ('fs' in exportedNames) {\n          globalsBindings.fs = { type: 'proxy', value: createFsModule(rawModule) };\n      }\n      return {\n          metadata: { type: 'raw' },\n          initialize: { type: 'raw' },\n          dspLoop: { type: 'raw' },\n          io: { type: 'raw' },\n          globals: {\n              type: 'proxy',\n              value: proxyAsModuleWithBindings(rawModule, globalsBindings),\n          },\n      };\n  };\n  const createEngine = (code, additionalBindings) => {\n      const rawModule = compileRawModule(code);\n      const rawModuleWithNameMapping = proxyWithEngineNameMapping(rawModule, rawModule.metadata.compilation.variableNamesIndex);\n      return proxyAsModuleWithBindings(rawModule, {\n          ...createEngineBindings(rawModuleWithNameMapping),\n          ...(additionalBindings || {}),\n      });\n  };\n\n  const readMetadata$1 = async (target, compiled) => {\n      switch (target) {\n          case 'assemblyscript':\n              return readMetadata$2(compiled);\n          case 'javascript':\n              return createEngine(compiled).metadata;\n      }\n  };\n\n  const defaultSettingsForRun = (patchUrl, messageSender) => {\n      const rootUrl = urlDirName(patchUrl);\n      return {\n          messageHandler: (node, messageEvent) => {\n              const message = messageEvent.data;\n              switch (message.type) {\n                  case 'fs':\n                      return index(node, messageEvent, { rootUrl });\n                  case 'io:messageSender':\n                      if (messageSender) {\n                          messageSender(message.payload.nodeId, message.payload.portletId, message.payload.message);\n                      }\n                      return null;\n                  default:\n                      return null;\n              }\n          },\n      };\n  };\n  const readMetadata = (compiledPatch) => {\n      if (typeof compiledPatch === 'string') {\n          return readMetadata$1('javascript', compiledPatch);\n      }\n      else {\n          return readMetadata$1('assemblyscript', compiledPatch);\n      }\n  };\n\n  var run = async (audioContext, compiledPatch, settings) => {\n      const { messageHandler } = settings;\n      const webpdNode = new WebPdWorkletNode(audioContext);\n      webpdNode.port.onmessage = (msg) => messageHandler(webpdNode, msg);\n      if (typeof compiledPatch === 'string') {\n          webpdNode.port.postMessage({\n              type: 'code:JS',\n              payload: {\n                  jsCode: compiledPatch,\n              },\n          });\n      }\n      else {\n          webpdNode.port.postMessage({\n              type: 'code:WASM',\n              payload: {\n                  wasmBuffer: compiledPatch,\n              },\n          });\n      }\n      return webpdNode;\n  };\n\n  exports.defaultSettingsForRun = defaultSettingsForRun;\n  exports.initialize = initialize;\n  exports.readMetadata = readMetadata;\n  exports.run = run;\n\n  return exports;\n\n})({});\n";
 
 /*
  * Copyright (c) 2022-2023 Sébastien Piquemal <sebpiq@protonmail.com>, Chris McCormick.
@@ -4503,6 +4600,13 @@ const resolvePatch = (pd, patchId) => {
         throw new Error(`Patch ${patchId} not found`);
     }
     return patch;
+};
+const resolveRootPatch = (pd) => {
+    const rootPatch = pd.patches[pd.rootPatchId];
+    if (!rootPatch) {
+        throw new Error(`Could not resolve root patch`);
+    }
+    return rootPatch;
 };
 const resolvePdNode = (patch, nodeId) => {
     const pdNode = patch.nodes[nodeId];
@@ -4582,7 +4686,7 @@ var instantiateAbstractions = async (pd, nodeBuilders, abstractionLoader) => {
         warnings: {},
         abstractionLoader,
     };
-    const rootPatch = _resolveRootPatch$1(compilation.pd);
+    const rootPatch = resolveRootPatch(compilation.pd);
     Object.values(compilation.pd.arrays).forEach((array) => (array.args = resolveArrayDollarArgs(rootPatch, array.args)));
     await _instantiateAbstractionsRecurs(compilation, rootPatch, rootPatch, namemap);
     const hasErrors = Object.keys(compilation.errors).length;
@@ -4647,7 +4751,7 @@ const _instantiateAbstractionsRecurs = async (compilation, rootPatch, patch, nam
         // the global ids of its patches and arrays, might clash with the ids
         // in our `pd` object. Therefore, we need to reassign these ids.
         const [newNamemap, abstractionInstance] = _reassignUniquePdGlobalIds(pd, resolutionResult.pd);
-        const newRootPatch = _resolveRootPatch$1(abstractionInstance);
+        const newRootPatch = resolveRootPatch(abstractionInstance);
         // Replace the abstraction node by a subpatch node, so that the abstraction
         // can be dealt with the same way a subpatch is handled.
         pdNode = patch.nodes[pdNode.id] = {
@@ -4674,13 +4778,6 @@ const _instantiateAbstractionsRecurs = async (compilation, rootPatch, patch, nam
         };
         await _instantiateAbstractionsRecurs(compilation, newRootPatch, newRootPatch, newNamemap);
     }
-};
-const _resolveRootPatch$1 = (pd) => {
-    const rootPatch = pd.patches[pd.rootPatchId];
-    if (!rootPatch) {
-        throw new Error(`Could not resolve root patch`);
-    }
-    return rootPatch;
 };
 const _resolveAbstraction = async (compilation, nodeType, abstractionLoader) => {
     if (!compilation.abstractions[nodeType]) {
@@ -5011,7 +5108,7 @@ const buildGraphNodeId = (patchId, nodeLocalId) => {
 };
 const buildGraphPortletId = (pdPortletId) => pdPortletId.toString(10);
 /** Node id for nodes added while converting from PdJson */
-const buildImplicitGraphNodeId = (sink, nodeType) => {
+const _buildImplicitGraphNodeId = (sink, nodeType) => {
     nodeType = nodeType.replaceAll(/[^a-zA-Z0-9_]/g, '');
     return `${IdNamespaces.IMPLICIT_NODE}_${sink.nodeId}_${sink.portletId}_${nodeType}`;
 };
@@ -5037,7 +5134,7 @@ var toDspGraph = async (pd, nodeBuilders$1, abstractionLoader = async (nodeType)
         nodeBuilders: nodeBuilders$1,
         graph: {},
     };
-    const rootPatch = _resolveRootPatch(pdWithResolvedAbstractions);
+    const rootPatch = resolveRootPatch(pdWithResolvedAbstractions);
     _traversePatches(compilation, [rootPatch], _buildNodes);
     _buildConnections(compilation, [rootPatch]);
     Object.values(compilation.graph).forEach((node) => {
@@ -5186,7 +5283,7 @@ const _buildConnectionToSignalSink = (graph, signalSources, messageSources, sink
             channelCount: signalSources.length,
         };
         const implicitMixerNode = addNode(graph, {
-            ...nodeDefaults(buildImplicitGraphNodeId(sink, IMPLICIT_NODE_TYPES.MIXER), IMPLICIT_NODE_TYPES.MIXER),
+            ...nodeDefaults(_buildImplicitGraphNodeId(sink, IMPLICIT_NODE_TYPES.MIXER), IMPLICIT_NODE_TYPES.MIXER),
             args: mixerNodeArgs,
             ...builder$R.build(mixerNodeArgs),
         });
@@ -5209,7 +5306,7 @@ const _buildConnectionToSignalSink = (graph, signalSources, messageSources, sink
                 : 0,
         };
         implicitSigNode = addNode(graph, {
-            ...nodeDefaults(buildImplicitGraphNodeId(sink, IMPLICIT_NODE_TYPES.CONSTANT_SIGNAL), IMPLICIT_NODE_TYPES.CONSTANT_SIGNAL),
+            ...nodeDefaults(_buildImplicitGraphNodeId(sink, IMPLICIT_NODE_TYPES.CONSTANT_SIGNAL), IMPLICIT_NODE_TYPES.CONSTANT_SIGNAL),
             args: sigNodeArgs,
             ...builder$Q.build(sigNodeArgs),
         });
@@ -5226,7 +5323,7 @@ const _buildConnectionToSignalSink = (graph, signalSources, messageSources, sink
     if (messageSources.length) {
         const routeMsgArgs = {};
         const implicitRouteMsgNode = addNode(graph, {
-            ...nodeDefaults(buildImplicitGraphNodeId(sink, IMPLICIT_NODE_TYPES.ROUTE_MSG), IMPLICIT_NODE_TYPES.ROUTE_MSG),
+            ...nodeDefaults(_buildImplicitGraphNodeId(sink, IMPLICIT_NODE_TYPES.ROUTE_MSG), IMPLICIT_NODE_TYPES.ROUTE_MSG),
             args: routeMsgArgs,
             ...builder$P.build(routeMsgArgs),
         });
@@ -5447,13 +5544,6 @@ const _rootPatch = (patchPath) => {
     }
     return firstRootPatch;
 };
-const _resolveRootPatch = (pd) => {
-    const rootPatch = pd.patches[pd.rootPatchId];
-    if (!rootPatch) {
-        throw new Error(`Could not resolve root patch`);
-    }
-    return rootPatch;
-};
 const _resolveSubpatchPortletNode = (portletNodeIds, portletId) => {
     const pdNodeId = portletNodeIds[portletId];
     if (pdNodeId === undefined) {
@@ -5473,627 +5563,189 @@ const _arePdGlobEndpointsEqual = ([pp1, ep1], [pp2, ep2]) => _currentPatch(pp1).
     ep1.nodeId === ep2.nodeId &&
     ep1.portletId === ep2.portletId;
 
-const EMPTY_BUS_NAME = 'empty';
-const build = () => ({
-    inlets: {
-        '0': { type: 'message', id: '0' },
-    },
-    outlets: {
-        '0': { type: 'message', id: '0' },
-    },
-    // This is always true, because the object can receive 
-    // messages through message bus
-    isPushingMessages: true
-});
-const controlsCore = (ns, { msg, msgBuses }) => Sequence$1([
-    Func$2(ns.setReceiveBusName, [
-        Var$2(ns.State, `state`),
-        Var$2(`string`, `busName`),
-    ], 'void') `
-            if (state.receiveBusName !== "${EMPTY_BUS_NAME}") {
-                ${msgBuses.unsubscribe}(state.receiveBusName, state.messageReceiver)
-            }
-            state.receiveBusName = busName
-            if (state.receiveBusName !== "${EMPTY_BUS_NAME}") {
-                ${msgBuses.subscribe}(state.receiveBusName, state.messageReceiver)
-            }
-        `,
-    Func$2(ns.setSendReceiveFromMessage, [
-        Var$2(ns.State, `state`),
-        Var$2(msg.Message, `m`),
-    ], 'boolean') `
-            if (
-                ${msg.isMatching}(m, [${msg.STRING_TOKEN}, ${msg.STRING_TOKEN}])
-                && ${msg.readStringToken}(m, 0) === 'receive'
-            ) {
-                ${ns.setReceiveBusName}(state, ${msg.readStringToken}(m, 1))
-                return true
-
-            } else if (
-                ${msg.isMatching}(m, [${msg.STRING_TOKEN}, ${msg.STRING_TOKEN}])
-                && ${msg.readStringToken}(m, 0) === 'send'
-            ) {
-                state.sendBusName = ${msg.readStringToken}(m, 1)
-                return true
-            }
-            return false
-        `,
-    Func$2(ns.defaultMessageHandler, [Var$2(msg.Message, `m`)], `void`) ``,
-]);
-
-const sigBuses = {
-    namespace: 'sigBuses',
-    // prettier-ignore
-    code: ({ ns: sigBuses }) => Sequence$1([
-        ConstVar$2(`Map<string, Float>`, sigBuses._BUSES, `new Map()`),
-        `${sigBuses._BUSES}.set('', 0)`,
-        Func$2(sigBuses.addAssign, [
-            Var$2(`string`, `busName`),
-            Var$2(`Float`, `value`)
-        ], 'Float') `
-            ${ConstVar$2('Float', 'newValue', `${sigBuses._BUSES}.get(busName) + value`)}
-            ${sigBuses._BUSES}.set(
-                busName,
-                newValue,
-            )
-            return newValue
-        `,
-        Func$2(sigBuses.set, [
-            Var$2(`string`, `busName`),
-            Var$2(`Float`, `value`),
-        ], 'void') `
-            ${sigBuses._BUSES}.set(
-                busName,
-                value,
-            )
-        `,
-        Func$2(sigBuses.reset, [
-            Var$2(`string`, `busName`)
-        ], 'void') `
-            ${sigBuses._BUSES}.set(busName, 0)
-        `,
-        Func$2(sigBuses.read, [
-            Var$2(`string`, `busName`)
-        ], 'Float') `
-            return ${sigBuses._BUSES}.get(busName)
-        `
-    ]),
-};
-const msgBuses = {
-    namespace: 'msgBuses',
-    // prettier-ignore
-    code: ({ ns: msgBuses }, { msg }) => Sequence$1([
-        ConstVar$2(`Map<string, Array<${msg.Handler}>>`, msgBuses._BUSES, 'new Map()'),
-        Func$2(msgBuses.publish, [
-            Var$2(`string`, `busName`),
-            Var$2(msg.Message, `message`)
-        ], 'void') `
-            ${Var$2(`Int`, `i`, `0`)}
-            ${ConstVar$2(`Array<${msg.Handler}>`, 'callbacks', `${msgBuses._BUSES}.has(busName) ? ${msgBuses._BUSES}.get(busName): []`)}
-            for (i = 0; i < callbacks.length; i++) {
-                callbacks[i](message)
-            }
-        `,
-        Func$2(msgBuses.subscribe, [
-            Var$2(`string`, `busName`),
-            Var$2(msg.Handler, `callback`)
-        ], 'void') `
-            if (!${msgBuses._BUSES}.has(busName)) {
-                ${msgBuses._BUSES}.set(busName, [])
-            }
-            ${msgBuses._BUSES}.get(busName).push(callback)
-        `,
-        Func$2(msgBuses.unsubscribe, [
-            Var$2(`string`, `busName`),
-            Var$2(msg.Handler, `callback`)
-        ], 'void') `
-            if (!${msgBuses._BUSES}.has(busName)) {
-                return
-            }
-            ${ConstVar$2(`Array<${msg.Handler}>`, `callbacks`, `${msgBuses._BUSES}.get(busName)`)}
-            ${ConstVar$2(`Int`, `found`, `callbacks.indexOf(callback)`)}
-            if (found !== -1) {
-                callbacks.splice(found, 1)
-            }
-        `
-    ]),
-    dependencies: [msg],
-};
-
-/*
- * Copyright (c) 2022-2023 Sébastien Piquemal <sebpiq@protonmail.com>, Chris McCormick.
- *
- * This file is part of WebPd
- * (see https://github.com/sebpiq/WebPd).
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public License
- * along with this program. If not, see <http://www.gnu.org/licenses/>.
- */
-const bangUtils = {
-    namespace: 'bangUtils',
-    // prettier-ignore
-    code: ({ ns: bangUtils }, { msg }) => Sequence$1([
-        Func$2(bangUtils.isBang, [
-            Var$2(msg.Message, `message`)
-        ], 'boolean') `
-            return (
-                ${msg.isStringToken}(message, 0) 
-                && ${msg.readStringToken}(message, 0) === 'bang'
-            )
-        `,
-        Func$2(bangUtils.bang, [], msg.Message) `
-            ${ConstVar$2(msg.Message, `message`, `${msg.create}([${msg.STRING_TOKEN}, 4])`)}
-            ${msg.writeStringToken}(message, 0, 'bang')
-            return message
-        `,
-        Func$2(bangUtils.emptyToBang, [
-            Var$2(msg.Message, `message`)
-        ], msg.Message) `
-            if (${msg.getLength}(message) === 0) {
-                return ${bangUtils.bang}()
-            } else {
-                return message
-            }
-        `,
-    ]),
-    dependencies: [msg],
-};
-const msgUtils = {
-    namespace: 'msgUtils',
-    // prettier-ignore
-    code: ({ ns: msgUtils }, { msg }) => Sequence$1([
-        Func$2(msgUtils.slice, [
-            Var$2(msg.Message, `message`),
-            Var$2(`Int`, `start`),
-            Var$2(`Int`, `end`)
-        ], msg.Message) `
-            if (${msg.getLength}(message) <= start) {
-                throw new Error('message empty')
-            }
-            ${ConstVar$2(msg.Template, 'template', `${msgUtils._copyTemplate}(message, start, end)`)}
-            ${ConstVar$2(msg.Message, `newMessage`, `${msg.create}(template)`)}
-            ${msgUtils.copy}(message, newMessage, start, end, 0)
-            return newMessage
-        `,
-        Func$2(msgUtils.concat, [
-            Var$2(msg.Message, `message1`),
-            Var$2(msg.Message, `message2`)
-        ], msg.Message) `
-            ${ConstVar$2(msg.Message, 'newMessage', `${msg.create}(${msgUtils._copyTemplate}(message1, 0, ${msg.getLength}(message1)).concat(${msgUtils._copyTemplate}(message2, 0, ${msg.getLength}(message2))))`)}
-            ${msgUtils.copy}(message1, newMessage, 0, ${msg.getLength}(message1), 0)
-            ${msgUtils.copy}(message2, newMessage, 0, ${msg.getLength}(message2), ${msg.getLength}(message1))
-            return newMessage
-        `,
-        Func$2(msgUtils.shift, [
-            Var$2(msg.Message, `message`)
-        ], msg.Message) `
-            switch (${msg.getLength}(message)) {
-                case 0:
-                    throw new Error('message empty')
-                case 1:
-                    return ${msg.create}([])
-                default:
-                    return ${msgUtils.slice}(message, 1, ${msg.getLength}(message))
-            }
-        `,
-        Func$2(msgUtils.copy, [
-            Var$2(msg.Message, `src`),
-            Var$2(msg.Message, `dest`),
-            Var$2(`Int`, `srcStart`),
-            Var$2(`Int`, `srcEnd`),
-            Var$2(`Int`, `destStart`),
-        ], 'void') `
-            ${Var$2(`Int`, `i`, `srcStart`)}
-            ${Var$2(`Int`, `j`, `destStart`)}
-            for (i, j; i < srcEnd; i++, j++) {
-                if (${msg.getTokenType}(src, i) === ${msg.STRING_TOKEN}) {
-                    ${msg.writeStringToken}(dest, j, ${msg.readStringToken}(src, i))
-                } else {
-                    ${msg.writeFloatToken}(dest, j, ${msg.readFloatToken}(src, i))
-                }
-            }
-        `,
-        Func$2(msgUtils._copyTemplate, [
-            Var$2(msg.Message, `src`),
-            Var$2(`Int`, `start`),
-            Var$2(`Int`, `end`)
-        ], msg.Template) `
-            ${ConstVar$2(msg.Template, `template`, `[]`)}
-            for (${Var$2(`Int`, `i`, `start`)}; i < end; i++) {
-                ${ConstVar$2(`Int`, `tokenType`, `${msg.getTokenType}(src, i)`)}
-                template.push(tokenType)
-                if (tokenType === ${msg.STRING_TOKEN}) {
-                    template.push(${msg.readStringToken}(src, i).length)
-                }
-            }
-            return template
-        `,
-    ]),
-    dependencies: [msg],
-};
-const actionUtils = {
-    namespace: 'actionUtils',
-    // prettier-ignore
-    code: ({ ns: actionUtils }, { msg }) => Sequence$1([
-        Func$2(actionUtils.isAction, [
-            Var$2(msg.Message, `message`),
-            Var$2(`string`, `action`)
-        ], 'boolean') `
-            return ${msg.isMatching}(message, [${msg.STRING_TOKEN}])
-                && ${msg.readStringToken}(message, 0) === action
-        `
-    ]),
-    dependencies: [msg],
-};
-
-/*
- * Copyright (c) 2022-2023 Sébastien Piquemal <sebpiq@protonmail.com>, Chris McCormick.
- *
- * This file is part of WebPd
- * (see https://github.com/sebpiq/WebPd).
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public License
- * along with this program. If not, see <http://www.gnu.org/licenses/>.
- */
-// ------------------------------- node builder ------------------------------ //
-const builderWithInit = {
-    translateArgs: ({ args: [minValue, maxValue, init, initValue, receive, send], }) => ({
-        minValue: assertNumber(minValue),
-        maxValue: assertNumber(maxValue),
-        sendBusName: assertOptionalString(send) || EMPTY_BUS_NAME,
-        receiveBusName: assertOptionalString(receive) || EMPTY_BUS_NAME,
-        initValue: init === 1 ? assertNumber(initValue) : 0,
-        outputOnLoad: !!init,
-    }),
-    build,
-};
-const builderWithoutMin = {
-    translateArgs: ({ args: [maxValue, init, initValue, receive, send], }) => ({
-        minValue: 0,
-        maxValue: assertNumber(maxValue),
-        sendBusName: assertOptionalString(send) || EMPTY_BUS_NAME,
-        receiveBusName: assertOptionalString(receive) || EMPTY_BUS_NAME,
-        initValue: init === 1 ? assertNumber(initValue) : 0,
-        outputOnLoad: !!init,
-    }),
-    build,
-};
-// ------------------------------- node implementation ------------------------------ //
-const makeNodeImplementation$6 = ({ prepareStoreValue, prepareStoreValueBang, name }) => {
-    return {
-        flags: {
-            alphaName: name,
-        },
-        state: ({ ns, node: { args } }, { msg }) => Class$2(ns.State, [
-            Var$2(`Float`, `minValue`, args.minValue),
-            Var$2(`Float`, `maxValue`, args.maxValue),
-            Var$2(`Float`, `valueFloat`, args.initValue),
-            Var$2(msg.Message, `value`, `${msg.create}([])`),
-            Var$2(`string`, `receiveBusName`, `"${args.receiveBusName}"`),
-            Var$2(`string`, `sendBusName`, `"${args.sendBusName}"`),
-            Var$2(msg.Handler, `messageReceiver`, ns.defaultMessageHandler),
-            Var$2(msg.Handler, `messageSender`, ns.defaultMessageHandler),
-        ]),
-        initialization: ({ ns, state, snds, node: { args }, }, { commons, msg }) => ast$1 `
-                ${state}.messageSender = ${snds.$0}
-                ${state}.messageReceiver = ${AnonFunc([Var$2(msg.Message, `m`)]) `
-                    ${ns.receiveMessage}(${state}, m)
-                `}
-                ${ns.setReceiveBusName}(${state}, "${args.receiveBusName}")
-    
-                ${args.outputOnLoad ?
-            `${commons.waitFrame}(0, () => ${snds.$0}(${msg.floats}([${state}.valueFloat])))` : null}
-            `,
-        messageReceivers: ({ ns, state, }, { msg }) => ({
-            '0': AnonFunc([Var$2(msg.Message, `m`)]) `
-                ${ns.receiveMessage}(${state}, m)
-                return
-            `
-        }),
-        core: ({ ns }, globals) => {
-            const { msgBuses, bangUtils, msg } = globals;
-            return Sequence$1([
-                controlsCore(ns, globals),
-                Func$2(ns.receiveMessage, [
-                    Var$2(ns.State, `state`),
-                    Var$2(msg.Message, `m`),
-                ], 'void') `
-                    if (${msg.isMatching}(m, [${msg.FLOAT_TOKEN}])) {
-                        ${prepareStoreValue ?
-                    `state.valueFloat = ${prepareStoreValue(`${msg.readFloatToken}(m, 0)`)}`
-                    : `state.valueFloat = ${msg.readFloatToken}(m, 0)`}
-                        ${ConstVar$2(msg.Message, `outMessage`, `${msg.floats}([state.valueFloat])`)}
-                        state.messageSender(outMessage)
-                        if (state.sendBusName !== "${EMPTY_BUS_NAME}") {
-                            ${msgBuses.publish}(state.sendBusName, outMessage)
-                        }
-                        return
-        
-                    } else if (${bangUtils.isBang}(m)) {
-                        ${prepareStoreValueBang ?
-                    `state.valueFloat = ${prepareStoreValueBang(`state.valueFloat`)}`
-                    : null}
-                        ${ConstVar$2(msg.Message, `outMessage`, `${msg.floats}([state.valueFloat])`)}
-                        state.messageSender(outMessage)
-                        if (state.sendBusName !== "${EMPTY_BUS_NAME}") {
-                            ${msgBuses.publish}(state.sendBusName, outMessage)
-                        }
-                        return
-        
-                    } else if (
-                        ${msg.isMatching}(m, [${msg.STRING_TOKEN}, ${msg.FLOAT_TOKEN}]) 
-                        && ${msg.readStringToken}(m, 0) === 'set'
-                    ) {
-                        ${prepareStoreValue ?
-                    `state.valueFloat = ${prepareStoreValue(`${msg.readFloatToken}(m, 1)`)}`
-                    : `state.valueFloat = ${msg.readFloatToken}(m, 1)`}
-                        return
-                    
-                    } else if (${ns.setSendReceiveFromMessage}(state, m) === true) {
-                        return
-                    }
-                `
-            ]);
-        },
-        dependencies: [
-            bangUtils,
-            msgBuses,
-            commonsWaitFrame,
-        ],
+const makeTranslationTransform = (fromPoint, toPoint) => {
+    const xOffset = toPoint.x - fromPoint.x;
+    const yOffset = toPoint.y - fromPoint.y;
+    return (fromPoint) => {
+        return {
+            x: fromPoint.x + xOffset,
+            y: fromPoint.y + yOffset,
+        };
     };
 };
-// ------------------------------------------------------------------- //
-const nodeImplementations$e = {
-    'tgl': makeNodeImplementation$6({
-        name: 'tgl',
-        prepareStoreValueBang: (valueCode) => `${valueCode} === 0 ? state.maxValue: 0`
-    }),
-    'nbx': makeNodeImplementation$6({
-        name: 'nbx',
-        prepareStoreValue: (valueCode) => `Math.min(Math.max(${valueCode},state.minValue),state.maxValue)`
-    }),
-    'hsl': makeNodeImplementation$6({ name: 'hsl' }),
-    'vsl': makeNodeImplementation$6({ name: 'vsl' }),
-    'hradio': makeNodeImplementation$6({ name: 'hradio' }),
-    'vradio': makeNodeImplementation$6({ name: 'vradio' }),
-};
-const builders$e = {
-    'tgl': builderWithoutMin,
-    'nbx': builderWithInit,
-    'hsl': builderWithInit,
-    'vsl': builderWithInit,
-    'hradio': builderWithoutMin,
-    'vradio': builderWithoutMin,
-};
-
-const FLOAT_CONTROL_TYPES = [...Object.keys(builders$e), 'floatatom'];
-const collectIoMessageReceiversFromSendNodes = (pdJson, graph) => {
-    const rootPatch = pdJson.patches[pdJson.rootPatchId];
-    const messageReceivers = {};
-    Object.values(rootPatch.nodes).forEach((pdNode) => {
-        const nodeId = buildGraphNodeId(rootPatch.id, pdNode.id);
-        const node = graph[nodeId];
-        if (pdNode.type === 'send' &&
-            // Important because some nodes are deleted at dsp-graph compilation.
-            // and if we declare messageReceivers for them it will cause error.
-            // TODO : maybe the compiler should detect this instead of doing it here ?
-            !!node) {
-            if (!messageReceivers[nodeId]) {
-                const layout = pdNode.layout || {};
-                const metadata = {
-                    group: 'send',
-                    name: node.args.busName,
-                    position: layout.x !== undefined && layout.y !== undefined
-                        ? [layout.x, layout.y]
-                        : undefined,
-                };
-                messageReceivers[nodeId] = {
-                    portletIds: [],
-                    metadata: metadata,
-                };
-            }
-            messageReceivers[nodeId].portletIds.push('0');
-        }
-    });
-    return messageReceivers;
-};
-const collectIoMessageReceiversFromGui = (controls, graph) => {
-    const messageReceivers = {};
-    traverseGuiControls(controls, (control) => {
-        const portletId = '0';
-        const nodeId = buildGraphNodeId(control.patch.id, control.node.id);
-        if (!messageReceivers[nodeId]) {
-            const node = graph[nodeId];
-            // Important because some nodes are deleted at dsp-graph compilation.
-            // and if we declare messageReceivers for them it will cause error.
-            // TODO : maybe the compiler should detect this instead of doing it here ?
-            if (!node) {
-                return;
-            }
-            const layout = control.node.layout || {};
-            let metadata = {
-                group: 'control',
-                type: control.node.type,
-                label: layout.label,
-                position: layout.x !== undefined && layout.y !== undefined
-                    ? [layout.x, layout.y]
-                    : undefined,
-            };
-            if (FLOAT_CONTROL_TYPES.includes(control.node.type)) {
-                metadata = {
-                    ...metadata,
-                    group: 'control:float',
-                    initValue: node.args.initValue,
-                    minValue: node.args.minValue,
-                    maxValue: node.args.maxValue,
-                };
-            }
-            messageReceivers[nodeId] = {
-                portletIds: [],
-                metadata: metadata,
-            };
-        }
-        messageReceivers[nodeId].portletIds.push(portletId);
-    });
-    return messageReceivers;
-};
-
-/*
- * Copyright (c) 2022-2023 Sébastien Piquemal <sebpiq@protonmail.com>, Chris McCormick.
- *
- * This file is part of WebPd
- * (see https://github.com/sebpiq/WebPd).
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public License
- * along with this program. If not, see <http://www.gnu.org/licenses/>.
- */
-// NOTE : not necessarily the most logical place to put this function, but we need it here
-// cause it's imported by the bindings.
-const getFloatArrayType = (bitDepth) => bitDepth === 64 ? Float64Array : Float32Array;
-const proxyAsModuleWithBindings = (rawModule, bindings) => 
-// Use empty object on proxy cause proxy cannot redefine access of member of its target,
-// which causes issues for example for WebAssembly exports.
-// See : https://stackoverflow.com/questions/75148897/get-on-proxy-property-items-is-a-read-only-and-non-configurable-data-proper
-new Proxy({}, {
-    get: (_, k) => {
-        if (bindings.hasOwnProperty(k)) {
-            const key = String(k);
-            const bindingSpec = bindings[key];
-            switch (bindingSpec.type) {
-                case 'raw':
-                    // Cannot use hasOwnProperty here cause not defined in wasm exports object
-                    if (k in rawModule) {
-                        return rawModule[key];
-                    }
-                    else {
-                        throw new Error(`Key ${String(key)} doesn't exist in raw module`);
-                    }
-                case 'proxy':
-                case 'callback':
-                    return bindingSpec.value;
-            }
-            // We need to return undefined here for compatibility with various APIs
-            // which inspect object's attributes.
-        }
-        else {
-            return undefined;
-        }
-    },
-    has: function (_, k) {
-        return k in bindings;
-    },
-    set: (_, k, newValue) => {
-        if (bindings.hasOwnProperty(String(k))) {
-            const key = String(k);
-            const bindingSpec = bindings[key];
-            if (bindingSpec.type === 'callback') {
-                bindingSpec.value = newValue;
-            }
-            else {
-                throw new Error(`Binding key ${String(key)} is read-only`);
-            }
-        }
-        else {
-            throw new Error(`Key ${String(k)} is not defined in bindings`);
-        }
-        return true;
-    },
+const sumPoints = (p1, p2) => ({
+    x: p1.x + p2.x,
+    y: p1.y + p2.y,
 });
-/**
- * Reverse-maps exported variable names from `rawModule` according to the mapping defined
- * in `variableNamesIndex`.
- *
- * For example with :
- *
- * ```
- * const variableNamesIndex = {
- *     globals: {
- *         // ...
- *         fs: {
- *             // ...
- *             readFile: 'g_fs_readFile'
- *         },
- *     }
- * }
- * ```
- *
- * The function `g_fs_readFile` (if it is exported properly by the raw module), will then
- * be available on the returned object at path `.globals.fs.readFile`.
- */
-const proxyWithEngineNameMapping = (rawModule, variableNamesIndex) => proxyWithNameMapping(rawModule, {
-    globals: variableNamesIndex.globals,
-    io: variableNamesIndex.io,
-});
-const proxyWithNameMapping = (rawModule, variableNamesIndex) => {
-    if (typeof variableNamesIndex === 'string') {
-        return rawModule[variableNamesIndex];
-    }
-    else if (typeof variableNamesIndex === 'object') {
-        return new Proxy(rawModule, {
-            get: (_, k) => {
-                const key = String(k);
-                if (key in rawModule) {
-                    return Reflect.get(rawModule, key);
-                }
-                else if (key in variableNamesIndex) {
-                    const nextVariableNames = variableNamesIndex[key];
-                    return proxyWithNameMapping(rawModule, nextVariableNames);
-                }
-                else if (_proxyGetHandlerThrowIfKeyUnknown$1(rawModule, key)) {
-                    return undefined;
-                }
-            },
-            has: function (_, k) {
-                return k in rawModule || k in variableNamesIndex;
-            },
-            set: (_, k, value) => {
-                const key = String(k);
-                if (key in variableNamesIndex) {
-                    const variableName = variableNamesIndex[key];
-                    if (typeof variableName !== 'string') {
-                        throw new Error(`Failed to set value for key ${String(k)}: variable name is not a string`);
-                    }
-                    return Reflect.set(rawModule, variableName, value);
-                }
-                else {
-                    throw new Error(`Key ${String(k)} is not defined in raw module`);
-                }
-            },
-        });
+const computeRectanglesIntersection = (r1, r2) => {
+    const topLeft = {
+        x: Math.max(r1.topLeft.x, r2.topLeft.x),
+        y: Math.max(r1.topLeft.y, r2.topLeft.y),
+    };
+    const bottomRight = {
+        x: Math.min(r1.bottomRight.x, r2.bottomRight.x),
+        y: Math.min(r1.bottomRight.y, r2.bottomRight.y),
+    };
+    if (bottomRight.x <= topLeft.x || bottomRight.y <= topLeft.y) {
+        return null;
     }
     else {
-        throw new Error(`Invalid name mapping`);
+        return { topLeft, bottomRight };
     }
+};
+const isPointInsideRectangle = (p, r) => r.topLeft.x <= p.x &&
+    p.x <= r.bottomRight.x &&
+    r.topLeft.y <= p.y &&
+    p.y <= r.bottomRight.y;
+
+/*
+ * Copyright (c) 2022-2023 Sébastien Piquemal <sebpiq@protonmail.com>, Chris McCormick.
+ *
+ * This file is part of WebPd
+ * (see https://github.com/sebpiq/WebPd).
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with this program. If not, see <http://www.gnu.org/licenses/>.
+ */
+const discoverPdGui = (pdJson) => _discoverPdGuiRecursive(pdJson, resolveRootPatch(pdJson));
+const _discoverPdGuiRecursive = (pdJson, patch, viewport = null) => {
+    if (viewport === null) {
+        viewport = {
+            topLeft: { x: -Infinity, y: -Infinity },
+            bottomRight: { x: Infinity, y: Infinity },
+        };
+    }
+    const pdGuiNodes = [];
+    Object.values(patch.nodes).forEach((pdNode) => {
+        if (pdNode.type === 'pd' && pdNode.nodeClass === 'subpatch') {
+            const subpatch = pdJson.patches[pdNode.patchId];
+            const nodeLayout = _assertNodeLayout(pdNode);
+            if (!subpatch.layout.graphOnParent) {
+                return;
+            }
+            const subpatchLayout = _assertPatchLayout(subpatch);
+            // 1. we convert all coordinates to the subpatch coords system
+            const toSubpatchCoords = makeTranslationTransform({ x: nodeLayout.x, y: nodeLayout.y }, { x: subpatchLayout.viewportX, y: subpatchLayout.viewportY });
+            const parentViewport = {
+                topLeft: toSubpatchCoords(viewport.topLeft),
+                bottomRight: toSubpatchCoords(viewport.bottomRight),
+            };
+            const topLeft = {
+                x: subpatchLayout.viewportX,
+                y: subpatchLayout.viewportY,
+            };
+            const subpatchViewport = {
+                topLeft,
+                bottomRight: sumPoints(topLeft, {
+                    x: subpatchLayout.viewportWidth,
+                    y: subpatchLayout.viewportHeight,
+                }),
+            };
+            // 2. we compute the visible intersection in the subpatch coords system
+            // and call the function for the subpatch
+            const visibleSubpatchViewport = computeRectanglesIntersection(parentViewport, subpatchViewport);
+            if (visibleSubpatchViewport === null) {
+                return;
+            }
+            const children = _discoverPdGuiRecursive(pdJson, subpatch, visibleSubpatchViewport);
+            const pdGuiNode = {
+                nodeClass: 'subpatch',
+                patchId: patch.id,
+                pdNodeId: pdNode.id,
+                children,
+            };
+            pdGuiNodes.push(pdGuiNode);
+            // 3. When we get an actual control node, we see if it is inside the
+            // visible viewport (which was previously transformed to local coords).
+        }
+        else if (pdNode.type in CONTROL_TYPE &&
+            pdNode.nodeClass === 'control') {
+            const nodeLayout = _assertNodeLayout(pdNode);
+            if (!isPointInsideRectangle({
+                x: nodeLayout.x,
+                y: nodeLayout.y,
+            }, viewport)) {
+                return;
+            }
+            const pdGuiNode = {
+                nodeClass: 'control',
+                patchId: patch.id,
+                pdNodeId: pdNode.id,
+                nodeId: buildGraphNodeId(patch.id, pdNode.id),
+            };
+            pdGuiNodes.push(pdGuiNode);
+            // We collect only comments that are in the root patch
+        }
+        else if (patch.id === pdJson.rootPatchId &&
+            pdNode.nodeClass === 'text') {
+            const pdGuiNode = {
+                nodeClass: 'text',
+                patchId: patch.id,
+                pdNodeId: pdNode.id,
+            };
+            pdGuiNodes.push(pdGuiNode);
+        }
+    });
+    return pdGuiNodes;
+};
+const traversePdGui = (controls, func) => {
+    controls.forEach((pdGuiNode) => {
+        if (pdGuiNode.nodeClass === 'subpatch') {
+            func(pdGuiNode);
+            traversePdGui(pdGuiNode.children, func);
+        }
+        else {
+            func(pdGuiNode);
+        }
+    });
+};
+const _assertPatchLayout = (patch) => {
+    const layout = patch.layout;
+    const viewportX = layout.viewportX;
+    const viewportY = layout.viewportY;
+    const viewportWidth = layout.viewportWidth;
+    const viewportHeight = layout.viewportHeight;
+    if (typeof viewportX !== 'number' ||
+        typeof viewportY !== 'number' ||
+        typeof viewportWidth !== 'number' ||
+        typeof viewportHeight !== 'number') {
+        throw new Error(`Missing patch layout attributes`);
+    }
+    return {
+        viewportX,
+        viewportY,
+        viewportWidth,
+        viewportHeight,
+    };
+};
+const _assertNodeLayout = (pdNode) => {
+    const x = pdNode.layout.x;
+    const y = pdNode.layout.y;
+    if (typeof x !== 'number' || typeof y !== 'number') {
+        throw new Error(`Missing node layout attributes`);
+    }
+    let label = null;
+    if (pdNode.nodeClass === 'control') {
+        label = pdNode.layout.label;
+    }
+    else if (pdNode.nodeClass === 'subpatch') {
+        label = pdNode.args[0] ? pdNode.args[0].toString() : null;
+    }
+    return {
+        x,
+        y,
+        label,
+    };
 };
 
 /*
@@ -6115,123 +5767,260 @@ const proxyWithNameMapping = (rawModule, variableNamesIndex) => {
  * You should have received a copy of the GNU Lesser General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
-/** @copyright Assemblyscript ESM bindings */
-const liftString = (rawModule, pointer) => {
-    if (!pointer) {
-        throw new Error('Cannot lift a null pointer');
+const WEBPD_RUNTIME_FILENAME = 'webpd-runtime.js';
+var buildApp = async (artefacts) => {
+    if (!artefacts.javascript && !artefacts.wasm) {
+        throw new Error(`Needs at least javascript or wasm to run`);
     }
-    pointer = pointer >>> 0;
-    const end = (pointer +
-        new Uint32Array(rawModule.memory.buffer)[(pointer - 4) >>> 2]) >>>
-        1;
-    const memoryU16 = new Uint16Array(rawModule.memory.buffer);
-    let start = pointer >>> 1;
-    let string = '';
-    while (end - start > 1024) {
-        string += String.fromCharCode(...memoryU16.subarray(start, (start += 1024)));
+    let target;
+    let compiledPatchFilename;
+    let engineMetadata;
+    let compiledPatchCode;
+    if (artefacts.javascript) {
+        target = 'javascript';
+        compiledPatchFilename = 'patch.js';
+        engineMetadata = await readMetadata('javascript', artefacts.javascript);
+        compiledPatchCode = artefacts.javascript;
     }
-    return string + String.fromCharCode(...memoryU16.subarray(start, end));
-};
-/** @copyright Assemblyscript ESM bindings */
-const lowerString = (rawModule, value) => {
-    if (value == null) {
-        throw new Error('Cannot lower a null string');
+    else {
+        target = 'assemblyscript';
+        compiledPatchFilename = 'patch.wasm';
+        engineMetadata = await readMetadata('assemblyscript', artefacts.wasm);
+        compiledPatchCode = artefacts.wasm;
     }
-    const length = value.length, pointer = rawModule.__new(length << 1, 1) >>> 0, memoryU16 = new Uint16Array(rawModule.memory.buffer);
-    for (let i = 0; i < length; ++i)
-        memoryU16[(pointer >>> 1) + i] = value.charCodeAt(i);
-    return pointer;
-};
-/**
- * @returns A typed array which shares buffer with the wasm module,
- * thus allowing direct read / write between the module and the host environment.
- *
- * @copyright Assemblyscript ESM bindings `liftTypedArray`
- */
-const readTypedArray = (rawModule, constructor, pointer) => {
-    if (!pointer) {
-        throw new Error('Cannot lift a null pointer');
+    const webPdMetadata = engineMetadata.customMetadata;
+    if (!webPdMetadata.pdGui || !webPdMetadata.graph || !webPdMetadata.pdNodes) {
+        throw new Error(`Missing data in WebPd metadata`);
     }
-    const memoryU32 = new Uint32Array(rawModule.memory.buffer);
-    return new constructor(rawModule.memory.buffer, memoryU32[(pointer + 4) >>> 2], memoryU32[(pointer + 8) >>> 2] / constructor.BYTES_PER_ELEMENT);
-};
-/** @param bitDepth : Must be the same value as what was used to compile the engine. */
-const lowerFloatArray = (rawModule, bitDepth, data) => {
-    const arrayType = getFloatArrayType(bitDepth);
-    const arrayPointer = rawModule.globals.core.createFloatArray(data.length);
-    const array = readTypedArray(rawModule, arrayType, arrayPointer);
-    array.set(data);
-    return { array, arrayPointer };
-};
-/** @param bitDepth : Must be the same value as what was used to compile the engine. */
-const lowerListOfFloatArrays = (rawModule, bitDepth, data) => {
-    const arraysPointer = rawModule.globals.core.x_createListOfArrays();
-    data.forEach((array) => {
-        const { arrayPointer } = lowerFloatArray(rawModule, bitDepth, array);
-        rawModule.globals.core.x_pushToListOfArrays(arraysPointer, arrayPointer);
-    });
-    return arraysPointer;
-};
-/** @param bitDepth : Must be the same value as what was used to compile the engine. */
-const readListOfFloatArrays = (rawModule, bitDepth, listOfArraysPointer) => {
-    const listLength = rawModule.globals.core.x_getListOfArraysLength(listOfArraysPointer);
-    const arrays = [];
-    const arrayType = getFloatArrayType(bitDepth);
-    for (let i = 0; i < listLength; i++) {
-        const arrayPointer = rawModule.globals.core.x_getListOfArraysElem(listOfArraysPointer, i);
-        arrays.push(readTypedArray(rawModule, arrayType, arrayPointer));
-    }
-    return arrays;
-};
+    const generatedApp = {
+        [WEBPD_RUNTIME_FILENAME]: WEBPD_RUNTIME_CODE,
+        [compiledPatchFilename]: compiledPatchCode,
+        // prettier-ignore
+        'index.html': `
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <meta http-equiv="X-UA-Compatible" content="ie=edge">
+        <title>WebPd boilerplate</title>
+        <style>
+            #start {
+                display: none;
+                position: fixed;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+            }
+            #loading {
+                width: 100%;
+                height: 100%;
+                position: fixed;
+                top: 50%;
+                transform: translateY(-50%);
+                display: flex;
+                justify-content: center;
+                align-items: center;
+            }
+        </style>
+    </head>
+    <body>
+        <h1>My Web Page</h1>
+        <div>For more info about usage (how to interact with the patch), you can open this HTML file in a code editor.</div>
+        <button id="start"> Start </button>
+        <div id="loading"> Loading ... </div>
+        <script src="${WEBPD_RUNTIME_FILENAME}"></script>
+        <script>
+            // SUMMARY
+            // 1. WEB PAGE INITIALIZATION
+            // 2. SENDING MESSAGES FROM JAVASCRIPT TO THE PATCH
+            // 3. SENDING MESSAGES FROM THE PATCH TO JAVASCRIPT
 
-/*
- * Copyright (c) 2022-2023 Sébastien Piquemal <sebpiq@protonmail.com>, Chris McCormick.
- *
- * This file is part of WebPd
- * (see https://github.com/sebpiq/WebPd).
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public License
- * along with this program. If not, see <http://www.gnu.org/licenses/>.
- */
-// REF : Assemblyscript ESM bindings
-const instantiateWasmModule = async (wasmBuffer, wasmImports = {}) => {
-    const instanceAndModule = await WebAssembly.instantiate(wasmBuffer, {
-        env: {
-            abort: (messagePointer, 
-            // filename, not useful because we compile everything to a single string
-            _, lineNumber, columnNumber) => {
-                const message = liftString(wasmExports, messagePointer);
-                lineNumber = lineNumber;
-                columnNumber = columnNumber;
-                (() => {
-                    // @external.js
-                    throw Error(`${message} at ${lineNumber}:${columnNumber}`);
-                })();
-            },
-            seed: () => {
-                return (() => {
-                    return Date.now() * Math.random();
-                })();
-            },
-            'console.log': (textPointer) => {
-                console.log(liftString(wasmExports, textPointer));
-            },
-        },
-        ...wasmImports,
-    });
-    const wasmExports = instanceAndModule.instance
-        .exports;
-    return instanceAndModule.instance;
+
+            // ------------- 1. WEB PAGE INITIALIZATION
+            const loadingDiv = document.querySelector('#loading')
+            const startButton = document.querySelector('#start')
+            const audioContext = new AudioContext()
+
+            let patch = null
+            let stream = null
+            let webpdNode = null
+
+            const initApp = async () => {
+                // Register the worklet
+                await WebPdRuntime.initialize(audioContext)
+
+                // Fetch the patch code
+                response = await fetch('${compiledPatchFilename}')
+                patch = await ${target === 'javascript' ?
+            'response.text()' : 'response.arrayBuffer()'}
+
+                // Comment this if you don't need audio input
+                stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+
+                // Hide loading and show start button
+                loadingDiv.style.display = 'none'
+                startButton.style.display = 'block'
+            }
+
+            const startApp = async () => {
+                // AudioContext needs to be resumed on click to protects users 
+                // from being spammed with autoplay.
+                // See : https://github.com/WebAudio/web-audio-api/issues/345
+                if (audioContext.state === 'suspended') {
+                    audioContext.resume()
+                }
+
+                // Setup web audio graph
+                webpdNode = await WebPdRuntime.run(
+                    audioContext, 
+                    patch, 
+                    WebPdRuntime.defaultSettingsForRun(
+                        './${compiledPatchFilename}',
+                        // Comment this if you don't need to receive messages from the patch
+                        receiveMsgFromWebPd,
+                    ),
+                )
+                webpdNode.connect(audioContext.destination)
+
+                // Comment this if you don't need audio input
+                const sourceNode = audioContext.createMediaStreamSource(stream)
+                sourceNode.connect(webpdNode)
+
+                // Hide the start button
+                startButton.style.display = 'none'
+            }
+
+            startButton.onclick = startApp
+
+            initApp().
+                then(() => {
+                    console.log('App initialized')
+                })
+
+            
+            // ------------- 2. SENDING MESSAGES FROM JAVASCRIPT TO THE PATCH
+            // Use the function sendMsgToWebPd to send a message from JavaScript to an object inside your patch.
+            // 
+            // Parameters : 
+            // - nodeId: the ID of the object you want to send a message to. 
+            //          This ID is a string that has been assigned by WebPd at compilation.
+            //          You can find below the list of available IDs with hints to help you 
+            //          identify the object you want to interact with.
+            // - portletId : the ID of the object portlet to which the message should be sent. 
+            // - message : the message to send. This must be a list of strings and / or numbers.
+            // 
+            // Examples :
+            // - sending a message to a bang node of ID 'n_0_1' :
+            //          sendMsgToWebPd('n_0_1', '0', ['bang'])
+            // - sending a message to a number object of ID 'n_0_2' :
+            //          sendMsgToWebPd('n_0_2', '0', [123])
+            // 
+            const sendMsgToWebPd = (nodeId, portletId, message) => {
+                webpdNode.port.postMessage({
+                    type: 'io:messageReceiver',
+                    payload: {
+                        nodeId,
+                        portletId,
+                        message,
+                    },
+                })
+            }
+            
+            // Here is an index of objects IDs to which you can send messages, with hints so you can find the right ID.
+            // Note that by default only GUI objects (bangs, sliders, etc ...) are available.${renderIoMessageReceiversOrSenders(engineMetadata.settings.io.messageReceivers, webPdMetadata, 
+        // Render controls
+        (node, portletId, layout) => `
+            //  - nodeId "${node.id}" portletId "${portletId}"
+            //      * type "${node.type}"
+            //      * position ${layout.x} ${layout.y}${layout.label ? `
+            //      * label "${layout.label}"` : ''}
+            `, 
+        // Render send/receive
+        (node, portletId) => `
+            //  - nodeId "${node.id}" portletId "${portletId}"
+            //      * type "send"
+            //      * send "${node.args.busName}"
+            `, 
+        // Render if empty io specs
+        `
+            // EMPTY (did you place a GUI object or send object in your patch ?)
+`)}
+
+            // ------------- 3. SENDING MESSAGES FROM THE PATCH TO JAVASCRIPT
+            // Use the function receiveMsgFromWebPd to receive a message from an object inside your patch.
+            // 
+            // Parameters : 
+            // - nodeId: the ID of the object that is sending a message. 
+            //          This ID is a string that has been assigned by WebPd at compilation.
+            //          You can find below the list of available IDs with hints to help you 
+            //          identify the object you want to interact with.
+            // - portletId : the ID of the object portlet that is sending the message.
+            // - message : the message that was sent. It is a list of strings and / or numbers.
+            const receiveMsgFromWebPd = (nodeId, portletId, message) => {${renderIoMessageReceiversOrSenders(engineMetadata.settings.io.messageSenders, webPdMetadata, 
+        // Render controls
+        (node, portletId, layout) => `
+                if (nodeId === "${node.id}" && portletId === "${portletId}") {
+                    console.log('Message received from :\\n'
+                        + '\t* nodeId "${node.id}" portletId "${portletId}"\\n'
+                        + '\t* type "${node.type}"\\n'
+                        + '\t* position ${layout.x} ${layout.y}\\n'${layout.label ? `
+                        + '\t* label "${layout.label}"'` : ''}
+                    )
+                }`, 
+        // Render send/receive
+        (node, portletId) => `
+                if (nodeId === "${node.id}" && portletId === "${portletId}") {
+                    console.log('Message received from :\\n'
+                        + '\t* nodeId "${node.id}" portletId "${portletId}"\\n'
+                        + '\t* type "receive"\\n'
+                        + '\t* receive "${node.args.busName}"'
+                    )
+                }`, 
+        // Render if empty io specs
+        `
+                // /!\ there seems to be no message senders in the patch. 
+                // Add a GUI object or a send object in your patch to be able to receive messages.
+`)}                
+            }
+
+        </script>
+    </body>
+</html>`,
+    };
+    return generatedApp;
+};
+const renderIoMessageReceiversOrSenders = (ioMessageSpecs, webPdMetadata, renderControl, renderSendReceive, emptyString) => {
+    if (Object.keys(ioMessageSpecs).length) {
+        const indexedPdGuiNodes = {};
+        traversePdGui(webPdMetadata.pdGui, (pdGuiNode) => {
+            if (pdGuiNode.nodeClass === 'control') {
+                indexedPdGuiNodes[pdGuiNode.nodeId] = pdGuiNode;
+            }
+        });
+        return Object.entries(ioMessageSpecs)
+            .flatMap(([nodeId, portletIds]) => portletIds.map((portletId) => {
+            const node = getNode$1(webPdMetadata.graph, nodeId);
+            if (node.type === 'send' || node.type === 'receive') {
+                return renderSendReceive(node, portletId);
+            }
+            const pdGuiNode = indexedPdGuiNodes[nodeId];
+            if (!pdGuiNode) {
+                return '';
+            }
+            else if (pdGuiNode.nodeClass === 'control') {
+                const pdNode = webPdMetadata.pdNodes[pdGuiNode.patchId][pdGuiNode.pdNodeId];
+                return renderControl(node, portletId, pdNode.layout);
+            }
+            else {
+                return '';
+            }
+        }))
+            .join('');
+    }
+    else {
+        return emptyString;
+    }
 };
 
 /*
@@ -6333,24 +6122,6 @@ const createCommonsBindings = (engineContext) => {
     };
 };
 
-const readMetadata = async (wasmBuffer) => {
-    // In order to read metadata, we need to introspect the module to get the imports
-    const inputImports = {};
-    const wasmModule = WebAssembly.Module.imports(new WebAssembly.Module(wasmBuffer));
-    // Then we generate dummy functions to be able to instantiate the module
-    wasmModule
-        .filter((imprt) => imprt.module === 'input' && imprt.kind === 'function')
-        .forEach((imprt) => (inputImports[imprt.name] = () => undefined));
-    const wasmInstance = await instantiateWasmModule(wasmBuffer, {
-        input: inputImports,
-    });
-    // Finally, once the module instantiated, we read the metadata
-    const rawModule = wasmInstance.exports;
-    const stringPointer = rawModule.metadata.valueOf();
-    const metadataJSON = liftString(rawModule, stringPointer);
-    return JSON.parse(metadataJSON);
-};
-
 /*
  * Copyright (c) 2022-2023 Sébastien Piquemal <sebpiq@protonmail.com>, Chris McCormick.
  *
@@ -6430,7 +6201,7 @@ const createIoMessageReceiversBindings = ({ metadata, refs, }) => Object.entries
     ...bindings,
     [nodeId]: {
         type: 'proxy',
-        value: mapArray(spec.portletIds, (inletId) => [
+        value: mapArray(spec, (inletId) => [
             inletId,
             (message) => {
                 const messagePointer = lowerMessage(refs.rawModule, message);
@@ -6443,7 +6214,7 @@ const createIoMessageSendersBindings = ({ metadata, }) => Object.entries(metadat
     ...bindings,
     [nodeId]: {
         type: 'proxy',
-        value: mapArray(spec.portletIds, (outletId) => [
+        value: mapArray(spec, (outletId) => [
             outletId,
             (_) => undefined,
         ]),
@@ -6453,7 +6224,7 @@ const ioMsgSendersImports = ({ metadata, refs, }) => {
     const wasmImports = {};
     const { variableNamesIndex } = metadata.compilation;
     Object.entries(metadata.settings.io.messageSenders).forEach(([nodeId, spec]) => {
-        spec.portletIds.forEach((outletId) => {
+        spec.forEach((outletId) => {
             const listenerName = variableNamesIndex.io.messageSenders[nodeId][outletId];
             wasmImports[listenerName] = (messagePointer) => {
                 const message = liftMessage(refs.rawModule, messagePointer);
@@ -6601,10 +6372,10 @@ const createFsImports = (engineContext) => {
  * You should have received a copy of the GNU Lesser General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
-const createEngine$2 = async (wasmBuffer, additionalBindings) => {
+const createEngine$1 = async (wasmBuffer, additionalBindings) => {
     // Create engine context
     // We need to read metadata before everything, because it is used by other initialization functions
-    const metadata = await readMetadata(wasmBuffer);
+    const metadata = await readMetadata$1(wasmBuffer);
     const bitDepth = metadata.settings.audio.bitDepth;
     const arrayType = getFloatArrayType(bitDepth);
     const engineContext = {
@@ -6628,7 +6399,7 @@ const createEngine$2 = async (wasmBuffer, additionalBindings) => {
     });
     engineContext.refs.rawModule = proxyWithEngineNameMapping(wasmInstance.exports, metadata.compilation.variableNamesIndex);
     // Create engine
-    const engineBindings = createEngineBindings$1(engineContext);
+    const engineBindings = createEngineBindings(engineContext);
     const engine = proxyAsModuleWithBindings(engineContext.refs.rawModule, {
         ...engineBindings,
         ...(additionalBindings || {}),
@@ -6636,7 +6407,7 @@ const createEngine$2 = async (wasmBuffer, additionalBindings) => {
     engineContext.refs.engine = engine;
     return engine;
 };
-const createEngineBindings$1 = (engineContext) => {
+const createEngineBindings = (engineContext) => {
     const { metadata, refs } = engineContext;
     const exportedNames = metadata.compilation.variableNamesIndex.globals;
     // Create bindings for io
@@ -6665,139 +6436,6 @@ const createEngineBindings$1 = (engineContext) => {
         },
         io: { type: 'proxy', value: io },
     };
-};
-
-const createFsModule = (rawModule) => {
-    const fsExportedNames = rawModule.metadata.compilation.variableNamesIndex.globals.fs;
-    const fs = proxyAsModuleWithBindings(rawModule, {
-        onReadSoundFile: { type: 'callback', value: () => undefined },
-        onWriteSoundFile: { type: 'callback', value: () => undefined },
-        onOpenSoundReadStream: { type: 'callback', value: () => undefined },
-        onOpenSoundWriteStream: { type: 'callback', value: () => undefined },
-        onSoundStreamData: { type: 'callback', value: () => undefined },
-        onCloseSoundStream: { type: 'callback', value: () => undefined },
-        sendReadSoundFileResponse: {
-            type: 'proxy',
-            value: 'x_onReadSoundFileResponse' in fsExportedNames
-                ? rawModule.globals.fs.x_onReadSoundFileResponse
-                : undefined,
-        },
-        sendWriteSoundFileResponse: {
-            type: 'proxy',
-            value: 'x_onWriteSoundFileResponse' in fsExportedNames
-                ? rawModule.globals.fs.x_onWriteSoundFileResponse
-                : undefined,
-        },
-        // should register the operation success { bitDepth: 32, target: 'javascript' }
-        sendSoundStreamData: {
-            type: 'proxy',
-            value: 'x_onSoundStreamData' in fsExportedNames
-                ? rawModule.globals.fs.x_onSoundStreamData
-                : undefined,
-        },
-        closeSoundStream: {
-            type: 'proxy',
-            value: 'x_onCloseSoundStream' in fsExportedNames
-                ? rawModule.globals.fs.x_onCloseSoundStream
-                : undefined,
-        },
-    });
-    if ('i_openSoundWriteStream' in fsExportedNames) {
-        rawModule.globals.fs.i_openSoundWriteStream = (...args) => fs.onOpenSoundWriteStream(...args);
-    }
-    if ('i_sendSoundStreamData' in fsExportedNames) {
-        rawModule.globals.fs.i_sendSoundStreamData = (...args) => fs.onSoundStreamData(...args);
-    }
-    if ('i_openSoundReadStream' in fsExportedNames) {
-        rawModule.globals.fs.i_openSoundReadStream = (...args) => fs.onOpenSoundReadStream(...args);
-    }
-    if ('i_closeSoundStream' in fsExportedNames) {
-        rawModule.globals.fs.i_closeSoundStream = (...args) => fs.onCloseSoundStream(...args);
-    }
-    if ('i_writeSoundFile' in fsExportedNames) {
-        rawModule.globals.fs.i_writeSoundFile = (...args) => fs.onWriteSoundFile(...args);
-    }
-    if ('i_readSoundFile' in fsExportedNames) {
-        rawModule.globals.fs.i_readSoundFile = (...args) => fs.onReadSoundFile(...args);
-    }
-    return fs;
-};
-
-const createCommonsModule = (rawModule, metadata) => {
-    const floatArrayType = getFloatArrayType(metadata.settings.audio.bitDepth);
-    return proxyAsModuleWithBindings(rawModule, {
-        getArray: {
-            type: 'proxy',
-            value: (arrayName) => rawModule.globals.commons.getArray(arrayName),
-        },
-        setArray: {
-            type: 'proxy',
-            value: (arrayName, array) => rawModule.globals.commons.setArray(arrayName, new floatArrayType(array)),
-        },
-    });
-};
-
-/*
- * Copyright (c) 2022-2023 Sébastien Piquemal <sebpiq@protonmail.com>, Chris McCormick.
- *
- * This file is part of WebPd
- * (see https://github.com/sebpiq/WebPd).
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public License
- * along with this program. If not, see <http://www.gnu.org/licenses/>.
- */
-/**
- * These bindings enable easier interaction with modules generated with our JavaScript compilation.
- * For example : instantiation, passing data back and forth, etc ...
- *
- * **Warning** : These bindings are compiled with rollup as a standalone JS module for inclusion in other libraries.
- * In consequence, they are meant to be kept lightweight, and should avoid importing dependencies.
- *
- * @module
- */
-const compileRawModule = (code) => new Function(`
-        ${code}
-        return exports
-    `)();
-const createEngineBindings = (rawModule) => {
-    const exportedNames = rawModule.metadata.compilation.variableNamesIndex.globals;
-    const globalsBindings = {
-        commons: {
-            type: 'proxy',
-            value: createCommonsModule(rawModule, rawModule.metadata),
-        },
-    };
-    if ('fs' in exportedNames) {
-        globalsBindings.fs = { type: 'proxy', value: createFsModule(rawModule) };
-    }
-    return {
-        metadata: { type: 'raw' },
-        initialize: { type: 'raw' },
-        dspLoop: { type: 'raw' },
-        io: { type: 'raw' },
-        globals: {
-            type: 'proxy',
-            value: proxyAsModuleWithBindings(rawModule, globalsBindings),
-        },
-    };
-};
-const createEngine$1 = (code, additionalBindings) => {
-    const rawModule = compileRawModule(code);
-    const rawModuleWithNameMapping = proxyWithEngineNameMapping(rawModule, rawModule.metadata.compilation.variableNamesIndex);
-    return proxyAsModuleWithBindings(rawModule, {
-        ...createEngineBindings(rawModuleWithNameMapping),
-        ...(additionalBindings || {}),
-    });
 };
 
 /*
@@ -12278,9 +11916,9 @@ const audioDataToWav = (audioData, sampleRate) => {
 const createEngine = async (artefacts, target) => {
     switch (target) {
         case 'javascript':
-            return createEngine$1(getArtefact(artefacts, 'javascript'));
+            return createEngine$2(getArtefact(artefacts, 'javascript'));
         case 'assemblyscript':
-            return createEngine$2(getArtefact(artefacts, 'wasm'));
+            return createEngine$1(getArtefact(artefacts, 'wasm'));
     }
 };
 const renderAudioData = (engine, durationSeconds, audioSettings) => {
@@ -12467,6 +12105,142 @@ const nodeImplementation$F = {
  * You should have received a copy of the GNU Lesser General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
+const bangUtils = {
+    namespace: 'bangUtils',
+    // prettier-ignore
+    code: ({ ns: bangUtils }, { msg }) => Sequence$1([
+        Func$2(bangUtils.isBang, [
+            Var$2(msg.Message, `message`)
+        ], 'boolean') `
+            return (
+                ${msg.isStringToken}(message, 0) 
+                && ${msg.readStringToken}(message, 0) === 'bang'
+            )
+        `,
+        Func$2(bangUtils.bang, [], msg.Message) `
+            ${ConstVar$2(msg.Message, `message`, `${msg.create}([${msg.STRING_TOKEN}, 4])`)}
+            ${msg.writeStringToken}(message, 0, 'bang')
+            return message
+        `,
+        Func$2(bangUtils.emptyToBang, [
+            Var$2(msg.Message, `message`)
+        ], msg.Message) `
+            if (${msg.getLength}(message) === 0) {
+                return ${bangUtils.bang}()
+            } else {
+                return message
+            }
+        `,
+    ]),
+    dependencies: [msg],
+};
+const msgUtils = {
+    namespace: 'msgUtils',
+    // prettier-ignore
+    code: ({ ns: msgUtils }, { msg }) => Sequence$1([
+        Func$2(msgUtils.slice, [
+            Var$2(msg.Message, `message`),
+            Var$2(`Int`, `start`),
+            Var$2(`Int`, `end`)
+        ], msg.Message) `
+            if (${msg.getLength}(message) <= start) {
+                throw new Error('message empty')
+            }
+            ${ConstVar$2(msg.Template, 'template', `${msgUtils._copyTemplate}(message, start, end)`)}
+            ${ConstVar$2(msg.Message, `newMessage`, `${msg.create}(template)`)}
+            ${msgUtils.copy}(message, newMessage, start, end, 0)
+            return newMessage
+        `,
+        Func$2(msgUtils.concat, [
+            Var$2(msg.Message, `message1`),
+            Var$2(msg.Message, `message2`)
+        ], msg.Message) `
+            ${ConstVar$2(msg.Message, 'newMessage', `${msg.create}(${msgUtils._copyTemplate}(message1, 0, ${msg.getLength}(message1)).concat(${msgUtils._copyTemplate}(message2, 0, ${msg.getLength}(message2))))`)}
+            ${msgUtils.copy}(message1, newMessage, 0, ${msg.getLength}(message1), 0)
+            ${msgUtils.copy}(message2, newMessage, 0, ${msg.getLength}(message2), ${msg.getLength}(message1))
+            return newMessage
+        `,
+        Func$2(msgUtils.shift, [
+            Var$2(msg.Message, `message`)
+        ], msg.Message) `
+            switch (${msg.getLength}(message)) {
+                case 0:
+                    throw new Error('message empty')
+                case 1:
+                    return ${msg.create}([])
+                default:
+                    return ${msgUtils.slice}(message, 1, ${msg.getLength}(message))
+            }
+        `,
+        Func$2(msgUtils.copy, [
+            Var$2(msg.Message, `src`),
+            Var$2(msg.Message, `dest`),
+            Var$2(`Int`, `srcStart`),
+            Var$2(`Int`, `srcEnd`),
+            Var$2(`Int`, `destStart`),
+        ], 'void') `
+            ${Var$2(`Int`, `i`, `srcStart`)}
+            ${Var$2(`Int`, `j`, `destStart`)}
+            for (i, j; i < srcEnd; i++, j++) {
+                if (${msg.getTokenType}(src, i) === ${msg.STRING_TOKEN}) {
+                    ${msg.writeStringToken}(dest, j, ${msg.readStringToken}(src, i))
+                } else {
+                    ${msg.writeFloatToken}(dest, j, ${msg.readFloatToken}(src, i))
+                }
+            }
+        `,
+        Func$2(msgUtils._copyTemplate, [
+            Var$2(msg.Message, `src`),
+            Var$2(`Int`, `start`),
+            Var$2(`Int`, `end`)
+        ], msg.Template) `
+            ${ConstVar$2(msg.Template, `template`, `[]`)}
+            for (${Var$2(`Int`, `i`, `start`)}; i < end; i++) {
+                ${ConstVar$2(`Int`, `tokenType`, `${msg.getTokenType}(src, i)`)}
+                template.push(tokenType)
+                if (tokenType === ${msg.STRING_TOKEN}) {
+                    template.push(${msg.readStringToken}(src, i).length)
+                }
+            }
+            return template
+        `,
+    ]),
+    dependencies: [msg],
+};
+const actionUtils = {
+    namespace: 'actionUtils',
+    // prettier-ignore
+    code: ({ ns: actionUtils }, { msg }) => Sequence$1([
+        Func$2(actionUtils.isAction, [
+            Var$2(msg.Message, `message`),
+            Var$2(`string`, `action`)
+        ], 'boolean') `
+            return ${msg.isMatching}(message, [${msg.STRING_TOKEN}])
+                && ${msg.readStringToken}(message, 0) === action
+        `
+    ]),
+    dependencies: [msg],
+};
+
+/*
+ * Copyright (c) 2022-2023 Sébastien Piquemal <sebpiq@protonmail.com>, Chris McCormick.
+ *
+ * This file is part of WebPd
+ * (see https://github.com/sebpiq/WebPd).
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with this program. If not, see <http://www.gnu.org/licenses/>.
+ */
 // ------------------------------- node builder ------------------------------ //
 const builder$M = {
     translateArgs: () => ({}),
@@ -12538,7 +12312,7 @@ const builder$L = {
     },
 };
 // ------------------------------ node implementation ------------------------------ //
-const makeNodeImplementation$5 = ({ alphaName, coeff, generateOperation, }) => {
+const makeNodeImplementation$6 = ({ alphaName, coeff, generateOperation, }) => {
     const nodeImplementation = {
         flags: {
             alphaName,
@@ -12580,19 +12354,19 @@ const makeNodeImplementation$5 = ({ alphaName, coeff, generateOperation, }) => {
     return nodeImplementation;
 };
 // ------------------------------------------------------------------- //
-const nodeImplementations$d = {
-    'osc~': makeNodeImplementation$5({
+const nodeImplementations$e = {
+    'osc~': makeNodeImplementation$6({
         alphaName: 'osc_t',
         coeff: '2 * Math.PI',
         generateOperation: (phase) => `Math.cos(${phase})`
     }),
-    'phasor~': makeNodeImplementation$5({
+    'phasor~': makeNodeImplementation$6({
         alphaName: 'phasor_t',
         coeff: '1',
         generateOperation: (phase) => `${phase} % 1`
     }),
 };
-const builders$d = {
+const builders$e = {
     'osc~': builder$L,
     'phasor~': builder$L,
 };
@@ -13613,7 +13387,7 @@ const builder$E = {
     }),
 };
 // ---------------------------- node implementation -------------------------- //
-const nodeImplementations$c = {
+const nodeImplementations$d = {
     'abs~': {
         flags: {
             isPureFunction: true,
@@ -13665,7 +13439,7 @@ const nodeImplementations$c = {
         dependencies: [ftom],
     },
 };
-const builders$c = {
+const builders$d = {
     'abs~': builder$E,
     'cos~': builder$E,
     'wrap~': builder$E,
@@ -14153,11 +13927,11 @@ const nodeImplementation$u = {
         actionUtils,
     ],
 };
-const builders$b = {
+const builders$c = {
     'tabread~': builder$A,
     'tabread4~': builder$A,
 };
-const nodeImplementations$b = {
+const nodeImplementations$c = {
     'tabread~': nodeImplementation$u,
     'tabread4~': nodeImplementation$u,
 };
@@ -15317,6 +15091,85 @@ const nodeImplementation$q = {
     ])
 };
 
+const sigBuses = {
+    namespace: 'sigBuses',
+    // prettier-ignore
+    code: ({ ns: sigBuses }) => Sequence$1([
+        ConstVar$2(`Map<string, Float>`, sigBuses._BUSES, `new Map()`),
+        `${sigBuses._BUSES}.set('', 0)`,
+        Func$2(sigBuses.addAssign, [
+            Var$2(`string`, `busName`),
+            Var$2(`Float`, `value`)
+        ], 'Float') `
+            ${ConstVar$2('Float', 'newValue', `${sigBuses._BUSES}.get(busName) + value`)}
+            ${sigBuses._BUSES}.set(
+                busName,
+                newValue,
+            )
+            return newValue
+        `,
+        Func$2(sigBuses.set, [
+            Var$2(`string`, `busName`),
+            Var$2(`Float`, `value`),
+        ], 'void') `
+            ${sigBuses._BUSES}.set(
+                busName,
+                value,
+            )
+        `,
+        Func$2(sigBuses.reset, [
+            Var$2(`string`, `busName`)
+        ], 'void') `
+            ${sigBuses._BUSES}.set(busName, 0)
+        `,
+        Func$2(sigBuses.read, [
+            Var$2(`string`, `busName`)
+        ], 'Float') `
+            return ${sigBuses._BUSES}.get(busName)
+        `
+    ]),
+};
+const msgBuses = {
+    namespace: 'msgBuses',
+    // prettier-ignore
+    code: ({ ns: msgBuses }, { msg }) => Sequence$1([
+        ConstVar$2(`Map<string, Array<${msg.Handler}>>`, msgBuses._BUSES, 'new Map()'),
+        Func$2(msgBuses.publish, [
+            Var$2(`string`, `busName`),
+            Var$2(msg.Message, `message`)
+        ], 'void') `
+            ${Var$2(`Int`, `i`, `0`)}
+            ${ConstVar$2(`Array<${msg.Handler}>`, 'callbacks', `${msgBuses._BUSES}.has(busName) ? ${msgBuses._BUSES}.get(busName): []`)}
+            for (i = 0; i < callbacks.length; i++) {
+                callbacks[i](message)
+            }
+        `,
+        Func$2(msgBuses.subscribe, [
+            Var$2(`string`, `busName`),
+            Var$2(msg.Handler, `callback`)
+        ], 'void') `
+            if (!${msgBuses._BUSES}.has(busName)) {
+                ${msgBuses._BUSES}.set(busName, [])
+            }
+            ${msgBuses._BUSES}.get(busName).push(callback)
+        `,
+        Func$2(msgBuses.unsubscribe, [
+            Var$2(`string`, `busName`),
+            Var$2(msg.Handler, `callback`)
+        ], 'void') `
+            if (!${msgBuses._BUSES}.has(busName)) {
+                return
+            }
+            ${ConstVar$2(`Array<${msg.Handler}>`, `callbacks`, `${msgBuses._BUSES}.get(busName)`)}
+            ${ConstVar$2(`Int`, `found`, `callbacks.indexOf(callback)`)}
+            if (found !== -1) {
+                callbacks.splice(found, 1)
+            }
+        `
+    ]),
+    dependencies: [msg],
+};
+
 /*
  * Copyright (c) 2022-2023 Sébastien Piquemal <sebpiq@protonmail.com>, Chris McCormick.
  *
@@ -15488,13 +15341,13 @@ const nodeImplementationReceive$1 = {
     ]
 };
 // -------------------------------------------------------------------------------------------- //
-const builders$a = {
+const builders$b = {
     'throw~': builderThrow,
     'catch~': builderCatch,
     'send~': builderSend$1,
     'receive~': builderReceive$1,
 };
-const nodeImplementations$a = {
+const nodeImplementations$b = {
     'throw~': nodeImplementationThrow,
     'catch~': nodeImplementationCatch,
     'send~': nodeImplementationSend$1,
@@ -15810,6 +15663,204 @@ const nodeImplementation$n = {
         bangUtils,
         commonsWaitFrame,
     ],
+};
+
+const EMPTY_BUS_NAME = 'empty';
+const build = () => ({
+    inlets: {
+        '0': { type: 'message', id: '0' },
+    },
+    outlets: {
+        '0': { type: 'message', id: '0' },
+    },
+    // This is always true, because the object can receive 
+    // messages through message bus
+    isPushingMessages: true
+});
+const controlsCore = (ns, { msg, msgBuses }) => Sequence$1([
+    Func$2(ns.setReceiveBusName, [
+        Var$2(ns.State, `state`),
+        Var$2(`string`, `busName`),
+    ], 'void') `
+            if (state.receiveBusName !== "${EMPTY_BUS_NAME}") {
+                ${msgBuses.unsubscribe}(state.receiveBusName, state.messageReceiver)
+            }
+            state.receiveBusName = busName
+            if (state.receiveBusName !== "${EMPTY_BUS_NAME}") {
+                ${msgBuses.subscribe}(state.receiveBusName, state.messageReceiver)
+            }
+        `,
+    Func$2(ns.setSendReceiveFromMessage, [
+        Var$2(ns.State, `state`),
+        Var$2(msg.Message, `m`),
+    ], 'boolean') `
+            if (
+                ${msg.isMatching}(m, [${msg.STRING_TOKEN}, ${msg.STRING_TOKEN}])
+                && ${msg.readStringToken}(m, 0) === 'receive'
+            ) {
+                ${ns.setReceiveBusName}(state, ${msg.readStringToken}(m, 1))
+                return true
+
+            } else if (
+                ${msg.isMatching}(m, [${msg.STRING_TOKEN}, ${msg.STRING_TOKEN}])
+                && ${msg.readStringToken}(m, 0) === 'send'
+            ) {
+                state.sendBusName = ${msg.readStringToken}(m, 1)
+                return true
+            }
+            return false
+        `,
+    Func$2(ns.defaultMessageHandler, [Var$2(msg.Message, `m`)], `void`) ``,
+]);
+
+/*
+ * Copyright (c) 2022-2023 Sébastien Piquemal <sebpiq@protonmail.com>, Chris McCormick.
+ *
+ * This file is part of WebPd
+ * (see https://github.com/sebpiq/WebPd).
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with this program. If not, see <http://www.gnu.org/licenses/>.
+ */
+// ------------------------------- node builder ------------------------------ //
+const builderWithInit = {
+    translateArgs: ({ args: [minValue, maxValue, init, initValue, receive, send], }) => ({
+        minValue: assertNumber(minValue),
+        maxValue: assertNumber(maxValue),
+        sendBusName: assertOptionalString(send) || EMPTY_BUS_NAME,
+        receiveBusName: assertOptionalString(receive) || EMPTY_BUS_NAME,
+        initValue: init === 1 ? assertNumber(initValue) : 0,
+        outputOnLoad: !!init,
+    }),
+    build,
+};
+const builderWithoutMin = {
+    translateArgs: ({ args: [maxValue, init, initValue, receive, send], }) => ({
+        minValue: 0,
+        maxValue: assertNumber(maxValue),
+        sendBusName: assertOptionalString(send) || EMPTY_BUS_NAME,
+        receiveBusName: assertOptionalString(receive) || EMPTY_BUS_NAME,
+        initValue: init === 1 ? assertNumber(initValue) : 0,
+        outputOnLoad: !!init,
+    }),
+    build,
+};
+// ------------------------------- node implementation ------------------------------ //
+const makeNodeImplementation$5 = ({ prepareStoreValue, prepareStoreValueBang, name }) => {
+    return {
+        flags: {
+            alphaName: name,
+        },
+        state: ({ ns, node: { args } }, { msg }) => Class$2(ns.State, [
+            Var$2(`Float`, `minValue`, args.minValue),
+            Var$2(`Float`, `maxValue`, args.maxValue),
+            Var$2(`Float`, `valueFloat`, args.initValue),
+            Var$2(msg.Message, `value`, `${msg.create}([])`),
+            Var$2(`string`, `receiveBusName`, `"${args.receiveBusName}"`),
+            Var$2(`string`, `sendBusName`, `"${args.sendBusName}"`),
+            Var$2(msg.Handler, `messageReceiver`, ns.defaultMessageHandler),
+            Var$2(msg.Handler, `messageSender`, ns.defaultMessageHandler),
+        ]),
+        initialization: ({ ns, state, snds, node: { args }, }, { commons, msg }) => ast$1 `
+                ${state}.messageSender = ${snds.$0}
+                ${state}.messageReceiver = ${AnonFunc([Var$2(msg.Message, `m`)]) `
+                    ${ns.receiveMessage}(${state}, m)
+                `}
+                ${ns.setReceiveBusName}(${state}, "${args.receiveBusName}")
+    
+                ${args.outputOnLoad ?
+            `${commons.waitFrame}(0, () => ${snds.$0}(${msg.floats}([${state}.valueFloat])))` : null}
+            `,
+        messageReceivers: ({ ns, state, }, { msg }) => ({
+            '0': AnonFunc([Var$2(msg.Message, `m`)]) `
+                ${ns.receiveMessage}(${state}, m)
+                return
+            `
+        }),
+        core: ({ ns }, globals) => {
+            const { msgBuses, bangUtils, msg } = globals;
+            return Sequence$1([
+                controlsCore(ns, globals),
+                Func$2(ns.receiveMessage, [
+                    Var$2(ns.State, `state`),
+                    Var$2(msg.Message, `m`),
+                ], 'void') `
+                    if (${msg.isMatching}(m, [${msg.FLOAT_TOKEN}])) {
+                        ${prepareStoreValue ?
+                    `state.valueFloat = ${prepareStoreValue(`${msg.readFloatToken}(m, 0)`)}`
+                    : `state.valueFloat = ${msg.readFloatToken}(m, 0)`}
+                        ${ConstVar$2(msg.Message, `outMessage`, `${msg.floats}([state.valueFloat])`)}
+                        state.messageSender(outMessage)
+                        if (state.sendBusName !== "${EMPTY_BUS_NAME}") {
+                            ${msgBuses.publish}(state.sendBusName, outMessage)
+                        }
+                        return
+        
+                    } else if (${bangUtils.isBang}(m)) {
+                        ${prepareStoreValueBang ?
+                    `state.valueFloat = ${prepareStoreValueBang(`state.valueFloat`)}`
+                    : null}
+                        ${ConstVar$2(msg.Message, `outMessage`, `${msg.floats}([state.valueFloat])`)}
+                        state.messageSender(outMessage)
+                        if (state.sendBusName !== "${EMPTY_BUS_NAME}") {
+                            ${msgBuses.publish}(state.sendBusName, outMessage)
+                        }
+                        return
+        
+                    } else if (
+                        ${msg.isMatching}(m, [${msg.STRING_TOKEN}, ${msg.FLOAT_TOKEN}]) 
+                        && ${msg.readStringToken}(m, 0) === 'set'
+                    ) {
+                        ${prepareStoreValue ?
+                    `state.valueFloat = ${prepareStoreValue(`${msg.readFloatToken}(m, 1)`)}`
+                    : `state.valueFloat = ${msg.readFloatToken}(m, 1)`}
+                        return
+                    
+                    } else if (${ns.setSendReceiveFromMessage}(state, m) === true) {
+                        return
+                    }
+                `
+            ]);
+        },
+        dependencies: [
+            bangUtils,
+            msgBuses,
+            commonsWaitFrame,
+        ],
+    };
+};
+// ------------------------------------------------------------------- //
+const nodeImplementations$a = {
+    'tgl': makeNodeImplementation$5({
+        name: 'tgl',
+        prepareStoreValueBang: (valueCode) => `${valueCode} === 0 ? state.maxValue: 0`
+    }),
+    'nbx': makeNodeImplementation$5({
+        name: 'nbx',
+        prepareStoreValue: (valueCode) => `Math.min(Math.max(${valueCode},state.minValue),state.maxValue)`
+    }),
+    'hsl': makeNodeImplementation$5({ name: 'hsl' }),
+    'vsl': makeNodeImplementation$5({ name: 'vsl' }),
+    'hradio': makeNodeImplementation$5({ name: 'hradio' }),
+    'vradio': makeNodeImplementation$5({ name: 'vradio' }),
+};
+const builders$a = {
+    'tgl': builderWithoutMin,
+    'nbx': builderWithInit,
+    'hsl': builderWithInit,
+    'vsl': builderWithInit,
+    'hradio': builderWithoutMin,
+    'vradio': builderWithoutMin,
 };
 
 /*
@@ -19640,15 +19691,15 @@ const builders = {
 const NODE_BUILDERS = {
     ...nodeBuilders,
     ...builders$6,
-    ...builders$c,
     ...builders$d,
+    ...builders$e,
     ...builders$4,
     ...builders$3,
     ...builders$5,
-    ...builders$a,
-    ...builders$2,
-    ...builders$2,
     ...builders$b,
+    ...builders$2,
+    ...builders$2,
+    ...builders$c,
     'noise~': builder$n,
     'snapshot~': builder$I,
     'sig~': builder$Q,
@@ -19671,7 +19722,7 @@ const NODE_BUILDERS = {
     'delwrite~': builder$l,
     's~': { aliasTo: 'send~' },
     'r~': { aliasTo: 'receive~' },
-    ...builders$e,
+    ...builders$a,
     ...builders$9,
     ...builders,
     ...builders$7,
@@ -19725,14 +19776,14 @@ const NODE_BUILDERS = {
 };
 const NODE_IMPLEMENTATIONS = {
     ...nodeImplementations$6,
-    ...nodeImplementations$c,
     ...nodeImplementations$d,
+    ...nodeImplementations$e,
     ...nodeImplementations$4,
     ...nodeImplementations$3,
     ...nodeImplementations$5,
-    ...nodeImplementations$a,
-    ...nodeImplementations$2,
     ...nodeImplementations$b,
+    ...nodeImplementations$2,
+    ...nodeImplementations$c,
     'noise~': nodeImplementation$k,
     'snapshot~': nodeImplementation$B,
     'sig~': nodeImplementation$I,
@@ -19752,7 +19803,7 @@ const NODE_IMPLEMENTATIONS = {
     'hip~': nodeImplementation$i,
     'lop~': nodeImplementation$h,
     'vcf~': nodeImplementation$g,
-    ...nodeImplementations$e,
+    ...nodeImplementations$a,
     ...nodeImplementations$9,
     ...nodeImplementations,
     ...nodeImplementations$8,
@@ -19785,6 +19836,119 @@ const NODE_IMPLEMENTATIONS = {
     // Internal nodes
     '_mixer~': nodeImplementation$J,
     '_routemsg': nodeImplementation$H,
+};
+
+const collectIoMessageReceiversFromSendNodes = (pdJson, graph) => _collectSendReceiveNodes(pdJson, graph, 'send').reduce((messageReceivers, node) => ({
+    ...messageReceivers,
+    [node.id]: ['0'],
+}), {});
+const collectIoMessageSendersFromReceiveNodes = (pdJson, graph) => _collectSendReceiveNodes(pdJson, graph, 'receive').reduce((messageSenders, node) => ({
+    ...messageSenders,
+    [node.id]: ['0'],
+}), {});
+const _collectSendReceiveNodes = (pdJson, graph, nodeType) => {
+    const rootPatch = resolveRootPatch(pdJson);
+    return Object.values(rootPatch.nodes)
+        .map((pdNode) => {
+        const nodeId = buildGraphNodeId(rootPatch.id, pdNode.id);
+        const node = graph[nodeId];
+        if (
+        // Important because some nodes are deleted at dsp-graph compilation.
+        // and if we declare messageReceivers for them it will cause error.
+        // TODO : maybe the compiler should detect this instead of doing it here ?
+        !!node &&
+            node.type === nodeType) {
+            return node;
+        }
+        else {
+            return null;
+        }
+    })
+        .filter((node) => node !== null);
+};
+
+const collectIoMessageReceiversFromGui = (pd, graph) => _collectControlNodes(pd, graph).reduce((messageReceivers, node) => ({
+    ...messageReceivers,
+    [node.id]: ['0'],
+}), {});
+const collectIoMessageSendersFromGui = (pd, graph) => _collectControlNodes(pd, graph).reduce((messageSenders, node) => ({
+    ...messageSenders,
+    [node.id]: ['0'],
+}), {});
+const _collectControlNodes = (pdJson, graph) => {
+    const pdGuiNodes = discoverPdGui(pdJson);
+    const nodes = [];
+    traversePdGui(pdGuiNodes, (control) => {
+        if (control.nodeClass !== 'control') {
+            return;
+        }
+        const node = graph[control.nodeId];
+        // Important because some nodes are deleted at dsp-graph compilation.
+        // and if we declare messageReceivers for them it will cause error.
+        // TODO : maybe the compiler should detect this instead of doing it here ?
+        if (node) {
+            nodes.push(node);
+        }
+    });
+    return nodes;
+};
+
+const applySettingsDefaults = (settings, graph, pd) => {
+    const webPdMetadata = {
+        pdNodes: {},
+        graph: {},
+        pdGui: [],
+    };
+    const io = settings.io || {};
+    // If io.messageReceivers / io.messageSenders are not defined, we infer them by
+    // discovering UI controls and [send] / [receive] nodes and generating
+    // messageReceivers / messageSenders for each one.
+    if (!io.messageReceivers) {
+        io.messageReceivers = {
+            ...collectIoMessageReceiversFromGui(pd, graph),
+            ...collectIoMessageReceiversFromSendNodes(pd, graph),
+        };
+    }
+    if (!io.messageSenders) {
+        io.messageSenders = {
+            ...collectIoMessageSendersFromGui(pd, graph),
+            ...collectIoMessageSendersFromReceiveNodes(pd, graph),
+        };
+    }
+    Object.keys(io.messageReceivers).forEach((nodeId) => {
+        webPdMetadata.graph[nodeId] = graph[nodeId];
+    });
+    Object.keys(io.messageSenders).forEach((nodeId) => {
+        webPdMetadata.graph[nodeId] = graph[nodeId];
+    });
+    if (pd) {
+        const pdGui = discoverPdGui(pd);
+        traversePdGui(pdGui, (pdGuiNode) => {
+            // Add pd node to customMetadata
+            // We keep both controls and subpatches
+            webPdMetadata.pdNodes[pdGuiNode.patchId] =
+                webPdMetadata.pdNodes[pdGuiNode.patchId] || {};
+            webPdMetadata.pdNodes[pdGuiNode.patchId][pdGuiNode.pdNodeId] =
+                pd.patches[pdGuiNode.patchId].nodes[pdGuiNode.pdNodeId];
+            // Add dsp graph node to customMetadata
+            // Keep only controls, because subpatches are not part of the dsp graph
+            if (pdGuiNode.nodeClass === 'control') {
+                const node = graph[pdGuiNode.nodeId];
+                if (node) {
+                    webPdMetadata.graph[pdGuiNode.nodeId] = node;
+                }
+            }
+        });
+        webPdMetadata.pdGui = pdGui;
+    }
+    return {
+        ...settings,
+        io,
+        customMetadata: {
+            ...(settings.customMetadata || {}),
+            ...webPdMetadata,
+        },
+    };
 };
 
 const defaultSettingsForBuild$1 = () => ({
@@ -19852,25 +20016,7 @@ const performBuildStep = async (artefacts, target, { nodeBuilders, nodeImplement
                 ]);
             }
             if (toDspGraphResult.status === 0) {
-                // If io.messageReceivers are not defined, we infer them by
-                // discovering UI controls and generating messageReceivers for each one.
-                if (!io.messageReceivers) {
-                    const { controls } = discoverGuiControls(toDspGraphResult.pd);
-                    io.messageReceivers = {
-                        ...collectIoMessageReceiversFromGui(controls, toDspGraphResult.graph),
-                        ...collectIoMessageReceiversFromSendNodes(toDspGraphResult.pd, toDspGraphResult.graph)
-                    };
-                }
-                artefacts.dspGraph = {
-                    graph: toDspGraphResult.graph,
-                    arrays: toDspGraphResult.arrays,
-                    pd: toDspGraphResult.pd,
-                    io: {
-                        messageReceivers: {},
-                        messageSenders: {},
-                        ...io,
-                    },
-                };
+                artefacts.dspGraph = toDspGraphResult;
                 return { status: 0, warnings };
             }
             else {
@@ -19900,11 +20046,13 @@ const performBuildStep = async (artefacts, target, { nodeBuilders, nodeImplement
             }
         case 'javascript':
         case 'assemblyscript':
-            const compileCodeResult = index(artefacts.dspGraph.graph, nodeImplementations, target, {
+            // Build compile settings dynamically,
+            // collecting io from the patch
+            const compileCodeResult = index(artefacts.dspGraph.graph, nodeImplementations, target, applySettingsDefaults({
                 audio: audioSettings,
-                io: artefacts.dspGraph.io,
+                io,
                 arrays: artefacts.dspGraph.arrays,
-            });
+            }, artefacts.dspGraph.graph, artefacts.pdJson));
             {
                 if (target === 'javascript') {
                     artefacts.javascript = compileCodeResult.code;
@@ -19930,7 +20078,7 @@ const performBuildStep = async (artefacts, target, { nodeBuilders, nodeImplement
             artefacts.wav = await renderWav(renderAudioSettings.previewDurationSeconds, artefacts, { ...audioSettings, ...renderAudioSettings });
             return { status: 0, warnings: [] };
         case 'app':
-            artefacts.app = buildApp(artefacts);
+            artefacts.app = await buildApp(artefacts);
             return { status: 0, warnings: [] };
         default:
             throw new Error(`invalid build step ${target}`);
@@ -20556,7 +20704,6 @@ const workerSafePerformBuildStep = async (artefacts, step, workerSafeBuildSettin
         ...defaultSettingsForBuild(workerSafeBuildSettings.rootUrl || ''),
         audioSettings: workerSafeBuildSettings.audioSettings,
         renderAudioSettings: workerSafeBuildSettings.renderAudioSettings,
-        io: workerSafeBuildSettings.io,
         abstractionLoader: workerSafeBuildSettings.rootUrl
             ? makeUrlAbstractionLoader(workerSafeBuildSettings.rootUrl)
             : localAbstractionLoader,

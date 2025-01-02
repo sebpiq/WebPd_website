@@ -1,8 +1,14 @@
-import { Point } from './math-utils'
 import { assertNonNullable } from './misc-utils'
-import { getControlValue, setControlValue } from './models'
-import { PatchPlayerWithSettings } from './types'
-import { CONTAINER_EXTRA_SPACE, ControlTreeView, ControlView } from './views'
+import { getCurrentValue, registerView } from './controller'
+import {
+    CommentView,
+    ContainerView,
+    ControlOrContainerView,
+    ControlView,
+    PatchPlayerWithSettings,
+    Point,
+} from './types'
+import { CONTAINER_EXTRA_SPACE } from './views'
 
 const FONT_FAMILY = 'Rajdhani'
 const GRID_SIZE_PX = 3
@@ -16,7 +22,7 @@ const HTML_STRUCTURE = `
     </div>
 
     <div id="patch-controls">
-        <div id="controls-root"></div>
+        <div id="views-root"></div>
     </div>
 
     <div id="credits">
@@ -33,9 +39,9 @@ const HTML_STRUCTURE = `
 export const renderStructure = (rootElem: HTMLDivElement) => {
     rootElem.innerHTML = HTML_STRUCTURE
     return {
-        controlsRoot: assertNonNullable(
-            rootElem.querySelector('#controls-root') as HTMLDivElement,
-            'controlsRoot not found'
+        viewsRoot: assertNonNullable(
+            rootElem.querySelector('#views-root') as HTMLDivElement,
+            'viewsRoot not found'
         ),
         startButton: assertNonNullable(
             rootElem.querySelector('#start') as HTMLButtonElement,
@@ -60,56 +66,44 @@ export const renderStructure = (rootElem: HTMLDivElement) => {
     }
 }
 
-export const renderControlViews = (
+export const renderViews = (
     patchPlayer: PatchPlayerWithSettings,
     parentElem: HTMLElement
 ) => {
-    _renderControlViewsRecurs(
+    _renderViewsRecurs(
         patchPlayer,
         parentElem,
-        patchPlayer.controlsViews,
+        patchPlayer.views.root,
         null
     )
 }
 
-export const renderCommentsViews = (
-    patchPlayer: PatchPlayerWithSettings,
-    parentElem: HTMLElement
-) => {
-    patchPlayer.commentsViews.forEach((commentView) => {
-        const div = document.createElement('div')
-        div.classList.add('comment')
-        div.innerHTML = commentView.text
-        parentElem.appendChild(div)
-        div.style.left = `${_scaleSpace(commentView.position.x)}px`
-        div.style.top = `${_scaleSpace(commentView.position.y)}px`
-    })
-}
-
-const _renderControlViewsRecurs = (
+const _renderViewsRecurs = (
     patchPlayer: PatchPlayerWithSettings,
     parentElem: HTMLElement,
-    children: Array<ControlTreeView>,
-    parent: ControlTreeView | null
+    children: Array<ControlView | ContainerView | CommentView>,
+    parent: ContainerView | null
 ) => {
-    children.forEach((controlView) => {
-        if (controlView.type === 'container') {
+    children.forEach((view) => {
+        if (view.type === 'comment') {
+            _renderComment(patchPlayer, parentElem, view)
+        } else if (view.type === 'container') {
             const childrenContainerElem = _renderContainer(
                 patchPlayer,
                 parentElem,
-                controlView
+                view
             )
-            _renderControlViewsRecurs(
+            _renderViewsRecurs(
                 patchPlayer,
                 childrenContainerElem,
-                controlView.children,
-                controlView
+                view.children,
+                view
             )
-        } else if (controlView.type === 'control') {
+        } else if (view.type === 'control') {
             _renderControl(
                 patchPlayer,
                 parentElem,
-                controlView,
+                view,
                 _getContainerPadding(parent ? _hasLabel(parent) : false)
             )
         }
@@ -119,27 +113,41 @@ const _renderControlViewsRecurs = (
 const _renderContainer = (
     _: PatchPlayerWithSettings,
     parent: HTMLElement,
-    controlView: ControlTreeView
+    containerView: ContainerView
 ) => {
     const div = document.createElement('div')
     div.classList.add('controls-container')
 
-    const containerPadding = _getContainerPadding(_hasLabel(controlView))
+    const containerPadding = _getContainerPadding(_hasLabel(containerView))
 
-    div.style.left = `${_scaleSpace(controlView.position.x)}px`
-    div.style.top = `${_scaleSpace(controlView.position.y)}px`
-    div.style.width = `${_scaleSpace(controlView.dimensions.x)}px`
-    div.style.height = `${_scaleSpace(controlView.dimensions.y)}px`
+    div.style.left = `${_scaleSpace(containerView.position.x)}px`
+    div.style.top = `${_scaleSpace(containerView.position.y)}px`
+    div.style.width = `${_scaleSpace(containerView.dimensions.x)}px`
+    div.style.height = `${_scaleSpace(containerView.dimensions.y)}px`
     div.style.paddingTop = `${_scaleSpace(containerPadding.top)}px`
     div.style.paddingBottom = `${_scaleSpace(containerPadding.bottom)}px`
     div.style.paddingRight = `${_scaleSpace(containerPadding.right)}px`
     div.style.paddingLeft = `${_scaleSpace(containerPadding.left)}px`
 
-    if (_hasLabel(controlView)) {
-        _renderLabel(div, controlView.label!)
+    if (_hasLabel(containerView)) {
+        _renderLabel(div, containerView.label!)
     }
 
     parent.appendChild(div)
+    return div
+}
+
+const _renderComment = (
+    _: PatchPlayerWithSettings,
+    parentElem: HTMLElement,
+    commentView: CommentView
+) => {
+    const div = document.createElement('div')
+    div.classList.add('comment')
+    div.innerHTML = commentView.text
+    parentElem.appendChild(div)
+    div.style.left = `${_scaleSpace(commentView.position.x)}px`
+    div.style.top = `${_scaleSpace(commentView.position.y)}px`
     return div
 }
 
@@ -149,14 +157,14 @@ const _renderControl = (
     controlView: ControlView,
     containerPadding: ReturnType<typeof _getContainerPadding>
 ) => {
-    const { node, patch } = controlView.control
+    const { nodeId, pdNode } = controlView
 
     const color = patchPlayer.settings.colorScheme.next()
 
     const div = document.createElement('div')
     div.classList.add('control')
-    div.classList.add(node.type)
-    div.id = `control-${patch.id}-${node.id}`
+    div.classList.add(pdNode.type)
+    div.id = `control-${nodeId}`
     div.style.left = `${_scaleSpace(
         controlView.position.x + containerPadding.left
     )}px`
@@ -215,22 +223,23 @@ const _renderNexus = (
     dimensions: Point
 ) => {
     let { x: width, y: height } = dimensions
-    const { node } = controlView.control
-    const storedValue = getControlValue(patchPlayer, controlView.control)
+    const { pdNode, nodeId } = controlView
+    const storedValue = getCurrentValue(patchPlayer, nodeId)
 
     let nexusElem
-    switch (node.type) {
+    let nexusElemOptions: {[k: string]: string | number} = {}
+    switch (pdNode.type) {
         case 'hsl':
         case 'vsl':
-            if (node.type === 'hsl') {
+            if (pdNode.type === 'hsl') {
                 height *= SLIDER_SIZE_RATIO
             } else {
                 width *= SLIDER_SIZE_RATIO
             }
             nexusElem = new Nexus.Add.Slider(div, {
-                min: node.args[0],
-                max: node.args[1],
-                value: storedValue !== undefined ? storedValue : node.args[3],
+                min: pdNode.args[0],
+                max: pdNode.args[1],
+                value: storedValue !== undefined ? storedValue : pdNode.args[3],
                 size: [width, height],
             })
             break
@@ -238,8 +247,9 @@ const _renderNexus = (
         case 'hradio':
         case 'vradio':
             nexusElem = new Nexus.RadioButton(div, {
-                numberOfButtons: node.args[0],
-                active: storedValue !== undefined ? storedValue : node.args[2],
+                numberOfButtons: pdNode.args[0],
+                active:
+                    storedValue !== undefined ? storedValue : pdNode.args[2],
                 size: [width, height],
             })
             break
@@ -253,27 +263,34 @@ const _renderNexus = (
         case 'msg':
             nexusElem = new Nexus.TextButton(div, {
                 size: [width, height],
-                text: node.args.join(' '),
+                text: pdNode.args.join(' '),
             })
             break
 
         case 'nbx':
         case 'floatatom':
+            if (pdNode.args[0] < pdNode.args[1]) {
+                // Not sure what's the max but if limits are too big, NexusUI Number wont work.
+                nexusElemOptions.min = Math.max(pdNode.args[0], -1e15)
+                nexusElemOptions.max = Math.min(pdNode.args[1], 1e15)
+            }
             nexusElem = new Nexus.Number(div, {
                 value:
                     storedValue !== undefined
                         ? storedValue
-                        : node.type === 'nbx'
-                        ? node.args[3]
+                        : pdNode.type === 'nbx'
+                        ? pdNode.args[3]
                         : 0,
                 size: [width, height],
+                ...nexusElemOptions,
             })
             break
 
         case 'tgl':
             nexusElem = new Nexus.Button(div, {
                 mode: 'toggle',
-                state: storedValue !== undefined ? storedValue : !!node.args[2],
+                state:
+                    storedValue !== undefined ? storedValue : !!pdNode.args[2],
                 size: [width, height],
             })
             break
@@ -295,12 +312,11 @@ const _renderNexus = (
             break
 
         default:
-            throw new Error(`Not supported ${node.type}`)
+            throw new Error(`Not supported ${pdNode.type}`)
     }
 
-    nexusElem.on('change', (v: number) =>
-        setControlValue(patchPlayer, controlView.control, v)
-    )
+    controlView.nexusElem = nexusElem
+    registerView(patchPlayer, controlView)
     return nexusElem
 }
 
@@ -317,5 +333,5 @@ const _getContainerPadding = (hasLabel: boolean) => ({
         : CONTAINER_EXTRA_SPACE.y / 2,
 })
 
-const _hasLabel = (controlView: ControlTreeView) =>
-    !!(controlView.label && controlView.label.length)
+const _hasLabel = (view: ControlOrContainerView) =>
+    !!(view.label && view.label.length)

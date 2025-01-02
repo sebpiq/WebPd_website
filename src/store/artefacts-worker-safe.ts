@@ -3,7 +3,6 @@ import { Browser, Build, PdJson } from 'webpd'
 export interface WorkerSafeBuildSettings {
     audioSettings: Build.Settings['audioSettings']
     renderAudioSettings: Build.Settings['renderAudioSettings']
-    io: Build.Settings['io']
     rootUrl: string | null
 }
 
@@ -18,7 +17,6 @@ export const workerSafePerformBuildStep = async (
         ),
         audioSettings: workerSafeBuildSettings.audioSettings,
         renderAudioSettings: workerSafeBuildSettings.renderAudioSettings,
-        io: workerSafeBuildSettings.io,
         abstractionLoader: workerSafeBuildSettings.rootUrl
             ? Browser.makeUrlAbstractionLoader(workerSafeBuildSettings.rootUrl)
             : localAbstractionLoader,

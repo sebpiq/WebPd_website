@@ -1,0 +1,83 @@
+#N canvas 56 27 1864 984 12;
+#X obj 54 204 hsl 115 15 0 3 0 0 empty empty empty -2 -8 0 10 #fcfcfc
+#000000 #000000 0 1;
+#X obj 51 241 hradio 30 1 0 4 empty empty empty 0 -8 0 10 #fcfcfc #000000
+#000000 0;
+#X obj 181 225 + 1;
+#N canvas 849 141 498 376 metro 0;
+#X obj 146 169 metro 1000;
+#X obj 199 118 nbx 5 30 200 1e+37 0 1 empty empty interval 0 -8 0 10
+#fcfcfc #000000 #000000 200 256;
+#X obj 146 198 f;
+#X obj 146 223 + 1;
+#X obj 116 117 tgl 30 1 empty empty On/Off 17 7 0 10 #fcfcfc #000000
+#000000 0 1;
+#X obj 146 255 % 4;
+#X obj 146 280 outlet;
+#X obj 199 280 outlet;
+#X connect 0 0 2 0;
+#X connect 1 0 0 1;
+#X connect 2 0 3 0;
+#X connect 3 0 2 1;
+#X connect 3 0 5 0;
+#X connect 3 0 7 0;
+#X connect 4 0 0 0;
+#X connect 5 0 6 0;
+#X coords 0 -1 1 1 185 50 1 100 100;
+#X restore 50 152 pd metro;
+#X obj 51 288 tgl 30 0 empty empty First 17 7 0 10 #fcfcfc #000000
+#000000 0 1;
+#X obj 181 254 == 1;
+#X obj 92 288 nbx 5 30 -1e+37 1e+37 0 0 empty empty empty 0 -8 0 10
+#fcfcfc #000000 #000000 0 256;
+#X floatatom 299 211 5 0 0 0 - - - 0;
+#X floatatom 347 211 5 0 0 0 - - - 0;
+#X floatatom 395 211 5 0 0 0 - - - 0;
+#X floatatom 299 241 5 0 0 0 - - - 0;
+#X floatatom 347 241 5 0 0 0 - - - 0;
+#X floatatom 395 241 5 0 0 0 - - - 0;
+#X floatatom 299 271 5 0 0 0 - - - 0;
+#X floatatom 347 271 5 0 0 0 - - - 0;
+#X floatatom 395 271 5 0 0 0 - - - 0;
+#X obj 266 212 vsl 15 100 0 127 0 0 empty empty empty 0 -9 0 10 #fcfcfc
+#000000 #000000 0 1;
+#X floatatom 299 301 5 0 0 0 - - - 0;
+#X floatatom 347 301 5 0 0 0 - - - 0;
+#X floatatom 395 301 5 0 0 0 - - - 0;
+#X obj 314 49 * 0.05;
+#X obj 364 49 * 0.1;
+#X obj 413 49 * 0.2;
+#X obj 468 48 * 0.4;
+#X obj 516 49 * 0.8;
+#X obj 571 49 * 1.6;
+#X text 271 331 Move slider to update number boxes;
+#X text 55 332 A metronome to play with;
+#X obj 137 288 nbx 5 30 -1e+37 1e+37 0 0 empty empty empty 0 -8 0 10
+#fcfcfc #000000 #000000 0 256;
+#X text 498 179 NOTE : This demo makes no sound. It is just a showcase
+of two way message communication between WebPd and a web page;
+#X connect 2 0 5 0;
+#X connect 2 0 6 0;
+#X connect 3 0 0 0;
+#X connect 3 0 1 0;
+#X connect 3 0 2 0;
+#X connect 3 1 28 0;
+#X connect 5 0 4 0;
+#X connect 16 0 20 0;
+#X connect 16 0 21 0;
+#X connect 16 0 22 0;
+#X connect 16 0 23 0;
+#X connect 16 0 24 0;
+#X connect 16 0 25 0;
+#X connect 20 0 7 0;
+#X connect 21 0 8 0;
+#X connect 21 0 10 0;
+#X connect 22 0 9 0;
+#X connect 22 0 11 0;
+#X connect 22 0 13 0;
+#X connect 23 0 12 0;
+#X connect 23 0 14 0;
+#X connect 23 0 17 0;
+#X connect 24 0 15 0;
+#X connect 24 0 18 0;
+#X connect 25 0 19 0;
