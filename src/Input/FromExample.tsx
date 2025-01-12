@@ -7,12 +7,16 @@ import { theme } from '../theme'
 interface Props {}
 
 const EXAMPLES = {
+    hillageizer: {
+        display: "Andy Farnell - hillageizer",
+        url: './patches/Andy-Farnell-hillageizer.pd',
+    },
     ginger2: {
-        display: "Martin's Brinkmann ginger2",
+        display: "Martin Brinkmann - ginger2",
         url: './patches/Martin-Brinkmann-ginger2.pd',
     },
     randomperc1: {
-        display: "Martin's Brinkmann randomperc1",
+        display: "Martin Brinkmann - randomperc1",
         url: './patches/Martin-Brinkmann-randomperc1.pd'
     },
     uiDemo: {

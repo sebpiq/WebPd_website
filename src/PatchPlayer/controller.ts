@@ -73,15 +73,32 @@ export const registerView = (
         onMessageFromWebPd,
     }
 
-    nexusElem._isBeingChangedByUser = false
     nexusElem.on('change', function (this: typeof Nexus, v: number) {
-        _onControlActivatedByUser.call(this, patchPlayer, nodeId, v)
+        // Avoid triggering the callback when we change the control value programmatically
+        // Ref : https://github.com/nexus-js/ui/issues/218
+        const wasChangedByUser =
+            nexusElem.type === 'RadioButton'
+                ? nexusElem.buttons[v]
+                    ? nexusElem.buttons[v].clicked
+                    : undefined
+                : nexusElem.clicked
+        if (wasChangedByUser === true) {
+            _onControlActivatedByUser(patchPlayer, nodeId, v)
+        }
     })
-    nexusElem.on('click', function (this: typeof Nexus) {
-        this._isBeingChangedByUser = true
-    })
-    nexusElem.on('release', function (this: typeof Nexus) {
-        this._isBeingChangedByUser = false
+
+    // We keep `_isBeingChangedByUser` flag to know if the control is being
+    // changed by the user so that when receiving echo from WebPd, we can
+    // avoid interferring with the user action.
+    nexusElem._isBeingChangedByUser = false
+    const eventEmitters = nexusElem.type === 'RadioButton' ? nexusElem.buttons : [nexusElem]
+    eventEmitters.forEach((nexusElem: typeof Nexus) => {
+        nexusElem.on('click', function (this: typeof Nexus) {
+            nexusElem._isBeingChangedByUser = true
+        })
+        nexusElem.on('release', function (this: typeof Nexus) {
+            nexusElem._isBeingChangedByUser = false
+        })
     })
 }
 
@@ -96,18 +113,11 @@ export const getCurrentValue = (
     nodeId: DspGraph.NodeId
 ) => patchPlayer.controller.values[nodeId]
 
-function _onControlActivatedByUser(
-    this: typeof Nexus,
+const _onControlActivatedByUser = (
     patchPlayer: PatchPlayerWithSettings,
     nodeId: DspGraph.NodeId,
     rawValue: number
-) {
-    // Allows to avoid triggering the callback when we change the control value programmatically
-    // Ref : https://github.com/nexus-js/ui/issues/218
-    if (this.clicked !== true) {
-        return
-    }
-
+) => {
     const functions = _getControllerFunctionsForNodeId(patchPlayer, nodeId)
     const value = functions.convertNexusValue(rawValue)!
     if (value === null) {
@@ -158,14 +168,13 @@ export const receiveMsgFromWebPd = (
 ) => {
     patchPlayer.controller.values[nodeId] = message[0]
     const controlView = patchPlayer.views.indexed[nodeId]
-    // If the control is being changed by the user, 
+    // If the control is being changed by the user,
     // we don't want to update the Nexus element value, because
     // it would create a feedback loop with the user input.
     if (controlView.nexusElem._isBeingChangedByUser) {
         return
     }
     const functions = _getControllerFunctionsForNodeId(patchPlayer, nodeId)
-    console.log('message[0]', message[0], controlView.nexusElem)
     functions.onMessageFromWebPd(controlView.nexusElem, message[0])
 }
 
