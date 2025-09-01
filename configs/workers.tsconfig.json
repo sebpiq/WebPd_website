@@ -12,7 +12,8 @@
         "sourceMap": true,
         "moduleResolution": "node",
         "allowJs": true,
-        "checkJs": true
+        "checkJs": true,
+        "resolveJsonModule": true
     },
     "include": [
         "../*.d.ts",

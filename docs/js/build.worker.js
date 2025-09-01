@@ -5,7 +5,7 @@ const compileAssemblyscript = async (code, bitDepth) => {
 };
 
 /*
- * Copyright (c) 2022-2023 Sébastien Piquemal <sebpiq@protonmail.com>, Chris McCormick.
+ * Copyright (c) 2022-2025 Sébastien Piquemal <sebpiq@protonmail.com>, Chris McCormick.
  *
  * This file is part of WebPd
  * (see https://github.com/sebpiq/WebPd).
@@ -117,7 +117,7 @@ const isNumber = (obj) => Number.isFinite(obj);
 const isString = (obj) => typeof obj === 'string';
 
 /*
- * Copyright (c) 2022-2023 Sébastien Piquemal <sebpiq@protonmail.com>, Chris McCormick.
+ * Copyright (c) 2022-2025 Sébastien Piquemal <sebpiq@protonmail.com>, Chris McCormick.
  *
  * This file is part of WebPd
  * (see https://github.com/sebpiq/WebPd).
@@ -152,7 +152,7 @@ const CONTROL_TYPE = {
 };
 
 /*
- * Copyright (c) 2022-2023 Sébastien Piquemal <sebpiq@protonmail.com>, Chris McCormick.
+ * Copyright (c) 2022-2025 Sébastien Piquemal <sebpiq@protonmail.com>, Chris McCormick.
  *
  * This file is part of WebPd
  * (see https://github.com/sebpiq/WebPd).
@@ -551,7 +551,7 @@ const hydrateNodeLayoutPosition = (tokens) => ({
 });
 
 /*
- * Copyright (c) 2022-2023 Sébastien Piquemal <sebpiq@protonmail.com>, Chris McCormick.
+ * Copyright (c) 2022-2025 Sébastien Piquemal <sebpiq@protonmail.com>, Chris McCormick.
  *
  * This file is part of WebPd
  * (see https://github.com/sebpiq/WebPd).
@@ -634,7 +634,7 @@ const tokenizeLine = (line) => {
 };
 
 /*
- * Copyright (c) 2022-2023 Sébastien Piquemal <sebpiq@protonmail.com>, Chris McCormick.
+ * Copyright (c) 2022-2025 Sébastien Piquemal <sebpiq@protonmail.com>, Chris McCormick.
  *
  * This file is part of WebPd
  * (see https://github.com/sebpiq/WebPd).
@@ -1005,21 +1005,25 @@ const getArtefact = (artefacts, outFormat) => {
 };
 
 var name = "@webpd/compiler";
-var version = "0.1.0";
+var version = "0.1.2";
 var description = "WebPd compiler package";
 var main = "./dist/src/index.js";
 var types = "./dist/src/index.d.ts";
 var type = "module";
 var license = "LGPL-3.0";
 var author = "Sébastien Piquemal";
+var files = [
+	"dist",
+	"src"
+];
 var scripts = {
 	test: "NODE_OPTIONS='--experimental-vm-modules --no-warnings' npx jest --runInBand --config node_modules/@webpd/dev/configs/jest.js",
 	"build:dist": "npx rollup --config configs/dist.rollup.mjs",
 	"build:bindings": "npx rollup --config configs/bindings.rollup.mjs",
 	build: "npm run clean; npm run build:dist; npm run build:bindings",
 	clean: "rm -rf dist",
-	prettier: "npm explore @webpd/dev -- npm run prettier $(pwd)/src",
-	eslint: "npm explore @webpd/dev -- npm run eslint $(pwd)/src"
+	prettier: "prettier --write --config node_modules/@webpd/dev/configs/prettier.json",
+	postpublish: "git tag -a v$(node -p \"require('./package.json').version\") -m \"Release $(node -p \"require('./package.json').version\")\" ; git push --tags"
 };
 var repository = {
 	type: "git",
@@ -1030,20 +1034,8 @@ var bugs = {
 };
 var homepage = "https://github.com/sebpiq/WebPd_compiler#readme";
 var devDependencies = {
-	"@rollup/plugin-commonjs": "^23.0.4",
-	"@rollup/plugin-node-resolve": "^15.0.1",
-	"@rollup/plugin-typescript": "^10.0.1",
-	"@types/jest": "^29.4.0",
-	"@types/node": "^14.14.7",
-	"@webpd/dev": "git+https://github.com/sebpiq/WebPd_dev.git",
-	assemblyscript: "^0.27.24",
-	jest: "^29.4.3",
-	rollup: "^3.7.0",
-	"ts-jest": "^29.0.5",
-	"ts-node": "^10.9.1",
-	tslib: "^2.4.1",
-	typedoc: "^0.22.17",
-	typescript: "^4.7.2"
+	"@webpd/dev": "github:sebpiq/WebPd_dev#v1",
+	assemblyscript: "^0.27.24"
 };
 var packageInfo = {
 	name: name,
@@ -1054,6 +1046,8 @@ var packageInfo = {
 	type: type,
 	license: license,
 	author: author,
+	"private": false,
+	files: files,
 	scripts: scripts,
 	repository: repository,
 	bugs: bugs,
@@ -1114,6 +1108,24 @@ const buildMetadata = ({ variableNamesReadOnly, precompiledCode: { dependencies 
             },
         },
     };
+};
+/**
+ * Helper to render engine metadata as a JSON string (with escaped double quotes).
+ */
+const renderMetadata = (metadata) => {
+    const metadataJSON = JSON.stringify(metadata);
+    // Consider the following example:
+    // 
+    // Calling `JSON.stringify` on {"customMetadata":{"escapedString":"bla \"bla\" bla"}}
+    // Gives the following JSON : 
+    // {"customMetadata":{"escapedString":"bla \"bla\" bla"}}
+    // 
+    // When embedding that string inside source code, this becomes :
+    // `const metadata: string = '{"customMetadata":{"escapedString":"bla \"bla\" bla"}}'`
+    // 
+    // Unfortunately this doesn't work, because the `\"` sequence is simply a double
+    // quote character, therefore losing the JSON escaping.
+    return metadataJSON.replace(/\\"/g, '\\\\"');
 };
 
 /*
@@ -2298,7 +2310,7 @@ var renderToAssemblyscript = (renderInput) => {
     const metadata = buildMetadata(renderInput);
     // prettier-ignore
     return render(macros, ast$1 `
-        const metadata: string = '${JSON.stringify(metadata)}'
+        const metadata: string = '${renderMetadata(metadata)}'
 
         ${templates.dependencies(renderTemplateInput)}
         ${templates.nodeImplementationsCoreAndStateClasses(renderTemplateInput)}
@@ -18140,6 +18152,25 @@ const nodeImplementation$b = {
     })
 };
 
+/*
+ * Copyright (c) 2022-2023 Sébastien Piquemal <sebpiq@protonmail.com>, Chris McCormick.
+ *
+ * This file is part of WebPd
+ * (see https://github.com/sebpiq/WebPd).
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with this program. If not, see <http://www.gnu.org/licenses/>.
+ */
 const TYPE_ARGUMENTS = [
     'float',
     'bang',
@@ -18202,7 +18233,7 @@ const messageTokenToFloat = {
         } else {
             return 0
         }
-    `
+    `,
 };
 const messageTokenToString = {
     namespace: NAMESPACE,
@@ -18221,7 +18252,7 @@ const messageTokenToString = {
         } else {
             return 'float'
         }
-    `
+    `,
 };
 
 /*
