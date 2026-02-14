@@ -31,11 +31,16 @@
   },
   "scripts": {
     "start": "react-scripts start",
-    "build": "npm run build:workers; react-scripts build",
     "test": "react-scripts test",
     "eject": "react-scripts eject",
     "prettier": "npm explore @webpd/dev -- npm run prettier $(pwd)/src",
-    "build:workers": "npx rollup -c ./configs/workers.rollup.config.js"
+    "build:workers": "npx rollup -c ./configs/workers.rollup.config.js",
+    "build": "npm run clean && npm run build:workers && react-scripts build",
+    "build:dev:full": "npm run build:dev:deps && npm run link:local && npm run build",
+    "build:dev:deps": "cd ../WebPd && npm run build:dev:full && cd ../WebPd_website",
+    "link:local": "cd ../WebPd && npm link && cd ../WebPd_website && npm link webpd",
+    "unlink:local": "npm unlink webpd && cd ../WebPd && npm unlink && cd ../WebPd_website",
+    "clean": "rm -rf dist"
   },
   "eslintConfig": {
     "extends": [
